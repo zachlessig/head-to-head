@@ -1050,61 +1050,44 @@
   }
 
   function fixSmallRotorZones(zones, cap) {
-    for (let pass = 0; pass < 4; pass++) {
+    const sum = (zz) => zz.reduce((s, h) => s + h.gpm, 0);
+    const gap = (a, b) => Math.min(...a.heads.map((p) => Math.min(...b.heads.map((q) => Math.hypot(p.x - q.x, p.y - q.y)))));
+    for (let pass = 0; pass < 6; pass++) {
       let changed = false;
       for (const z of zones) {
-        if (z.family !== "rotor" || z.heads.length >= 3 || !z.heads.length)
-          continue;
-        let best = null,
-          bd = Infinity;
-        for (const o of zones) {
-          if (
-            o === z ||
-            o.family !== "rotor" ||
-            o.heads[0].area !== z.heads[0].area
-          )
-            continue;
-          const d = Math.min(
-            ...z.heads.map((a) =>
-              Math.min(...o.heads.map((b) => Math.hypot(a.x - b.x, a.y - b.y))),
-            ),
-          );
-          if (d < bd) {
-            bd = d;
-            best = o;
-          }
-        }
-        if (!best) continue;
-        const sum = (zz) => zz.reduce((s, h) => s + h.gpm, 0);
-        if (sum(z.heads) + sum(best.heads) <= cap + 1e-9) {
-          best.heads.push(...z.heads);
+        if (z.family !== 'rotor' || z.heads.length >= 3 || !z.heads.length) continue;
+        // every other rotor zone on this lawn, nearest first (empty ones skipped)
+        const others = zones
+          .filter((o) => o !== z && o.family === 'rotor' && o.heads.length && o.heads[0].area === z.heads[0].area)
+          .map((o) => ({ o, d: gap(z, o) }))
+          .sort((a, b) => a.d - b.d);
+        const into = others.find(({ o }) => sum(z.heads) + sum(o.heads) <= cap + 1e-9);
+        if (into) {
+          into.o.heads.push(...z.heads);
           z.heads = [];
           changed = true;
-        } else {
-          // share: move the nearest heads over until this zone has 3
-          while (z.heads.length < 3 && best.heads.length > 3) {
-            let mv = null,
-              md = Infinity;
-            best.heads.forEach((b) => {
-              const d = Math.min(
-                ...z.heads.map((a) => Math.hypot(a.x - b.x, a.y - b.y)),
-              );
-              if (d < md) {
-                md = d;
-                mv = b;
-              }
+          continue;
+        }
+        // nothing can absorb it: borrow the nearest heads from neighbours that can spare them
+        for (const { o } of others) {
+          while (z.heads.length < 3 && o.heads.length > 3) {
+            let mv = null, md = Infinity;
+            o.heads.forEach((b) => {
+              const d = Math.min(...z.heads.map((a) => Math.hypot(a.x - b.x, a.y - b.y)));
+              if (d < md) { md = d; mv = b; }
             });
             if (sum(z.heads) + mv.gpm > cap + 1e-9) break;
-            best.heads.splice(best.heads.indexOf(mv), 1);
+            o.heads.splice(o.heads.indexOf(mv), 1);
             z.heads.push(mv);
             changed = true;
           }
+          if (z.heads.length >= 3) break;
         }
       }
-      for (let i = zones.length - 1; i >= 0; i--)
-        if (!zones[i].heads.length) zones.splice(i, 1);
+      for (let i = zones.length - 1; i >= 0; i--) if (!zones[i].heads.length) zones.splice(i, 1);
       if (!changed) break;
     }
+    zones.forEach((z) => (z.small = z.family === 'rotor' && z.heads.length < 3));
   }
 
   /* ---------------- parts ---------------- */
@@ -1203,10 +1186,10 @@
         const r = layoutArea(G, "rotor");
         const okRotor =
           r.heads.length >= 3 && r.gaps / Math.max(1, r.samples) <= 0.01; // a few thin spots beat 3x the zones on pop-ups (85 heads, 30 zones on the first curved test yard)
-        if (okRotor || area.mode === "rotor") {
+        if (okRotor || (area.mode === "rotor" && r.heads.length >= 3)) {
           res = r;
           family = "rotor";
-        } else tried = "rotor layout left gaps, used sprays";
+        } else tried = "rotors did not fit this lawn well, used pop-ups";
       }
       if (!res) res = layoutArea(G, "spray");
       res.heads.forEach((h) => {

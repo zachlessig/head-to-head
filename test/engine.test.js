@@ -167,5 +167,19 @@ eq(E.nozzle("R", 360, 18), null, "no rotor under 19 ft");
 eq(E.nozzle("H", 180, 13).label, "15H", "13 ft H is a 15H");
 eq(E.nozzle("H", 180, 9.5).label, "12H", "9.5 ft H is a throttled 12H");
 
+// regressions from review: a low cap used to crash fixSmallRotorZones on an emptied zone
+{
+  const sq = P([[0, 0], [110, 0], [110, 70], [0, 70]]);
+  try {
+    E.layoutJob({ areas: [{ outer: sq, mode: "auto" }], psi: 50, cap: 3 });
+  } catch (e) {
+    fail++;
+    console.log("FAIL low cap crashes:", e.message);
+  }
+  const o = E.layoutJob({ areas: [{ outer: sq, mode: "auto" }], psi: 50, cap: 10 });
+  const small = o.zones.filter((z) => z.family === "rotor" && z.heads.length < 3).length;
+  eq(small, 0, "no rotor zone under 3 heads at a 10 GPM cap");
+}
+
 console.log(fail ? fail + " failing" : "all passing");
 process.exit(fail ? 1 : 0);

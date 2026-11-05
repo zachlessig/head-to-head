@@ -60,17 +60,31 @@
 
   /* ---------------- storage ---------------- */
   function loadJobs() {
+    let raw = null;
     try {
-      const raw = localStorage.getItem(STORE_KEY);
-      return raw ? JSON.parse(raw) : [];
+      raw = localStorage.getItem(STORE_KEY);
+      const list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list : [];
     } catch (e) {
       console.warn("Could not read saved jobs", e);
+      // keep the unreadable copy so the next save can't wipe every job
+      try {
+        if (raw) localStorage.setItem(STORE_KEY + ".backup-" + Date.now(), raw);
+      } catch (e2) {
+        console.warn("Could not back up saved jobs", e2);
+      }
       return [];
     }
   }
   let jobs = loadJobs();
+  const deletedIds = new Set();
   function saveJobs() {
     try {
+      // another tab (home-screen app and Safari) may have added jobs since this one loaded
+      const ids = new Set(jobs.map((j) => j.id));
+      loadJobs().forEach((j) => {
+        if (!ids.has(j.id) && !deletedIds.has(j.id)) jobs.push(j);
+      });
       localStorage.setItem(STORE_KEY, JSON.stringify(jobs));
     } catch (e) {
       console.warn("Could not save jobs", e);
@@ -122,6 +136,11 @@
 
   /* ---------------- routing ---------------- */
   window.addEventListener("hashchange", route);
+  window.addEventListener("storage", (e) => {
+    if (e.key !== STORE_KEY || J) return;
+    jobs = loadJobs();
+    renderHome();
+  });
   function route() {
     const m = location.hash.match(/^#\/job\/(\w+)/);
     teardownJob();
@@ -167,7 +186,7 @@
       });
     }
     h +=
-      '<p class="note" style="margin-top:22px">Jobs save on this phone. Nothing leaves it unless you print or copy.</p>';
+      '<p class="note" style="margin-top:22px">Jobs save on this phone. Address search goes to OpenStreetMap and the photos come from Esri.</p>';
     h += "</main>";
     app.innerHTML = h;
     app.querySelector("#new").onclick = newJobSheet;
@@ -291,6 +310,7 @@
   let J = null; // current job context
 
   function teardownJob() {
+    document.querySelectorAll(".overlay, .scrim").forEach((el) => el.remove());
     if (!J) return;
     stopGps();
     if (J.map) J.map.remove();
@@ -400,6 +420,76 @@
       job.popupsOnly,
       job.dripZones,
     ]);
+  }
+
+  function isStale() {
+    return !!(J && J.job.layout && J.job.layout.sig !== signature(J.job));
+  }
+
+  // Shapes the engine can't trust: crossed traces, slivers, and beds hanging over a lawn edge.
+  function shapeProblems(job) {
+    const P = proj(job);
+    const closed = job.shapes.filter((s) => s.closed && s.pts.length >= 3);
+    const rings = closed.map((s) => ({ s, ring: densify(shapeLocal(s, P), true) }));
+    const out = [];
+    const name = (s) => (s.type === "lawn" ? "A lawn" : "A bed");
+    rings.forEach(({ s, ring }) => {
+      if (Math.abs(ringArea(ring)) < 4) out.push(name(s) + " has almost no area. Delete it or redraw it.");
+      else if (selfCrosses(ring)) out.push(name(s) + " crosses over itself. Drag its corners so the edges don't cross.");
+    });
+    const lawns = rings.filter((r) => r.s.type === "lawn");
+    const beds = rings.filter((r) => r.s.type === "bed");
+    beds.forEach((b) => {
+      lawns.forEach((l) => {
+        const inside = b.ring.filter((p) => pointInRing(p, l.ring)).length;
+        if (inside && (inside < b.ring.length || ringsCross(b.ring, l.ring)))
+          out.push("A bed hangs over the lawn edge. Move its corners inside the lawn.");
+      });
+    });
+    for (let i = 0; i < beds.length; i++)
+      for (let j = i + 1; j < beds.length; j++)
+        if (ringsCross(beds[i].ring, beds[j].ring) || pointInRing(beds[i].ring[0], beds[j].ring) || pointInRing(beds[j].ring[0], beds[i].ring))
+          out.push("Two beds overlap. Merge them into one bed.");
+    return [...new Set(out)];
+  }
+
+  function ringArea(r) {
+    let a = 0;
+    for (let i = 0; i < r.length; i++) {
+      const p = r[i], q = r[(i + 1) % r.length];
+      a += p.x * q.y - q.x * p.y;
+    }
+    return a / 2;
+  }
+
+  function segCross(a, b, c, d) {
+    const o = (p, q, r) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+    const d1 = o(c, d, a), d2 = o(c, d, b), d3 = o(a, b, c), d4 = o(a, b, d);
+    return ((d1 > 1e-9 && d2 < -1e-9) || (d1 < -1e-9 && d2 > 1e-9)) && ((d3 > 1e-9 && d4 < -1e-9) || (d3 < -1e-9 && d4 > 1e-9));
+  }
+
+  function selfCrosses(r) {
+    const n = r.length;
+    for (let i = 0; i < n; i++)
+      for (let j = i + 2; j < n; j++) {
+        if (i === 0 && j === n - 1) continue;
+        if (segCross(r[i], r[(i + 1) % n], r[j], r[(j + 1) % n])) return true;
+      }
+    return false;
+  }
+
+  function ringsCross(a, b) {
+    for (let i = 0; i < a.length; i++)
+      for (let j = 0; j < b.length; j++)
+        if (segCross(a[i], a[(i + 1) % a.length], b[j], b[(j + 1) % b.length])) return true;
+    return false;
+  }
+
+  // Put the map origin on the first traced point, so east-west feet are right wherever the yard is.
+  function maybeRebase(ll) {
+    const job = J.job;
+    if (job.layout || job.shapes.some((s) => s.pts.length) || job.markers.length) return;
+    job.origin = { lat: ll.lat, lng: ll.lng };
   }
 
   function openJob(job) {
@@ -779,6 +869,14 @@
     J.job.markers = o.markers;
     if (J.drawing && !J.job.shapes.find((x) => x.id === J.drawing))
       J.drawing = null;
+    // undoing a close reopens the shape, so keep drawing it
+    const open = J.job.shapes.find((x) => !x.closed);
+    if (open && (J.mode === "draw" || J.mode === "walk")) {
+      J.drawing = open.id;
+      J.selShape = null;
+    } else if (open && open.pts.length < 3) {
+      J.job.shapes = J.job.shapes.filter((x) => x !== open);
+    }
     if (J.selShape && !J.job.shapes.find((x) => x.id === J.selShape))
       J.selShape = null;
     touch(J.job);
@@ -800,11 +898,17 @@
   function finishDrawing(close) {
     if (!J || !J.drawing) return;
     const s = J.job.shapes.find((x) => x.id === J.drawing);
+    if (close) pushUndo();
     J.drawing = null;
     J.tool = null;
     if (s) {
       if (s.pts.length >= 3) {
         s.closed = true;
+        if (close && selfCrosses(densify(shapeLocal(s, proj(J.job)), true))) {
+          touch(J.job);
+          redraw();
+          return toast("Those edges cross. Drag a corner so the shape doesn't fold over itself.");
+        }
         if (close)
           toast(
             s.type === "lawn"
@@ -851,6 +955,7 @@
     if (J.drawing) {
       const s = J.job.shapes.find((x) => x.id === J.drawing);
       pushUndo();
+      maybeRebase(ll);
       s.pts.push({ lat: ll.lat, lng: ll.lng, bf: 0 });
       touch(J.job);
       renderShapes();
@@ -922,6 +1027,7 @@
       J.watch = null;
       J.layers.gps && J.layers.gps.clearLayers();
     }
+    if (J) J.gps = null; // never drop a corner at a fix from before the user walked away
   }
   function corrected() {
     return L.latLng(J.gps.lat + J.offset.lat, J.gps.lng + J.offset.lng);
@@ -954,6 +1060,7 @@
     if (!s) s = startShape(J.walkType || "lawn");
     pushUndo();
     const c = corrected();
+    maybeRebase(c);
     s.pts.push({ lat: c.lat, lng: c.lng, bf: 0 });
     touch(J.job);
     toast("Corner " + s.pts.length + " dropped.");
@@ -996,6 +1103,14 @@
 
   /* ---------------- heads ---------------- */
   function generate() {
+    const problems = shapeProblems(J.job);
+    if (problems.length) {
+      toast(problems[0]);
+      J.problems = problems;
+      renderPanel();
+      return;
+    }
+    J.problems = null;
     const areas = buildAreas(J.job);
     if (!areas.length) return toast("Trace and close at least one lawn first.");
     const busy = document.createElement("div");
@@ -1543,6 +1658,8 @@
       return;
     }
     const stale = L0 && L0.sig !== signature(job);
+    if (J.problems && J.problems.length)
+      h += J.problems.map((m) => '<div class="badge bad">' + esc(m) + "</div>").join("");
     if (L0 && L0.totals) {
       const t = L0.totals;
       const cov = (t.coverage * 100).toFixed(1);
@@ -1596,6 +1713,9 @@
           " drip zone" +
           (job.dripZones > 1 ? "s" : "") +
           " on the controller.</p>";
+      const smallRotor = L0.zones.filter((z) => z.family === "rotor" && z.count < 3);
+      if (smallRotor.length)
+        h += '<div class="badge warn">Zone ' + smallRotor.map((z) => z.n).join(", ") + " has fewer than 3 rotors and nothing nearby could take them. Try Pop-ups for that lawn, or a bigger line.</div>";
       if (parts.overLimit)
         h +=
           '<div class="badge warn">' +
@@ -1604,7 +1724,7 @@
       const notes = L0.areas.filter((a) => a.note).map((a) => a.note);
       if (notes.length)
         h +=
-          '<p class="note">Rotors left gaps on a lawn, so it used pop-ups there.</p>';
+          '<p class="note">Rotors did not fit one lawn well, so it used pop-ups there.</p>';
       h +=
         '<p class="note">' +
         L0.heads.length +
@@ -1741,7 +1861,9 @@
           job.psi = psi;
           job.line = line;
           const cv = parseFloat(el.querySelector("#cv").value);
-          if (cv > 0) job.customCap = cv;
+          // below 5 GPM a single rotor or 15F at 50 PSI can't fit on a zone at all
+          if (cv >= 5) job.customCap = cv;
+          else if (line === "c") toast("Custom cap must be at least 5 GPM. Kept " + job.customCap + ".");
           job.popupsOnly = el.querySelector("#po").checked;
           const dripChanged = drip !== job.dripZones;
           job.dripZones = drip;
@@ -1755,6 +1877,7 @@
         el.querySelector("#dj").onclick = () => {
           if (!confirm('Delete "' + job.name + '"? This cannot be undone.'))
             return;
+          deletedIds.add(job.id);
           jobs = jobs.filter((x) => x !== job);
           saveJobs();
           close();
@@ -1809,6 +1932,7 @@
       icon("print") +
       "</button></header>" +
       '<div class="body"><div class="seg" style="margin-bottom:10px"><button data-c="customer" aria-pressed="true">Customer copy</button><button data-c="contractor" aria-pressed="false">Contractor copy</button></div>' +
+      (isStale() ? '<div class="badge warn">The yard or settings changed since the last Generate. Generate again before using this.</div>' : "") +
       '<canvas id="pcv" width="1700" height="2200"></canvas>' +
       (J.job.layout
         ? ""
@@ -1833,7 +1957,10 @@
           draw();
         }),
     );
-    const doPrint = () => printPlan(cv, copy);
+    const doPrint = () => {
+      if (isStale()) return toast("Generate again first. This layout is out of date.");
+      printPlan(cv, copy);
+    };
     ov.querySelector("#pp").onclick = doPrint;
     ov.querySelector("#pr").onclick = doPrint;
     ov.querySelector("#pa").onclick = openParts;
@@ -1894,6 +2021,7 @@
       icon("copy") +
       "</button></header>" +
       '<div class="body">' +
+      (isStale() ? '<div class="badge warn">The yard or settings changed since the last Generate. Generate again before using this.</div>' : "") +
       (L0
         ? partsTable(L0.parts) +
           '<p class="note">Heads, nozzles, valves and the controller. Pipe, fittings and wire are not counted yet. Drip zones count toward stations but their parts are not listed.</p>' +
