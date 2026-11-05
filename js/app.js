@@ -430,12 +430,20 @@
   function shapeProblems(job) {
     const P = proj(job);
     const closed = job.shapes.filter((s) => s.closed && s.pts.length >= 3);
-    const rings = closed.map((s) => ({ s, ring: densify(shapeLocal(s, P), true) }));
+    const rings = closed.map((s) => ({
+      s,
+      ring: densify(shapeLocal(s, P), true),
+    }));
     const out = [];
     const name = (s) => (s.type === "lawn" ? "A lawn" : "A bed");
     rings.forEach(({ s, ring }) => {
-      if (Math.abs(ringArea(ring)) < 4) out.push(name(s) + " has almost no area. Delete it or redraw it.");
-      else if (selfCrosses(ring)) out.push(name(s) + " crosses over itself. Drag its corners so the edges don't cross.");
+      if (Math.abs(ringArea(ring)) < 4)
+        out.push(name(s) + " has almost no area. Delete it or redraw it.");
+      else if (selfCrosses(ring))
+        out.push(
+          name(s) +
+            " crosses over itself. Drag its corners so the edges don't cross.",
+        );
     });
     const lawns = rings.filter((r) => r.s.type === "lawn");
     const beds = rings.filter((r) => r.s.type === "bed");
@@ -443,12 +451,18 @@
       lawns.forEach((l) => {
         const inside = b.ring.filter((p) => pointInRing(p, l.ring)).length;
         if (inside && (inside < b.ring.length || ringsCross(b.ring, l.ring)))
-          out.push("A bed hangs over the lawn edge. Move its corners inside the lawn.");
+          out.push(
+            "A bed hangs over the lawn edge. Move its corners inside the lawn.",
+          );
       });
     });
     for (let i = 0; i < beds.length; i++)
       for (let j = i + 1; j < beds.length; j++)
-        if (ringsCross(beds[i].ring, beds[j].ring) || pointInRing(beds[i].ring[0], beds[j].ring) || pointInRing(beds[j].ring[0], beds[i].ring))
+        if (
+          ringsCross(beds[i].ring, beds[j].ring) ||
+          pointInRing(beds[i].ring[0], beds[j].ring) ||
+          pointInRing(beds[j].ring[0], beds[i].ring)
+        )
           out.push("Two beds overlap. Merge them into one bed.");
     return [...new Set(out)];
   }
@@ -456,16 +470,24 @@
   function ringArea(r) {
     let a = 0;
     for (let i = 0; i < r.length; i++) {
-      const p = r[i], q = r[(i + 1) % r.length];
+      const p = r[i],
+        q = r[(i + 1) % r.length];
       a += p.x * q.y - q.x * p.y;
     }
     return a / 2;
   }
 
   function segCross(a, b, c, d) {
-    const o = (p, q, r) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
-    const d1 = o(c, d, a), d2 = o(c, d, b), d3 = o(a, b, c), d4 = o(a, b, d);
-    return ((d1 > 1e-9 && d2 < -1e-9) || (d1 < -1e-9 && d2 > 1e-9)) && ((d3 > 1e-9 && d4 < -1e-9) || (d3 < -1e-9 && d4 > 1e-9));
+    const o = (p, q, r) =>
+      (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+    const d1 = o(c, d, a),
+      d2 = o(c, d, b),
+      d3 = o(a, b, c),
+      d4 = o(a, b, d);
+    return (
+      ((d1 > 1e-9 && d2 < -1e-9) || (d1 < -1e-9 && d2 > 1e-9)) &&
+      ((d3 > 1e-9 && d4 < -1e-9) || (d3 < -1e-9 && d4 > 1e-9))
+    );
   }
 
   function selfCrosses(r) {
@@ -481,14 +503,20 @@
   function ringsCross(a, b) {
     for (let i = 0; i < a.length; i++)
       for (let j = 0; j < b.length; j++)
-        if (segCross(a[i], a[(i + 1) % a.length], b[j], b[(j + 1) % b.length])) return true;
+        if (segCross(a[i], a[(i + 1) % a.length], b[j], b[(j + 1) % b.length]))
+          return true;
     return false;
   }
 
   // Put the map origin on the first traced point, so east-west feet are right wherever the yard is.
   function maybeRebase(ll) {
     const job = J.job;
-    if (job.layout || job.shapes.some((s) => s.pts.length) || job.markers.length) return;
+    if (
+      job.layout ||
+      job.shapes.some((s) => s.pts.length) ||
+      job.markers.length
+    )
+      return;
     job.origin = { lat: ll.lat, lng: ll.lng };
   }
 
@@ -907,7 +935,9 @@
         if (close && selfCrosses(densify(shapeLocal(s, proj(J.job)), true))) {
           touch(J.job);
           redraw();
-          return toast("Those edges cross. Drag a corner so the shape doesn't fold over itself.");
+          return toast(
+            "Those edges cross. Drag a corner so the shape doesn't fold over itself.",
+          );
         }
         if (close)
           toast(
@@ -1113,6 +1143,15 @@
     J.problems = null;
     const areas = buildAreas(J.job);
     if (!areas.length) return toast("Trace and close at least one lawn first.");
+    // a lawn traced while zoomed out to the neighborhood froze the page on the first live test;
+    // 40,000 sq ft is about a full acre of turf, far past any residential lawn
+    const big = areas.find(
+      (a) => Math.abs(ringArea(densify(a.outer, true))) > 40000,
+    );
+    if (big)
+      return toast(
+        "That lawn is over 40,000 sq ft. Zoom in close and trace it again, or split it into smaller lawns.",
+      );
     const busy = document.createElement("div");
     busy.className = "busy";
     busy.textContent = "Laying out heads...";
@@ -1659,7 +1698,9 @@
     }
     const stale = L0 && L0.sig !== signature(job);
     if (J.problems && J.problems.length)
-      h += J.problems.map((m) => '<div class="badge bad">' + esc(m) + "</div>").join("");
+      h += J.problems
+        .map((m) => '<div class="badge bad">' + esc(m) + "</div>")
+        .join("");
     if (L0 && L0.totals) {
       const t = L0.totals;
       const cov = (t.coverage * 100).toFixed(1);
@@ -1713,9 +1754,14 @@
           " drip zone" +
           (job.dripZones > 1 ? "s" : "") +
           " on the controller.</p>";
-      const smallRotor = L0.zones.filter((z) => z.family === "rotor" && z.count < 3);
+      const smallRotor = L0.zones.filter(
+        (z) => z.family === "rotor" && z.count < 3,
+      );
       if (smallRotor.length)
-        h += '<div class="badge warn">Zone ' + smallRotor.map((z) => z.n).join(", ") + " has fewer than 3 rotors and nothing nearby could take them. Try Pop-ups for that lawn, or a bigger line.</div>";
+        h +=
+          '<div class="badge warn">Zone ' +
+          smallRotor.map((z) => z.n).join(", ") +
+          " has fewer than 3 rotors and nothing nearby could take them. Try Pop-ups for that lawn, or a bigger line.</div>";
       if (parts.overLimit)
         h +=
           '<div class="badge warn">' +
@@ -1863,7 +1909,10 @@
           const cv = parseFloat(el.querySelector("#cv").value);
           // below 5 GPM a single rotor or 15F at 50 PSI can't fit on a zone at all
           if (cv >= 5) job.customCap = cv;
-          else if (line === "c") toast("Custom cap must be at least 5 GPM. Kept " + job.customCap + ".");
+          else if (line === "c")
+            toast(
+              "Custom cap must be at least 5 GPM. Kept " + job.customCap + ".",
+            );
           job.popupsOnly = el.querySelector("#po").checked;
           const dripChanged = drip !== job.dripZones;
           job.dripZones = drip;
@@ -1932,7 +1981,9 @@
       icon("print") +
       "</button></header>" +
       '<div class="body"><div class="seg" style="margin-bottom:10px"><button data-c="customer" aria-pressed="true">Customer copy</button><button data-c="contractor" aria-pressed="false">Contractor copy</button></div>' +
-      (isStale() ? '<div class="badge warn">The yard or settings changed since the last Generate. Generate again before using this.</div>' : "") +
+      (isStale()
+        ? '<div class="badge warn">The yard or settings changed since the last Generate. Generate again before using this.</div>'
+        : "") +
       '<canvas id="pcv" width="1700" height="2200"></canvas>' +
       (J.job.layout
         ? ""
@@ -1958,7 +2009,8 @@
         }),
     );
     const doPrint = () => {
-      if (isStale()) return toast("Generate again first. This layout is out of date.");
+      if (isStale())
+        return toast("Generate again first. This layout is out of date.");
       printPlan(cv, copy);
     };
     ov.querySelector("#pp").onclick = doPrint;
@@ -2021,7 +2073,9 @@
       icon("copy") +
       "</button></header>" +
       '<div class="body">' +
-      (isStale() ? '<div class="badge warn">The yard or settings changed since the last Generate. Generate again before using this.</div>' : "") +
+      (isStale()
+        ? '<div class="badge warn">The yard or settings changed since the last Generate. Generate again before using this.</div>'
+        : "") +
       (L0
         ? partsTable(L0.parts) +
           '<p class="note">Heads, nozzles, valves and the controller. Pipe, fittings and wire are not counted yet. Drip zones count toward stations but their parts are not listed.</p>' +
