@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Auto Layout</title>
+<style>
+:root{
+  --bg:#e9eee9; --panel:#fff; --ink:#12201a; --muted:#5b6b62; --line:#cdd6cf; --chip:#f1f4f1;
+  --flag:#ff5a1f; --flag-ink:#fff; --blue:#1467e0; --ok:#1f9d55; --bad:#d63a2f;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#0d1310; --panel:#18211c; --ink:#eaf1ec; --muted:#93a59a; --line:#2b3931; --chip:#212d26; --flag:#ff7a45; --flag-ink:#1a0a03; --blue:#6aa8ff; --ok:#3ecf7e; --bad:#ff6b5e; } }
+:root[data-theme="dark"]{ --bg:#0d1310; --panel:#18211c; --ink:#eaf1ec; --muted:#93a59a; --line:#2b3931; --chip:#212d26; --flag:#ff7a45; --flag-ink:#1a0a03; --blue:#6aa8ff; --ok:#3ecf7e; --bad:#ff6b5e; }
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.35 "Barlow","Inter",system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
+#app{max-width:520px;margin:0 auto;padding:10px 10px 28px}
+h1{margin:2px 2px 10px;font-size:20px}
+h2{margin:0 0 8px;font-size:15px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px}
+button{font:inherit;color:inherit;cursor:pointer}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.row+.row{margin-top:6px}
+.btn{min-height:42px;padding:0 12px;border-radius:10px;border:1.5px solid var(--line);background:var(--chip);font-weight:600}
+.btn.p{background:var(--flag);border-color:var(--flag);color:var(--flag-ink);flex:1}
+.lbl{font-size:12px;color:var(--muted)}
+canvas{width:100%;border-radius:8px;display:block;background:#2a3a24}
+.note{font-size:13px;color:var(--muted);margin:6px 0 0}
+.check{font-weight:700;padding:8px 10px;border-radius:8px;font-size:14px}
+.check.ok{background:rgba(31,157,85,.15);color:var(--ok)}
+.check.bad{background:rgba(214,58,47,.15);color:var(--bad)}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px}
+td,th{padding:5px 4px;border-top:1px solid var(--line);text-align:left}
+th{color:var(--muted);font-size:12px}
+td.r,th.r{text-align:right}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:13px;padding:2px 8px;border-radius:999px;background:var(--chip);border:1px solid var(--line)}
+.dot{width:9px;height:9px;border-radius:50%}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+(function(){
+  const app = document.getElementById('app');
+  const LAWN = [[0,65],[0,0],[80,0],[80,35],[40,35],[40,65]]; // bigger L-shaped yard, feet (~80x65, one concave corner)
+
+  const SERIES = { // catalog radius (ft) at full rating, GPM at 30psi
+    15:{r:13, F:3.70, H:1.85, Q:.92},
+    12:{r:11, F:2.60, H:1.30, Q:.65},
+    10:{r:9,  F:1.58, H:.79,  Q:.39},
+    8: {r:7,  F:1.05, H:.52,  Q:.26},
+    5: {r:4,  F:.41,  H:.20,  Q:.10},
+  };
+  const VAN = { // GPM at 30psi by rounded-up arc step
+    15:{90:.92,180:1.85,270:2.78,330:3.70},
+    12:{90:.65,180:1.30,270:1.95,330:2.60},
+    10:{90:.75,180:1.45,270:2.10,330:2.60},
+    8: {90:.72,180:1.19,270:1.55,330:1.70},
+    5: {90:.29,180:.45, 270:.73, 330:.88},
+  };
+  const ORDER = [15,12,10,8,5]; // largest first
+  const MINF = 0.75; // a head can be dialed down (via its adjustment screw) to 75% of its catalog radius, not lower
+  const S = { psi:50, line:'34', custom:12, layout:null };
+  const cap = () => S.line==='34'?12:S.line==='1'?18:S.custom;
+  const fac = () => Math.sqrt(S.psi/30);
+  const dist = (a,b) => Math.hypot(a[0]-b[0],a[1]-b[1]);
+  const norm = v => { const m=Math.hypot(v[0],v[1])||1; return [v[0]/m,v[1]/m]; };
+
+  function signedArea(poly){ let a=0; for(let i=0;i<poly.length;i++){ const p1=poly[i], p2=poly[(i+1)%poly.length]; a+=p1[0]*p2[1]-p2[0]*p1[1]; } return a/2; }
+  function isReflex(poly,i){
+    const p0=poly[(i-1+poly.length)%poly.length], p1=poly[i], p2=poly[(i+1)%poly.length];
+    const e1=[p1[0]-p0[0],p1[1]-p0[1]], e2=[p2[0]-p1[0],p2[1]-p1[1]];
+    const cross=e1[0]*e2[1]-e1[1]*e2[0];
+    return signedArea(poly)>0 ? cross<0 : cross>0;
+  }
+  function angleAt(poly,i){ // true interior angle, 0-360; >180 at a concave (reflex) corner like the inside of an L
+    const p0=poly[(i-1+poly.length)%poly.length], p1=poly[i], p2=poly[(i+1)%poly.length];
+    const v1=[p0[0]-p1[0],p0[1]-p1[1]], v2=[p2[0]-p1[0],p2[1]-p1[1]];
+    const dot=v1[0]*v2[0]+v1[1]*v2[1], det=v1[0]*v2[1]-v1[1]*v2[0];
+    const raw=Math.atan2(Math.abs(det),dot)*180/Math.PI;
+    return isReflex(poly,i) ? 360-raw : raw;
+  }
+  function bisector(poly,i){
+    const p0=poly[(i-1+poly.length)%poly.length], p1=poly[i], p2=poly[(i+1)%poly.length];
+    const v1=norm([p0[0]-p1[0],p0[1]-p1[1]]), v2=norm([p2[0]-p1[0],p2[1]-p1[1]]);
+    let b=norm([v1[0]+v2[0], v1[1]+v2[1]]);
+    if(isReflex(poly,i)) b=[-b[0],-b[1]]; // flip to point back into the yard at a concave corner
+    return b;
+  }
+  function inside(pt, poly){
+    let c=false;
+    for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+      const [xi,yi]=poly[i], [xj,yj]=poly[j];
+      if(((yi>pt[1])!==(yj>pt[1])) && (pt[0] < (xj-xi)*(pt[1]-yi)/(yj-yi)+xi)) c=!c;
+    }
+    return c;
+  }
+  function edgeInfo(pt, poly){
+    let m=1e9, nrm=[0,0];
+    for(let i=0;i<poly.length;i++){
+      const A=poly[i], B=poly[(i+1)%poly.length];
+      const dx=B[0]-A[0], dy=B[1]-A[1], len2=dx*dx+dy*dy||1;
+      let t=((pt[0]-A[0])*dx+(pt[1]-A[1])*dy)/len2; t=Math.max(0,Math.min(1,t));
+      const px=A[0]+t*dx, py=A[1]+t*dy;
+      const d=Math.hypot(pt[0]-px,pt[1]-py);
+      if(d<m){ m=d; nrm=norm([-dy,dx]); }
+    }
+    const cx=poly.reduce((a,q)=>a+q[0],0)/poly.length, cy=poly.reduce((a,q)=>a+q[1],0)/poly.length;
+    if((cx-pt[0])*nrm[0]+(cy-pt[1])*nrm[1] < 0) nrm=[-nrm[0],-nrm[1]];
+    return {d:m, n:nrm};
+  }
+  const edgeDist = (p,poly) => edgeInfo(p,poly).d;
+  function vanStep(a){ return a<=90?90:a<=180?180:a<=270?270:330; }
+  function gpmFor(type,s,ang){
+    if(type==='F') return SERIES[s].F;
+    if(type==='H') return SERIES[s].H;
+    if(type==='Q') return SERIES[s].Q;
+    return VAN[s][vanStep(ang)];
+  }
+  // verified overspray check: dense samples across the swept arc AND at several radii in from it
+  // (catches a circle's curve bulging past the boundary, not just the outer edge)
+  function headFits(h){
+    const a0=h.dir?Math.atan2(h.dir[1],h.dir[0]):0, half = h.type==='F'?Math.PI:(h.ang*Math.PI/180)/2;
+    for(let k=0;k<=48;k++){
+      const a=a0-half+(k/48)*2*half;
+      for(const f of [0.3,0.6,0.85,1]){
+        const p=[h.x+h.r*f*Math.cos(a), h.y+h.r*f*Math.sin(a)];
+        if(!inside(p,LAWN) && edgeDist(p,LAWN)>0.05) return false;
+      }
+    }
+    return true;
+  }
+  // does this head's real arc reach point p (not just distance — respects its angular sweep)
+  function headCovers(h,p){
+    const dx=p[0]-h.x, dy=p[1]-h.y, d=Math.hypot(dx,dy);
+    if(d>h.r+1e-6) return false;
+    if(h.type==='F'||d<1e-6) return true;
+    const cosang=(dx*h.dir[0]+dy*h.dir[1])/d;
+    return cosang >= Math.cos((h.ang*Math.PI/180)/2)-1e-6;
+  }
+  // largest catalog series that (throttled down, if needed) reaches radius rw
+  function achievable(rw){
+    for(const s of ORDER){ const mx=SERIES[s].r, mn=mx*MINF; if(rw>=mn-1e-9) return {s, r:Math.min(rw,mx)}; }
+    return null;
+  }
+  // biggest verifiably-safe head at this position, searching down from the largest useful radius
+  function placeBest(pos,type,arcAng,dir,rMax){
+    for(let r=Math.min(rMax,13); r>=2.99; r-=0.25){
+      const a=achievable(r); if(!a) continue;
+      const cand={x:pos[0],y:pos[1],type,gpm:gpmFor(type,a.s,arcAng)*fac(),r:a.r,s:a.s,dir,ang:arcAng};
+      if(headFits(cand)) return cand;
+    }
+    return null;
+  }
+
+  function buildLayout(){
+    const heads=[]; const n=LAWN.length;
+    const covCount = p => { let c=0; for(const h of heads) if(headCovers(h,p)) c++; return c; };
+    // step 1: corners — type fixed by the angle rule; size is the largest that verifiably fits
+    LAWN.forEach((p,i)=>{
+      const a=angleAt(LAWN,i);
+      let type,arcAng;
+      if(a>=83&&a<=91){ type='Q'; arcAng=90; }
+      else if(a>=175&&a<=181){ type='H'; arcAng=180; }
+      else { type='VAN'; arcAng=a; }
+      const head=placeBest(p,type,arcAng,bisector(LAWN,i),13);
+      head.corner=true; head.order=i*1000;
+      heads.push(head);
+    });
+    const xs=LAWN.map(p=>p[0]), ys=LAWN.map(p=>p[1]);
+    const x0=Math.min(...xs), x1=Math.max(...xs), y0=Math.min(...ys), y1=Math.max(...ys);
+    // step 2: perimeter — only positions literally on an edge; each head's reach is capped so it can
+    // never extend past that edge's own corners; picks whichever position+size covers the most
+    // remaining gap each round, so it converges on the fewest, biggest heads that finish the job
+    const strip=[];
+    for(let x=x0+0.4;x<x1;x+=0.75) for(let y=y0+0.4;y<y1;y+=0.75){
+      const p=[x,y]; if(!inside(p,LAWN)) continue; const d=edgeDist(p,LAWN); if(d>=0.5&&d<=2.5) strip.push(p);
+    }
+    let io=0;
+    for(let guard=0; guard<80; guard++){
+      const need=strip.filter(p=>covCount(p)<2); if(!need.length) break;
+      let best=null;
+      for(let i=0;i<n;i++){
+        const A=LAWN[i], B=LAWN[(i+1)%n], L=dist(A,B), ex=B[0]-A[0], ey=B[1]-A[1];
+        const nrm=edgeInfo([(A[0]+B[0])/2,(A[1]+B[1])/2],LAWN).n;
+        for(let t=0;t<=L;t+=0.5){
+          const rMax=Math.min(13,t,L-t); if(rMax<3) continue;
+          const cand=placeBest([A[0]+ex*t/L,A[1]+ey*t/L],'H',180,nrm,rMax); if(!cand) continue;
+          const gain=need.filter(p=>headCovers(cand,p)).length;
+          if(gain>0 && (!best || gain+0.001*cand.r > best.score)) best={cand,score:gain+0.001*cand.r,i,t};
+        }
+      }
+      if(!best) break;
+      best.cand.order=best.i*1000+Math.round(best.t)+1;
+      heads.push(best.cand);
+    }
+    // step 3: interior — full circles only, fewest/biggest that finish covering the yard
+    const samples=[];
+    for(let x=x0+0.5;x<x1;x+=1) for(let y=y0+0.5;y<y1;y+=1){
+      const p=[x,y]; if(inside(p,LAWN)&&edgeDist(p,LAWN)>=0.5) samples.push(p);
+    }
+    for(let guard=0; guard<200; guard++){
+      const need=samples.filter(p=>covCount(p)<2); if(!need.length) break;
+      let best=null;
+      for(const pos of samples){
+        const rFit=Math.min(13,edgeDist(pos,LAWN)-0.05); if(rFit<2.99) continue;
+        const a=achievable(rFit); if(!a) continue;
+        const cand={x:pos[0],y:pos[1],type:'F',gpm:gpmFor('F',a.s,360)*fac(),r:a.r,s:a.s,dir:null,ang:360};
+        const gain=need.filter(p=>headCovers(cand,p)).length;
+        if(gain>0 && (!best || gain+0.001*cand.r > best.score)) best={cand,score:gain+0.001*cand.r};
+      }
+      if(!best) break;
+      best.cand.order=100000+(io++);
+      heads.push(best.cand);
+    }
+    heads.sort((a,b)=>a.order-b.order);
+
+    // self-check against both rules, on the finished layout
+    const overspray = heads.filter(h=>!headFits(h)).length;
+    const allSamples = strip.concat(samples);
+    const gaps = allSamples.filter(p=>covCount(p)<2).length;
+
+    // zoning
+    const c=cap(); let zones=[[]]; let sum=0;
+    heads.forEach(h=>{ if(sum+h.gpm>c && zones[zones.length-1].length){ zones.push([]); sum=0; } zones[zones.length-1].push(h); sum+=h.gpm; });
+    if(zones.length>1 && zones[zones.length-1].length<3){
+      const b=zones.pop(), a=zones.pop(); const merged=[...a,...b];
+      let bestI=1,bestDiff=1e9;
+      for(let i=1;i<merged.length;i++){
+        const s1=merged.slice(0,i).reduce((s,h)=>s+h.gpm,0), s2=merged.slice(i).reduce((s,h)=>s+h.gpm,0);
+        if(s1<=c && s2<=c){ const d=Math.abs(s1-s2); if(d<bestDiff){bestDiff=d;bestI=i;} }
+      }
+      zones.push(merged.slice(0,bestI), merged.slice(bestI));
+    }
+    S.layout = {heads, zones, overspray, gaps, sampleCount:allSamples.length};
+  }
+
+  const COLORS = ['#ff5a1f','#1467e0','#1f9d55','#c4b5fd','#f472b6','#f2b632','#22d3ee','#93a59a'];
+  function draw(cv){
+    const ctx=cv.getContext('2d'), pad=14;
+    const xs=LAWN.map(p=>p[0]), ys=LAWN.map(p=>p[1]);
+    const w=Math.max(...xs)-Math.min(...xs), h=Math.max(...ys)-Math.min(...ys);
+    const W=cv.width, H=cv.height, k=Math.min((W-2*pad)/w,(H-2*pad)/h);
+    const ox=pad-Math.min(...xs)*k+(W-2*pad-w*k)/2, oy=pad-Math.min(...ys)*k+(H-2*pad-h*k)/2;
+    const px=p=>[p[0]*k+ox,p[1]*k+oy];
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#4a6b3a'; ctx.beginPath();
+    LAWN.forEach((p,i)=>{ const [x,y]=px(p); i?ctx.lineTo(x,y):ctx.moveTo(x,y); }); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.3)'; ctx.lineWidth=1.5; ctx.stroke();
+    if(!S.layout) return;
+    S.layout.zones.forEach((z,zi)=>{
+      const col=COLORS[zi%COLORS.length];
+      z.forEach(hh=>{
+        const [cx,cy]=px([hh.x,hh.y]); const rp=hh.r*k;
+        ctx.fillStyle=col+'59'; ctx.strokeStyle=col; ctx.lineWidth=1.2;
+        ctx.beginPath();
+        if(hh.type==='F'){ ctx.arc(cx,cy,rp,0,7); }
+        else{
+          const a0=Math.atan2(hh.dir[1],hh.dir[0]), half=(hh.ang*Math.PI/180)/2;
+          ctx.moveTo(cx,cy); ctx.arc(cx,cy,rp,a0-half,a0+half); ctx.closePath();
+        }
+        ctx.fill(); ctx.stroke();
+      });
+      z.forEach(hh=>{
+        const [x,y]=px([hh.x,hh.y]);
+        ctx.fillStyle=col; ctx.strokeStyle='#fff'; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.arc(x,y,5,0,7); ctx.fill(); ctx.stroke();
+        ctx.fillStyle='#fff'; ctx.font='700 9px system-ui,sans-serif'; ctx.textAlign='center';
+        ctx.fillText(hh.s+hh.type, x, y-9);
+      });
+    });
+  }
+
+  function render(){
+    let h = '<h1>Auto Layout</h1><div class="card"><h2>System</h2>';
+    h += '<div class="row"><div><div class="lbl">PSI</div><select id="psi">'+[30,40,50,60].map(v=>'<option'+(v===S.psi?' selected':'')+'>'+v+'</option>').join('')+'</select></div>'
+      + '<div><div class="lbl">Line</div><select id="line"><option value="34"'+(S.line==='34'?' selected':'')+'>¾″ (12)</option><option value="1"'+(S.line==='1'?' selected':'')+'>1″ (18)</option></select></div></div>';
+    h += '<div class="row" style="margin-top:8px"><button class="btn p" id="gen">Generate layout</button></div>';
+    h += '<p class="note">Corners first, then the perimeter (heads only ever sit on an edge, capped so they can\'t reach past a corner), then the open middle with full circles only. Every head is the largest size that verifiably stays inside the yard.</p></div>';
+    h += '<div class="card"><canvas id="cv" width="600" height="520"></canvas></div>';
+    if(S.layout){
+      const L=S.layout, ok = L.overspray===0 && L.gaps===0;
+      h += '<div class="card"><div class="check '+(ok?'ok':'bad')+'">'
+        + (ok ? '✓ Self-check passed: full double coverage, no overspray outside the yard'
+              : '⚠ '+L.overspray+' head(s) may overspray, '+L.gaps+' of '+L.sampleCount+' sample points under-covered')
+        + '</div></div>';
+      const z=L.zones;
+      h += '<div class="card"><h2>Zones ('+z.length+(z.length>16?' <span style="color:var(--bad)">— over the 16-station limit</span>':'')+')</h2>';
+      h += '<div class="row">' + z.map((zz,i)=>{
+        const sum=zz.reduce((s,hh)=>s+hh.gpm,0);
+        return '<span class="chip"><i class="dot" style="background:'+COLORS[i%COLORS.length]+'"></i>Zone '+(i+1)+': '+zz.length+' heads, '+sum.toFixed(1)+' GPM</span>';
+      }).join('') + '</div></div>';
+      const tot={}; L.heads.forEach(hh=>{ const k=hh.s+hh.type; tot[k]=(tot[k]||0)+1; });
+      h += '<div class="card"><h2>Parts list</h2><table><tr><th>Nozzle</th><th class="r">Qty</th></tr>'
+        + Object.keys(tot).map(k=>'<tr><td>'+k+'</td><td class="r">'+tot[k]+'</td></tr>').join('')
+        + '<tr><td><b>Total heads</b></td><td class="r"><b>'+L.heads.length+'</b></td></tr></table></div>';
+    }
+    app.innerHTML = h;
+    draw(document.getElementById('cv'));
+    document.getElementById('gen').onclick = ()=>{ buildLayout(); render(); };
+    document.getElementById('psi').onchange = e=>{ S.psi=+e.target.value; if(S.layout) buildLayout(); render(); };
+    document.getElementById('line').onchange = e=>{ S.line=e.target.value; if(S.layout) buildLayout(); render(); };
+  }
+  render();
+})();
+</script>
+</body>
+</html>
