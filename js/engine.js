@@ -30,6 +30,7 @@
   const ROTOR_AREA_MIN_WIDTH = 40; // auto mode tries rotors when the lawn is at least this wide
   const TOL = 0.2; // ft. Closer than this to the boundary counts as on the line
   const BSTEP = 0.25; // boundary sample spacing
+  const CURVE_OVER = 0.3; // ft a curve head may reach past a curved edge; verify() flags past 0.35
   const DEG = Math.PI / 180;
   const TAU = Math.PI * 2;
 
@@ -458,6 +459,34 @@
         if (d < 0.05) continue;
         const phi = wrapPi(Math.atan2(s.y - p.y, s.x - p.x) - thetaN);
         if (phi < phiL) phiL = phi;
+      }
+      // On a curve the arc is bounded by chords, and the boundary bows past each chord, leaving a
+      // dry lens between neighbouring heads (2.7 ft deep for a 25 ft rotor on a 30 ft radius curve,
+      // first test on a real traced yard). Let curve heads reach up to CURVE_OVER past the line,
+      // the same small allowance Zach gives VANs on curves. Straight edges stay exactly 180.
+      const curved =
+        !isCorner &&
+        (Math.abs(phiR + Math.PI / 2) > DEG ||
+          Math.abs(phiL - Math.PI / 2) > DEG);
+      if (curved) {
+        phiR = -Math.PI;
+        phiL = Math.PI;
+        for (const s of fwd) {
+          const d = Math.hypot(s.x - p.x, s.y - p.y);
+          if (d < 0.05) continue;
+          const phi =
+            wrapPi(Math.atan2(s.y - p.y, s.x - p.x) - thetaN) -
+            Math.asin(Math.min(1, CURVE_OVER / d));
+          if (phi > phiR) phiR = phi;
+        }
+        for (const s of back) {
+          const d = Math.hypot(s.x - p.x, s.y - p.y);
+          if (d < 0.05) continue;
+          const phi =
+            wrapPi(Math.atan2(s.y - p.y, s.x - p.x) - thetaN) +
+            Math.asin(Math.min(1, CURVE_OVER / d));
+          if (phi < phiL) phiL = phi;
+        }
       }
       if (!fwd.length) phiR = -Math.PI / 2;
       if (!back.length) phiL = Math.PI / 2;
@@ -1173,7 +1202,7 @@
       if (wantRotor) {
         const r = layoutArea(G, "rotor");
         const okRotor =
-          r.heads.length >= 3 && r.gaps / Math.max(1, r.samples) <= 0.003;
+          r.heads.length >= 3 && r.gaps / Math.max(1, r.samples) <= 0.01; // a few thin spots beat 3x the zones on pop-ups (85 heads, 30 zones on the first curved test yard)
         if (okRotor || area.mode === "rotor") {
           res = r;
           family = "rotor";
