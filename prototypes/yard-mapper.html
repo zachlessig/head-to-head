@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Yard Mapper prototype</title>
+<style>
+:root{
+  --bg:#e9eee9; --panel:#ffffff; --ink:#12201a; --muted:#5b6b62; --line:#cdd6cf;
+  --flag:#ff5a1f; --flag-ink:#ffffff; --blue:#1467e0; --chip:#f1f4f1;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d1310; --panel:#18211c; --ink:#eaf1ec; --muted:#93a59a; --line:#2b3931;
+    --flag:#ff7a45; --flag-ink:#1a0a03; --blue:#6aa8ff; --chip:#212d26;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d1310; --panel:#18211c; --ink:#eaf1ec; --muted:#93a59a; --line:#2b3931;
+  --flag:#ff7a45; --flag-ink:#1a0a03; --blue:#6aa8ff; --chip:#212d26;
+}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{height:100%;margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.35 "Barlow","Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-tap-highlight-color:transparent;overflow:hidden}
+#app{height:100%;display:flex;flex-direction:column;max-width:520px;margin:0 auto}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+
+header{padding:10px 14px 8px;background:var(--panel);border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:baseline;justify-content:space-between}
+h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.2px}
+.badge{font-size:12px;color:var(--muted)}
+.stats{display:flex;gap:18px;margin-top:6px}
+.stat b{display:block;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat span{font-size:12px;color:var(--muted)}
+
+.tabs{display:flex;gap:6px;padding:8px 14px;background:var(--panel)}
+.tab{flex:1;min-height:44px;border:1.5px solid var(--line);border-radius:10px;background:var(--chip);font-weight:600}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+
+#stage{position:relative;flex:1;min-height:0;overflow:hidden;background:#2a3a24}
+#cv{position:absolute;touch-action:none;border-radius:6px}
+#toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);max-width:88%;
+  background:rgba(10,16,12,.86);color:#fff;padding:8px 14px;border-radius:999px;font-size:14px;
+  opacity:0;transition:opacity .2s;pointer-events:none;text-align:center}
+#toast.on{opacity:1}
+
+.sheet{background:var(--panel);border-top:1px solid var(--line);padding:10px 14px 12px}
+.hint{margin:0 0 8px;font-size:14px;color:var(--muted)}
+.row{display:flex;gap:8px;align-items:center}
+.row + .row{margin-top:8px}
+.btn{min-height:48px;padding:0 16px;border-radius:10px;border:1.5px solid var(--line);background:var(--chip);font-weight:600}
+.btn.primary{background:var(--flag);border-color:var(--flag);color:var(--flag-ink);flex:1}
+.btn.grow{flex:1}
+.btn.small{min-height:40px;font-size:14px}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-top:8px}
+.chip{flex:none;min-height:40px;padding:0 12px;border-radius:999px;border:1.5px solid var(--line);background:var(--chip);
+  display:flex;align-items:center;gap:7px;font-size:14px;font-weight:600}
+.chip i{width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+.chip[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.gps{font-size:14px;font-variant-numeric:tabular-nums}
+label.demo{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+label.demo input{width:18px;height:18px}
+input.num{flex:1;min-width:0;min-height:48px;border-radius:10px;border:1.5px solid var(--line);background:var(--chip);
+  color:var(--ink);font:inherit;font-size:20px;padding:0 12px;font-variant-numeric:tabular-nums}
+[hidden]{display:none !important}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="top"><h1>Yard Mapper</h1><span class="badge">prototype: simulated yard</span></div>
+    <div class="stats">
+      <div class="stat"><b id="sArea">0</b><span>lawn sq ft</span></div>
+      <div class="stat"><b id="sPer">0</b><span>edge ft</span></div>
+      <div class="stat"><b id="sScale">0.25</b><span>ft per px</span></div>
+    </div>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" data-mode="trace" aria-selected="true">Trace</button>
+    <button class="tab" role="tab" data-mode="walk" aria-selected="false">Walk</button>
+    <button class="tab" role="tab" data-mode="scale" aria-selected="false">Scale</button>
+  </div>
+
+  <div id="stage"><canvas id="cv"></canvas><div id="toast"></div></div>
+
+  <div class="sheet">
+    <section id="p-trace">
+      <p class="hint">Pick a tag, then tap the photo. Trace the lawn corners you can see.</p>
+    </section>
+
+    <section id="p-walk" hidden>
+      <p class="hint">Drag the blue dot to walk. Drop a point wherever you stand. Anchor when you reach a known corner.</p>
+      <div class="row">
+        <button class="btn primary" id="drop">Drop point here</button>
+        <button class="btn grow" id="anchor">Anchor</button>
+      </div>
+      <div class="row" style="justify-content:space-between">
+        <span class="gps" id="gps">GPS: ±0 ft</span>
+        <label class="demo"><input type="checkbox" id="showTrue" checked> Show real position (demo)</label>
+      </div>
+    </section>
+
+    <section id="p-scale" hidden>
+      <p class="hint" id="scaleHint">Tap two ends of something you can tape, like the front wall of the house.</p>
+      <div class="row" id="scaleRow" hidden>
+        <input class="num" id="tape" type="text" inputmode="decimal" placeholder="Tape reads (ft)" aria-label="Tape measure reading in feet">
+        <button class="btn primary" id="apply" style="flex:none">Apply</button>
+      </div>
+    </section>
+
+    <div class="chips" id="chips" role="group" aria-label="Point tag"></div>
+
+    <div class="row">
+      <button class="btn small grow" id="undo">Undo last point</button>
+      <button class="btn small grow" id="clear">Clear all</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+  const cv = $('#cv'), ctx = cv.getContext('2d');
+  const W = 360, H = 480;
+
+  const TAGS = {
+    corner:{c:'#ffd60a', l:'C', n:'Lawn corner'},
+    tree:  {c:'#ff7a00', l:'T', n:'Tree'},
+    meter: {c:'#22d3ee', l:'M', n:'Meter'},
+    gate:  {c:'#f472b6', l:'G', n:'Gate'},
+    slope: {c:'#c4b5fd', l:'S', n:'Slope'}
+  };
+  const trees = [{x:58,y:255,r:46},{x:312,y:305,r:42},{x:175,y:418,r:36}];
+  const lawn = [[40,235],[300,222],[326,330],[292,440],[60,452],[34,340]];
+
+  let mode = 'trace', tag = 'corner';
+  let pts = [];                 // {x,y,tag,via}
+  let ftPerPx = 0.25;
+  let truth = {x:60, y:190};    // where you really stand (demo only)
+  let corr = {x:0, y:0};        // drift learned at last anchor
+  let anchors = [];
+  let anchoring = false;
+  let scalePts = [];
+
+  /* ---------- simulated satellite photo ---------- */
+  const bg = document.createElement('canvas');
+  bg.width = W*2; bg.height = H*2;
+  function poly(g, arr){ g.beginPath(); arr.forEach((p,i)=> i? g.lineTo(p[0],p[1]) : g.moveTo(p[0],p[1])); g.closePath(); }
+  function buildBg(){
+    const g = bg.getContext('2d'); g.scale(2,2);
+    let seed = 7; const rnd = () => (seed = (seed*16807) % 2147483647) / 2147483647;
+    g.fillStyle = '#50703c'; g.fillRect(0,0,W,H);
+    for(let i=0;i<520;i++){
+      g.fillStyle = `hsla(${85+rnd()*30},${25+rnd()*20}%,${28+rnd()*14}%,.35)`;
+      g.beginPath(); g.arc(rnd()*W, rnd()*H, 4+rnd()*16, 0, 7); g.fill();
+    }
+    // street + sidewalk
+    g.fillStyle = '#55575a'; g.fillRect(0,0,W,38);
+    g.fillStyle = '#e8d98a'; for(let x=10;x<W;x+=40) g.fillRect(x,18,20,2);
+    g.fillStyle = '#b8b4aa'; g.fillRect(0,38,W,8);
+    // back lawn with mow stripes
+    g.save(); poly(g, lawn); g.clip();
+    g.fillStyle = '#7eae54'; g.fillRect(0,0,W,H);
+    for(let y=200;y<H;y+=18){ g.fillStyle = 'rgba(255,255,255,.06)'; g.fillRect(0,y,W,9); }
+    g.restore();
+    // driveway
+    g.fillStyle = '#bdb9b0'; g.fillRect(236,46,62,150);
+    g.fillStyle = 'rgba(0,0,0,.08)'; g.fillRect(236,46,2,150);
+    // house
+    g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(76,98,150,100);
+    g.fillStyle = '#7d6a5b'; g.fillRect(70,92,150,100);
+    g.fillStyle = 'rgba(255,255,255,.10)'; g.fillRect(70,92,150,50);
+    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(70,142,150,50);
+    g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(70,142); g.lineTo(220,142); g.stroke();
+    // trees hide the lawn edge
+    trees.forEach(t=>{
+      g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.arc(t.x+6,t.y+8,t.r,0,7); g.fill();
+      const gr = g.createRadialGradient(t.x-t.r*.3,t.y-t.r*.3,4,t.x,t.y,t.r);
+      gr.addColorStop(0,'#3f7a3a'); gr.addColorStop(1,'#1f4020');
+      g.fillStyle = gr; g.beginPath(); g.arc(t.x,t.y,t.r,0,7); g.fill();
+      for(let i=0;i<40;i++){
+        const a = rnd()*6.28, d = rnd()*t.r*.9;
+        g.fillStyle = `rgba(${rnd()>.5?'20,60,25':'90,150,80'},.35)`;
+        g.beginPath(); g.arc(t.x+Math.cos(a)*d, t.y+Math.sin(a)*d, 3+rnd()*6, 0, 7); g.fill();
+      }
+    });
+  }
+  buildBg();
+
+  /* ---------- simulated GPS ---------- */
+  function drift(p){
+    let x = 22 + 8*Math.sin(p.y/35), y = -16 + 8*Math.cos(p.x/40);
+    trees.forEach(t=>{
+      const k = Math.hypot(p.x-t.x, p.y-t.y), lim = t.r*1.3;
+      if(k < lim){ const f = 1 - k/lim; x += 14*f; y += 10*f; }
+    });
+    return {x,y};
+  }
+  function shown(){          // what the app thinks your position is
+    const d = drift(truth);
+    return {x: truth.x + d.x - corr.x, y: truth.y + d.y - corr.y};
+  }
+  const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+
+  /* ---------- geometry ---------- */
+  const corners = () => pts.filter(p => p.tag === 'corner');
+  function metrics(){
+    const c = corners(); let per = 0, area = 0;
+    for(let i=0;i<c.length;i++){
+      const a = c[i], b = c[(i+1)%c.length];
+      if(i < c.length-1 || c.length > 2) per += Math.hypot(b.x-a.x, b.y-a.y);
+      if(c.length > 2) area += a.x*b.y - b.x*a.y;
+    }
+    return {area: Math.abs(area)/2 * ftPerPx*ftPerPx, per: per*ftPerPx};
+  }
+
+  /* ---------- drawing ---------- */
+  function pill(text, x, y){
+    ctx.font = '700 10px system-ui, sans-serif';
+    const w = ctx.measureText(text).width + 8;
+    ctx.fillStyle = 'rgba(8,14,10,.78)';
+    ctx.beginPath(); ctx.roundRect(x-w/2, y-8, w, 16, 8); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, y+.5);
+  }
+  function marker(p){
+    const t = TAGS[p.tag];
+    ctx.fillStyle = t.c; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(p.x,p.y,9,0,7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#111'; ctx.font = '800 10px system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t.l, p.x, p.y+.5);
+  }
+  function draw(){
+    const s = cv.width / W;
+    ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.setTransform(s,0,0,s,0,0);
+    ctx.drawImage(bg,0,0,W,H);
+
+    const c = corners();
+    if(c.length >= 2){
+      ctx.beginPath(); c.forEach((p,i)=> i? ctx.lineTo(p.x,p.y) : ctx.moveTo(p.x,p.y));
+      if(c.length > 2){ ctx.closePath(); ctx.fillStyle = 'rgba(255,214,10,.20)'; ctx.fill(); }
+      ctx.strokeStyle = '#ffd60a'; ctx.lineWidth = 2.5; ctx.stroke();
+      for(let i=0;i<c.length;i++){
+        if(i === c.length-1 && c.length < 3) break;
+        const a = c[i], b = c[(i+1)%c.length];
+        pill((Math.hypot(b.x-a.x,b.y-a.y)*ftPerPx).toFixed(1)+' ft', (a.x+b.x)/2, (a.y+b.y)/2);
+      }
+    }
+    pts.forEach(marker);
+
+    anchors.forEach(a=>{
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(a.x-8,a.y); ctx.lineTo(a.x+8,a.y); ctx.moveTo(a.x,a.y-8); ctx.lineTo(a.x,a.y+8); ctx.stroke();
+      ctx.strokeStyle = '#1467e0'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(a.x,a.y,10,0,7); ctx.stroke();
+    });
+
+    if(scalePts.length){
+      ctx.strokeStyle = '#ff5a1f'; ctx.lineWidth = 3; ctx.setLineDash([6,4]);
+      if(scalePts.length === 2){ ctx.beginPath(); ctx.moveTo(scalePts[0].x,scalePts[0].y); ctx.lineTo(scalePts[1].x,scalePts[1].y); ctx.stroke(); }
+      ctx.setLineDash([]);
+      scalePts.forEach(p=>{ ctx.fillStyle = '#ff5a1f'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x,p.y,7,0,7); ctx.fill(); ctx.stroke(); });
+      if(scalePts.length === 2){
+        const a = scalePts[0], b = scalePts[1];
+        pill((Math.hypot(b.x-a.x,b.y-a.y)*ftPerPx).toFixed(1)+' ft (map)', (a.x+b.x)/2, (a.y+b.y)/2 - 14);
+      }
+    }
+
+    if(mode === 'walk'){
+      const d = shown();
+      const err = Math.hypot(d.x-truth.x, d.y-truth.y);
+      if($('#showTrue').checked){
+        ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1.5; ctx.setLineDash([3,3]);
+        ctx.beginPath(); ctx.moveTo(truth.x,truth.y); ctx.lineTo(d.x,d.y); ctx.stroke();
+        ctx.beginPath(); ctx.arc(truth.x,truth.y,7,0,7); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = '#fff'; ctx.font = '700 9px system-ui, sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('you', truth.x, truth.y+19);
+      }
+      ctx.fillStyle = 'rgba(20,103,224,.18)'; ctx.strokeStyle = 'rgba(80,150,255,.9)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(d.x,d.y,err+5,0,7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#1467e0'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(d.x,d.y,8,0,7); ctx.fill(); ctx.stroke();
+    }
+  }
+
+  /* ---------- UI ---------- */
+  function ui(){
+    const m = metrics();
+    $('#sArea').textContent = Math.round(m.area).toLocaleString();
+    $('#sPer').textContent = Math.round(m.per);
+    $('#sScale').textContent = ftPerPx.toFixed(3);
+    const d = shown(); const err = Math.hypot(d.x-truth.x, d.y-truth.y) * ftPerPx;
+    $('#gps').textContent = 'GPS: ±' + err.toFixed(1) + ' ft' + (anchors.length ? ' (anchored)' : '');
+    document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', t.dataset.mode === mode));
+    ['trace','walk','scale'].forEach(k => $('#p-'+k).hidden = (k !== mode));
+    $('#chips').hidden = (mode === 'scale');
+    document.querySelectorAll('.chip').forEach(ch => ch.setAttribute('aria-pressed', ch.dataset.tag === tag));
+    $('#anchor').textContent = anchoring ? 'Tap the map…' : 'Anchor';
+    if(scalePts.length === 2){
+      const a = scalePts[0], b = scalePts[1];
+      $('#scaleHint').textContent = 'Map says ' + (Math.hypot(b.x-a.x,b.y-a.y)*ftPerPx).toFixed(1) + ' ft. What does your tape say?';
+      $('#scaleRow').hidden = false;
+    } else {
+      $('#scaleHint').textContent = scalePts.length === 1 ? 'Now tap the other end.' : 'Tap two ends of something you can tape, like the front wall of the house.';
+      $('#scaleRow').hidden = true;
+    }
+    draw();
+  }
+  let tt;
+  function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(tt); tt = setTimeout(()=>t.classList.remove('on'), 2200); }
+
+  const chips = $('#chips');
+  Object.keys(TAGS).forEach(k=>{
+    const b = document.createElement('button');
+    b.className = 'chip'; b.dataset.tag = k; b.setAttribute('aria-pressed','false');
+    b.innerHTML = '<i style="background:'+TAGS[k].c+'"></i>'+TAGS[k].n;
+    b.onclick = () => { tag = k; ui(); };
+    chips.appendChild(b);
+  });
+  document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+    mode = t.dataset.mode; anchoring = false; scalePts = []; ui();
+    if(mode === 'walk') toast('Drag the blue dot to walk the yard');
+  });
+
+  $('#drop').onclick = () => {
+    const d = shown();
+    pts.push({x:clamp(d.x,0,W), y:clamp(d.y,0,H), tag, via:'walk'});
+    toast(TAGS[tag].n + ' dropped from GPS'); ui();
+  };
+  $('#anchor').onclick = () => {
+    anchoring = !anchoring;
+    if(anchoring) toast('Tap the map where you are standing, like a house corner');
+    ui();
+  };
+  $('#showTrue').onchange = draw;
+  $('#undo').onclick = () => { pts.pop(); ui(); };
+  $('#clear').onclick = () => { pts = []; anchors = []; corr = {x:0,y:0}; scalePts = []; ui(); toast('Cleared'); };
+  $('#apply').onclick = () => {
+    const tape = parseFloat($('#tape').value);
+    if(!(tape > 0) || scalePts.length < 2){ toast('Enter the tape reading in feet'); return; }
+    const a = scalePts[0], b = scalePts[1];
+    const before = ftPerPx;
+    ftPerPx = tape / Math.hypot(b.x-a.x, b.y-a.y);
+    scalePts = []; $('#tape').value = '';
+    toast('Scale locked. Everything rescaled ' + (ftPerPx/before*100-100).toFixed(0) + '%'); ui();
+  };
+
+  /* ---------- pointer handling ---------- */
+  const toW = e => { const r = cv.getBoundingClientRect(); return {x:(e.clientX-r.left)/r.width*W, y:(e.clientY-r.top)/r.height*H}; };
+  let drag = null;
+  cv.addEventListener('pointerdown', e => {
+    cv.setPointerCapture(e.pointerId);
+    drag = {sx:e.clientX, sy:e.clientY, lx:e.clientX, ly:e.clientY, moved:false};
+  });
+  cv.addEventListener('pointermove', e => {
+    if(!drag) return;
+    if(Math.hypot(e.clientX-drag.sx, e.clientY-drag.sy) > 5) drag.moved = true;
+    if(mode === 'walk' && !anchoring && drag.moved){
+      const k = W / cv.getBoundingClientRect().width;
+      truth.x = clamp(truth.x + (e.clientX-drag.lx)*k, 0, W);
+      truth.y = clamp(truth.y + (e.clientY-drag.ly)*k, 0, H);
+      ui();
+    }
+    drag.lx = e.clientX; drag.ly = e.clientY;
+  });
+  cv.addEventListener('pointerup', e => {
+    if(!drag) return;
+    const was = drag.moved; drag = null;
+    if(was) return;
+    const p = toW(e);
+    if(anchoring){
+      truth = {x:p.x, y:p.y}; corr = drift(p); anchors.push(p); anchoring = false;
+      toast('Anchored. GPS error reset here'); ui(); return;
+    }
+    if(mode === 'trace'){ pts.push({x:p.x, y:p.y, tag, via:'trace'}); ui(); }
+    else if(mode === 'scale'){ if(scalePts.length >= 2) scalePts = []; scalePts.push(p); ui(); }
+  });
+  cv.addEventListener('pointercancel', () => { drag = null; });
+
+  /* ---------- sizing ---------- */
+  function fit(){
+    const st = $('#stage').getBoundingClientRect();
+    const k = Math.min(st.width/W, st.height/H);
+    const cw = Math.floor(W*k), ch = Math.floor(H*k), dpr = window.devicePixelRatio || 1;
+    cv.style.width = cw+'px'; cv.style.height = ch+'px';
+    cv.style.left = ((st.width-cw)/2)+'px'; cv.style.top = ((st.height-ch)/2)+'px';
+    cv.width = Math.floor(cw*dpr); cv.height = Math.floor(ch*dpr);
+    draw();
+  }
+  new ResizeObserver(fit).observe($('#stage'));
+  ui(); fit();
+})();
+</script>
+</body>
+</html>
