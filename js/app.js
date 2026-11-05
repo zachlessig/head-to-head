@@ -6,7 +6,7 @@
   const Plan = window.SprinklerPlan;
   const app = document.getElementById("app");
   const FT_PER_DEG = 365221; // feet per degree of latitude
-  const DEFAULT_CENTER = { lat: 41.0602, lng: -111.9711 }; // Layton, UT
+  const DEFAULT_CENTER = { lat: 41.0602, lng: -111.9711 }; // default map center when no address is picked
   const STORE_KEY = "headtohead.jobs.v1";
   const MARKERS = {
     tree: { letter: "T", color: "#7bc96f", name: "Tree" },
@@ -202,7 +202,7 @@
     sheet(
       '<h2>New job</h2><div class="stack">' +
         '<div><label class="f" for="jn">Customer or job name</label><input class="t" id="jn" placeholder="Smith backyard" autocomplete="off"></div>' +
-        '<div><label class="f" for="ja">Address</label><div class="row"><input class="t" id="ja" placeholder="123 Main St, Layton" autocomplete="off"><button class="btn" id="js" aria-label="Find address">' +
+        '<div><label class="f" for="ja">Address</label><div class="row"><input class="t" id="ja" placeholder="123 Main St" autocomplete="off"><button class="btn" id="js" aria-label="Find address">' +
         icon("search") +
         '</button></div><div class="results" id="jr"></div></div>' +
         '<button class="btn" id="jl" style="width:100%">' +
