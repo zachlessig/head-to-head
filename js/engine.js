@@ -30,9 +30,9 @@
   // Open ground at least 2 x ROTOR_RHO wide counts as rotor country. Guessed from Zach's 19 ft
   // minimum 3504 throw: a 24 ft strip still gets rotors head to head from both edges. Never measured.
   const ROTOR_RHO = 12;
-  // Zach 2026-11-06: "if you cant add more than 3 rotors in an area then just do pop ups".
-  // Read literally that's 4 or more; confirm with him whether exactly 3 should stay rotors.
-  const MIN_ROTORS = 4;
+  // Zach 2026-11-06: "in a situation where the distance only allows 2 rotors, go back to pop ups,
+  // only use rotors if you can fit 3 or more in a zone"
+  const MIN_ROTORS = 3;
   const TOL = 0.2; // ft. Closer than this to the boundary counts as on the line
   const BSTEP = 0.25; // boundary sample spacing
   const CURVE_OVER = 0.3; // ft a curve head may reach past a curved edge; verify() flags past 0.35
@@ -1345,7 +1345,7 @@
       } else {
         res = layoutMixed(G);
         family = res.rotors ? (res.heads.length > res.rotors ? "mixed" : "rotor") : "spray";
-        if (res.droppedRotors) tried = "an open patch fit fewer than " + MIN_ROTORS + " rotors, used pop-ups there";
+        if (res.droppedRotors) tried = "an open patch fit fewer than " + MIN_ROTORS + " rotors, or rotors left it thin, so it used pop-ups there";
       }
       res.heads.forEach((h) => {
         h.area = ai;

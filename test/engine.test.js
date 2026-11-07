@@ -199,5 +199,13 @@ eq(E.nozzle("H", 180, 9.5).label, "12H", "9.5 ft H is a throttled 12H");
   eq(small, 0, "no rotor zone under 3 heads at a 10 GPM cap");
 }
 
+// Zach 2026-11-06: only 2 rotors fit means pop-ups. Sweep lawn sizes and never allow a rotor zone under 3.
+for (let w = 20; w <= 62; w += 7)
+  for (let h = 20; h <= 62; h += 7) {
+    const o = E.layoutJob({ areas: [{ outer: P([[0, 0], [w, 0], [w, h], [0, h]]), mode: "auto" }], psi: 50, cap: 12 });
+    const short = o.zones.filter((z) => z.family === "rotor" && z.heads.length < 3).length;
+    if (short) { fail++; console.log("FAIL", w + "x" + h, "has a rotor zone under 3 heads"); }
+  }
+
 console.log(fail ? fail + " failing" : "all passing");
 process.exit(fail ? 1 : 0);

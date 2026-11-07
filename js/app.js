@@ -1455,7 +1455,7 @@
             .join("") +
           "</div>" +
           '<p class="note" style="margin-top:-4px">' +
-          ({ auto: "Rotors where the lawn opens up, pop-ups in narrow spots and along curves.", spray: "Pop-ups everywhere on this lawn.", rotor: "Rotors across the whole lawn, if it fits at least 4." }[s.mode || "auto"]) +
+          ({ auto: "Rotors where the lawn opens up, pop-ups in narrow spots and along curves.", spray: "Pop-ups everywhere on this lawn.", rotor: "Rotors across the whole lawn, if it fits at least 3." }[s.mode || "auto"]) +
           "</p>";
       }
       h +=
