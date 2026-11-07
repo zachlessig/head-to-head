@@ -55,6 +55,32 @@ const yards = {
     ]),
     popups: true,
   },
+  "Back lawn with side strip": {
+    outer: P([
+      [0, 0],
+      [70, 0],
+      [70, 50],
+      [8, 50],
+      [8, 90],
+      [0, 90],
+    ]),
+  },
+  "Front yard 60x35 with curve": {
+    outer: P([
+      [0, 0],
+      [60, 0, -8],
+      [60, 35],
+      [0, 35],
+    ]),
+  },
+  "Medium square 40x40": {
+    outer: P([
+      [0, 0],
+      [40, 0],
+      [40, 40],
+      [0, 40],
+    ]),
+  },
   "Big L 120x90": {
     outer: P([
       [0, 0],

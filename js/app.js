@@ -1453,7 +1453,10 @@
                 "</button>",
             )
             .join("") +
-          "</div>";
+          "</div>" +
+          '<p class="note" style="margin-top:-4px">' +
+          ({ auto: "Rotors where the lawn opens up, pop-ups in narrow spots and along curves.", spray: "Pop-ups everywhere on this lawn.", rotor: "Rotors across the whole lawn, if it fits at least 4." }[s.mode || "auto"]) +
+          "</p>";
       }
       h +=
         '<div class="row">' +
@@ -1770,7 +1773,7 @@
       const notes = L0.areas.filter((a) => a.note).map((a) => a.note);
       if (notes.length)
         h +=
-          '<p class="note">Rotors did not fit one lawn well, so it used pop-ups there.</p>';
+          notes.map((n) => '<p class="note">' + esc(n.charAt(0).toUpperCase() + n.slice(1)) + ".</p>").join("");
       h +=
         '<p class="note">' +
         L0.heads.length +
@@ -1785,7 +1788,7 @@
         "Parts</button></div>";
     } else {
       h +=
-        '<p class="hint">Heads go corners first, then down each edge, then the fewest and biggest full circles in the middle. Nothing sprays past the lines you traced.</p>';
+        '<p class="hint">Rotors go where the lawn opens up and pop-ups fill the narrow spots. Corners first, then each edge, then the fewest and biggest full circles in the middle. Nothing sprays past your lines.</p>';
       h +=
         '<p class="note">' +
         job.psi +

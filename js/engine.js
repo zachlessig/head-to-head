@@ -27,7 +27,12 @@
   };
   const THROTTLE = 0.75; // a nozzle can be screwed down to 75% of its design radius
   const ROTOR = { min: 19, split: 24, max: 30 }; // 3504 19-24 ft, 5004 24-30 ft, 24 goes to the 5004
-  const ROTOR_AREA_MIN_WIDTH = 40; // auto mode tries rotors when the lawn is at least this wide
+  // Open ground at least 2 x ROTOR_RHO wide counts as rotor country. Guessed from Zach's 19 ft
+  // minimum 3504 throw: a 24 ft strip still gets rotors head to head from both edges. Never measured.
+  const ROTOR_RHO = 12;
+  // Zach 2026-11-06: "if you cant add more than 3 rotors in an area then just do pop ups".
+  // Read literally that's 4 or more; confirm with him whether exactly 3 should stay rotors.
+  const MIN_ROTORS = 4;
   const TOL = 0.2; // ft. Closer than this to the boundary counts as on the line
   const BSTEP = 0.25; // boundary sample spacing
   const CURVE_OVER = 0.3; // ft a curve head may reach past a curved edge; verify() flags past 0.35
@@ -198,7 +203,7 @@
       for (let i = 0; i < pts.length; i++) {
         const a = pts[i],
           b = pts[(i + 1) % pts.length];
-        segs.push({ ax: a.x, ay: a.y, bx: b.x, by: b.y });
+        segs.push({ ax: a.x, ay: a.y, bx: b.x, by: b.y, curve: !a.vertex || !b.vertex });
       }
     });
 
@@ -364,6 +369,18 @@
         }
     }
     return best;
+  }
+
+  // Is a curved stretch of edge within rad of this point?
+  function nearCurve(G, x, y, rad) {
+    const a0 = Math.floor((x - rad) / G.sbin), a1 = Math.floor((x + rad) / G.sbin);
+    const b0 = Math.floor((y - rad) / G.sbin), b1 = Math.floor((y + rad) / G.sbin);
+    for (let a = a0; a <= a1; a++)
+      for (let b = b0; b <= b1; b++) {
+        const list = G.sbins.get(binKey(a, b));
+        if (list) for (const i of list) if (G.segs[i].curve && segDist(G.segs[i], x, y) <= rad) return true;
+      }
+    return false;
   }
 
   function boundaryNear(G, x, y, r, fn) {
@@ -658,6 +675,7 @@
       y: Float64Array.from(ys),
       d: Float64Array.from(db),
       n: xs.length,
+      step,
       bin: 4,
       bins: new Map(),
     };
@@ -683,33 +701,47 @@
     return S;
   }
 
-  function layoutArea(G, family) {
+  // ctx (optional) shares one sample grid between a rotor pass and a pop-up pass on the same lawn:
+  // {S, cov, heads, target}. target marks the samples this pass is responsible for.
+  function layoutArea(G, family, ctx) {
     const spray = family === "spray";
     const maxR = spray ? 16 : ROTOR.max;
-    const gS = spray ? 1 : 2; // coverage sample spacing
-    const S = sampleGrid(G, gS);
-    const cov = new Int32Array(S.n);
-    const heads = [];
+    const gS = ctx ? ctx.S.step : spray ? 1 : 2; // coverage sample spacing
+    const S = ctx ? ctx.S : sampleGrid(G, gS);
+    const cov = ctx ? ctx.cov : new Int32Array(S.n);
+    const heads = ctx ? ctx.heads : [];
+    const target = ctx && ctx.target ? ctx.target : new Uint8Array(S.n).fill(1);
     const issues = [];
-
-    // 1. corners first
-    G.ringSamples.forEach((list) => {
-      list.corners.forEach((ci) => {
-        const h = fitBoundary(G, list[ci], true, family, maxR);
-        if (h) heads.push(h);
-        else issues.push({ type: "corner", x: list[ci].x, y: list[ci].y });
-      });
-    });
-    heads.forEach((h) =>
+    const mark = (h) =>
       S.near(h.x, h.y, h.r, (k) => {
         if (covers(h, S.x[k], S.y[k])) cov[k]++;
-      }),
-    );
+      });
+    // how many samples this pass still owes coverage to, near a spot
+    const needNear = (x, y, rad) => {
+      let n = 0;
+      S.near(x, y, rad, (k) => {
+        if (target[k] && cov[k] < 2 && Math.hypot(S.x[k] - x, S.y[k] - y) <= rad) n++;
+      });
+      return n;
+    };
+
+    // 1. corners first (skipped where another pass already handled the corner)
+    G.ringSamples.forEach((list) => {
+      list.corners.forEach((ci) => {
+        const c = list[ci];
+        if (ctx && (heads.some((h) => Math.hypot(h.x - c.x, h.y - c.y) < 0.5) || needNear(c.x, c.y, 4) === 0)) return;
+        const h = fitBoundary(G, c, true, family, maxR);
+        if (h) {
+          heads.push(h);
+          mark(h);
+        } else if (spray) issues.push({ type: "corner", x: c.x, y: c.y });
+      });
+    });
 
     // 2. the perimeter: heads sitting on the edge lines, until the strip along the edge is double covered
     const stripW = spray ? 2.5 : 4;
     const strip = new Uint8Array(S.n);
-    for (let k = 0; k < S.n; k++) strip[k] = S.d[k] <= stripW ? 1 : 0;
+    for (let k = 0; k < S.n; k++) strip[k] = target[k] && S.d[k] <= stripW ? 1 : 0;
     const edgeCands = [];
     const every = spray ? 2 : 4; // every 0.5 ft for sprays, 1 ft for rotors
     G.ringSamples.forEach((list) => {
@@ -751,6 +783,19 @@
           )
           .map((h) => h.r);
         if (cornerR.length === 2 && Math.min(...cornerR) >= L - 0.01) return; // the two corners already cover each other
+        if (ctx) {
+          // in a mixed lawn, only space heads down a side this pass actually owns
+          let owed = 0, near = 0;
+          for (let m = 0; m < side.length; m += 8) {
+            const q = side[m];
+            S.near(q.x, q.y, 2.5, (k) => {
+              if (Math.hypot(S.x[k] - q.x, S.y[k] - q.y) > 2.5) return;
+              near++;
+              if (target[k] && cov[k] < 2) owed++;
+            });
+          }
+          if (!near || owed < 0.7 * near) return;
+        }
         const edgeMax = spray ? 13 : ROTOR.max;
         for (
           let n = Math.max(2, Math.ceil(L / edgeMax));
@@ -785,9 +830,7 @@
           }
           placed.forEach((h) => {
             heads.push(h);
-            S.near(h.x, h.y, h.r, (k) => {
-              if (covers(h, S.x[k], S.y[k])) cov[k]++;
-            });
+            mark(h);
           });
           break;
         }
@@ -796,7 +839,7 @@
     greedy(edgeCands, S, cov, strip, 1, heads, 400);
 
     // 3. the middle: full circles only, as few and as big as fit without reaching the boundary
-    const all = new Uint8Array(S.n).fill(1);
+    const all = target;
     const midCands = [];
     const gI = spray ? 1 : 2;
     for (let x = G.x0 + gI / 2; x < G.x1; x += gI) {
@@ -818,12 +861,122 @@
 
     let gaps = 0;
     const gapPts = [];
-    for (let k = 0; k < S.n; k++)
+    let owned = 0;
+    for (let k = 0; k < S.n; k++) {
+      if (!target[k]) continue;
+      owned++;
       if (cov[k] < 2) {
         gaps++;
         gapPts.push({ x: S.x[k], y: S.y[k], c: cov[k] });
       }
-    return { heads, samples: S.n, gaps, gapPts, issues, sampleStep: gS };
+    }
+    return { heads, samples: owned, gaps, gapPts, issues, sampleStep: gS };
+  }
+
+  // Samples sitting in ground open enough for rotors: inside some circle of ROTOR_RHO radius that
+  // fits in the lawn. Narrow side strips and tight corners fall outside and get pop-ups.
+  // Returns R (rotor ground, reaching into corners) and R.core (just the open circles).
+  function rotorRegion(G, S) {
+    const R = new Uint8Array(S.n);
+    const core = new Uint8Array(S.n);
+    for (let x = G.x0 + 1; x < G.x1; x += 2)
+      for (let y = G.y0 + 1; y < G.y1; y += 2) {
+        if (!inLawn(G, x, y) || distB(G, x, y) < ROTOR_RHO) continue;
+        // reach a little past the open circle so the corners of an open lawn stay rotor ground;
+        // without this the first mixed render put 15H pop-ups in every rotor corner
+        const reach = ROTOR_RHO + 6;
+        S.near(x, y, reach, (k) => {
+          const d = Math.hypot(S.x[k] - x, S.y[k] - y);
+          if (d <= reach) R[k] = 1;
+          if (d <= ROTOR_RHO) core[k] = 1;
+        });
+      }
+    R.core = core;
+    return R;
+  }
+
+  // Rotors where the lawn opens up, pop-ups everywhere else. An open patch that can't hold
+  // MIN_ROTORS rotors goes back to pop-ups (Zach, 2026-11-06).
+  function layoutMixed(G) {
+    const S = sampleGrid(G, 1);
+    const cov = new Int32Array(S.n);
+    const heads = [];
+    const R = rotorRegion(G, S);
+    let rotors = 0, dropped = 0;
+    if (R.some((v) => v)) {
+      layoutArea(G, "rotor", { S, cov, heads, target: R });
+      // group rotors whose throws touch; each group is one open patch
+      const seen = new Set();
+      const groups = [];
+      heads.forEach((h) => {
+        if (seen.has(h)) return;
+        const g = [], stack = [h];
+        seen.add(h);
+        while (stack.length) {
+          const u = stack.pop();
+          g.push(u);
+          heads.forEach((v) => {
+            if (!seen.has(v) && Math.hypot(u.x - v.x, u.y - v.y) < (u.r + v.r) * 0.95) {
+              seen.add(v);
+              stack.push(v);
+            }
+          });
+        }
+        groups.push(g);
+      });
+      // each rotor patch owns the rotor ground nearest to it; a patch whose rotors leave more than
+      // 1% of that ground thin goes to pop-ups (a 35x34 pentagon came out 85% covered on 5 rotors)
+      const owned = groups.map(() => ({ n: 0, thin: 0 }));
+      // thin ground along a curve is VAN ground (Zach: curves get VANs), so it doesn't count against rotors
+      const curveStrip = new Uint8Array(S.n);
+      for (let k = 0; k < S.n; k++) if (R[k] && S.d[k] <= 5 && nearCurve(G, S.x[k], S.y[k], 5)) curveStrip[k] = 1;
+      R.curveStrip = curveStrip;
+      for (let k = 0; k < S.n; k++) {
+        if (!R.core[k] || curveStrip[k]) continue;
+        let gi = -1, bd = Infinity;
+        groups.forEach((g, i) => g.forEach((h) => {
+          const d = Math.hypot(h.x - S.x[k], h.y - S.y[k]);
+          if (d < bd) { bd = d; gi = i; }
+        }));
+        if (gi < 0) continue;
+        owned[gi].n++;
+        if (cov[k] < 2) owned[gi].thin++;
+      }
+      groups.forEach((g, gi) => {
+        // 3% of the open core: the 35x34 pentagon left 15% thin, good rotor lawns under 0.5%
+        const poor = owned[gi].n && owned[gi].thin / owned[gi].n > 0.03;
+        if (g.length >= MIN_ROTORS && !poor) return;
+        g.forEach((h) => {
+          heads.splice(heads.indexOf(h), 1);
+          S.near(h.x, h.y, h.r, (k) => {
+            if (covers(h, S.x[k], S.y[k])) cov[k]--;
+          });
+          dropped++;
+        });
+      });
+      rotors = heads.length;
+    }
+    // pop-ups own the narrow ground, plus any rotor ground left bone dry. A rotor spot hit once is
+    // left as a thin spot: the first mixed render sprinkled 15H patches down rotor edges otherwise
+    const own = new Uint8Array(S.n);
+    // ground whose rotors were all dropped is pop-up ground again
+    const rotorsLeft = heads.length > 0;
+    // the fringe where rotor ground meets narrow ground also goes to pop-ups where it's thin
+    for (let k = 0; k < S.n; k++)
+      own[k] = !R[k] || cov[k] === 0 || !rotorsLeft || (cov[k] < 2 && (!R.core[k] || (R.curveStrip && R.curveStrip[k]))) ? 1 : 0;
+    const res = layoutArea(G, "spray", { S, cov, heads, target: own });
+    let gaps = 0;
+    res.gapPts = [];
+    for (let k = 0; k < S.n; k++)
+      if (cov[k] < 2) {
+        gaps++;
+        res.gapPts.push({ x: S.x[k], y: S.y[k], c: cov[k] });
+      }
+    res.gaps = gaps;
+    res.samples = S.n;
+    res.rotors = rotors;
+    res.droppedRotors = dropped;
+    return res;
   }
 
   function maxInscribed(G) {
@@ -1177,21 +1330,23 @@
       let family = "spray";
       let tried = null;
       const width = 2 * maxInscribed(G);
-      const wantRotor =
-        !job.popupsOnly &&
-        (area.mode === "rotor" ||
-          (area.mode !== "spray" && width >= ROTOR_AREA_MIN_WIDTH));
       let res = null;
-      if (wantRotor) {
+      if (job.popupsOnly || area.mode === "spray") res = layoutArea(G, "spray");
+      else if (area.mode === "rotor") {
+        // rotors only: the whole lawn on rotors, unless it can't even hold the minimum
         const r = layoutArea(G, "rotor");
-        const okRotor =
-          r.heads.length >= 3 && r.gaps / Math.max(1, r.samples) <= 0.01; // a few thin spots beat 3x the zones on pop-ups (85 heads, 30 zones on the first curved test yard)
-        if (okRotor || (area.mode === "rotor" && r.heads.length >= 3)) {
+        if (r.heads.length >= MIN_ROTORS) {
           res = r;
           family = "rotor";
-        } else tried = "rotors did not fit this lawn well, used pop-ups";
+        } else {
+          res = layoutArea(G, "spray");
+          tried = "too small for " + MIN_ROTORS + " rotors, used pop-ups";
+        }
+      } else {
+        res = layoutMixed(G);
+        family = res.rotors ? (res.heads.length > res.rotors ? "mixed" : "rotor") : "spray";
+        if (res.droppedRotors) tried = "an open patch fit fewer than " + MIN_ROTORS + " rotors, used pop-ups there";
       }
-      if (!res) res = layoutArea(G, "spray");
       res.heads.forEach((h) => {
         h.area = ai;
         h.gpm = h.scales ? h.gpmBase * factor : h.gpmBase;
