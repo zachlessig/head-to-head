@@ -160,9 +160,11 @@
         ty = Y(h.y) - 14;
       ctx.lineWidth = 4;
       ctx.strokeStyle = "#fff";
-      ctx.strokeText(h.label, tx, ty);
+      // the contractor copy shows how far to dial each rotor in, since the screw sets the throw
+      const label = d.copy === "contractor" && h.kind === "R" ? h.label + " " + Math.round(h.r) + "'" : h.label;
+      ctx.strokeText(label, tx, ty);
       ctx.fillStyle = "#1d2320";
-      ctx.fillText(h.label, tx, ty);
+      ctx.fillText(label, tx, ty);
     });
 
     // scale bar

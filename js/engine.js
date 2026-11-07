@@ -26,8 +26,10 @@
     18: { design: 16, 90: 1.33, 180: 2.66, 270: 3.99, 330: 5.32 },
   };
   const THROTTLE = 0.75; // a nozzle can be screwed down to 75% of its design radius
-  const ROTOR = { min: 19, split: 24, max: 30 }; // 3504 19-24 ft, 5004 24-30 ft, 24 goes to the 5004
-  // Open ground at least 2 x ROTOR_RHO wide counts as rotor country. Guessed from Zach's 19 ft
+  // Zach 2026-11-06: 3504 throws 18 to 23 ft, 5004 throws 24 to 30 ft, either one dialed in with the
+  // screw on top. Anything in that range is fair game; 23 to 24 ft falls between and drops to a 3504 at 23.
+  const ROTOR = { min: 18, max3504: 23, split: 24, max: 30 };
+  // Open ground at least 2 x ROTOR_RHO wide counts as rotor country. Guessed from Zach's 18 ft
   // minimum 3504 throw: a 24 ft strip still gets rotors head to head from both edges. Never measured.
   const ROTOR_RHO = 12;
   // Zach 2026-11-06: "in a situation where the distance only allows 2 rotors, go back to pop ups,
@@ -68,7 +70,8 @@
   function nozzle(kind, arc, r) {
     if (kind === "R") {
       if (r + 1e-9 < ROTOR.min) return null;
-      const rr = Math.min(r, ROTOR.max);
+      let rr = Math.min(r, ROTOR.max);
+      if (rr < ROTOR.split - 1e-9) rr = Math.min(rr, ROTOR.max3504);
       const model = rr >= ROTOR.split - 1e-9 ? "5004" : "3504";
       const gpm = Math.max(0.5, Math.round((arc / 90) * 2) / 2);
       return {
@@ -1332,7 +1335,7 @@
       const width = 2 * maxInscribed(G);
       let res = null;
       if (job.popupsOnly || area.mode === "spray") res = layoutArea(G, "spray");
-      else if (area.mode === "rotor") {
+      else if (area.mode === "rotor-only") {
         // rotors only: the whole lawn on rotors, unless it can't even hold the minimum
         const r = layoutArea(G, "rotor");
         if (r.heads.length >= MIN_ROTORS) {

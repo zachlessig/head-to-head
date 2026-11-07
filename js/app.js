@@ -1439,15 +1439,14 @@
           '<label class="f">Heads for this lawn</label><div class="seg" style="margin-bottom:10px">' +
           [
             ["auto", "Auto"],
-            ["spray", "Pop-ups"],
-            ["rotor", "Rotors"],
+            ["spray", "Pop-ups only"],
           ]
             .map(
               ([k, t]) =>
                 '<button data-m="' +
                 k +
                 '" aria-pressed="' +
-                ((s.mode || "auto") === k) +
+                ((s.mode === "spray" ? "spray" : "auto") === k) +
                 '">' +
                 t +
                 "</button>",
@@ -1455,7 +1454,7 @@
             .join("") +
           "</div>" +
           '<p class="note" style="margin-top:-4px">' +
-          ({ auto: "Rotors where the lawn opens up, pop-ups in narrow spots and along curves.", spray: "Pop-ups everywhere on this lawn.", rotor: "Rotors across the whole lawn, if it fits at least 3." }[s.mode || "auto"]) +
+          (s.mode === "spray" ? "Pop-ups everywhere on this lawn." : "Rotors where the lawn opens up, pop-ups in narrow spots and along curves.") +
           "</p>";
       }
       h +=
@@ -1662,7 +1661,9 @@
         esc(what) +
         "</dd><dt>Throw</dt><dd>" +
         hd.r.toFixed(1) +
-        " ft, " +
+        " ft" +
+        (hd.kind === "R" ? " (screw set, " + (hd.model === "5004" ? "24 to 30" : "18 to 23") + " ft range)" : "") +
+        ", " +
         Math.round(hd.arc) +
         "°</dd><dt>Flow</dt><dd>" +
         hd.gpm.toFixed(2) +

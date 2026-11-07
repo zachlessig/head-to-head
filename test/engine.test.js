@@ -181,7 +181,10 @@ eq(
 eq(E.nozzle("R", 90, 27).label, "R1", "5004 quarter is R1");
 eq(E.nozzle("R", 180, 22).label, "S2", "3504 half is S2");
 eq(E.nozzle("R", 135, 24).model, "5004", "24 ft goes to the 5004");
-eq(E.nozzle("R", 360, 18), null, "no rotor under 19 ft");
+eq(E.nozzle("R", 360, 17.5), null, "no rotor under 18 ft");
+eq(E.nozzle("R", 180, 18).label, "S2", "3504 reaches down to 18 ft");
+eq(E.nozzle("R", 180, 23.6).r, 23, "23 to 24 ft drops to a 3504 at 23");
+eq(E.nozzle("R", 180, 23.6).model, "3504", "23.6 ft is a 3504");
 eq(E.nozzle("H", 180, 13).label, "15H", "13 ft H is a 15H");
 eq(E.nozzle("H", 180, 9.5).label, "12H", "9.5 ft H is a throttled 12H");
 
