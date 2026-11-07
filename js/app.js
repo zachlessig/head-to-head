@@ -1297,13 +1297,25 @@
         }),
       );
       const ll = P.toLL(h.x, h.y);
-      const dot = L.circleMarker(ll, {
-        radius: J.selHead === i ? 9 : 6.5,
-        color: "#fff",
-        weight: J.selHead === i ? 3.5 : 2,
-        fillColor: col,
-        fillOpacity: dim ? 0.35 : 1,
-      });
+      // circle pop-up, square 5004, triangle 3504, same as the printed plan
+      const key = Plan.shapeKey(h);
+      const sel = J.selHead === i;
+      const dot =
+        key === "spray"
+          ? L.circleMarker(ll, { radius: sel ? 9 : 6.5, color: "#fff", weight: sel ? 3.5 : 2, fillColor: col, fillOpacity: dim ? 0.35 : 1 })
+          : L.marker(ll, {
+              keyboard: false,
+              icon: L.divIcon({
+                className: "hshape",
+                iconSize: [sel ? 24 : 18, sel ? 24 : 18],
+                html:
+                  '<svg viewBox="0 0 20 20" width="100%" height="100%" style="opacity:' + (dim ? 0.4 : 1) + '">' +
+                  (key === "5004"
+                    ? '<rect x="3" y="3" width="14" height="14" fill="' + col + '" stroke="#fff" stroke-width="2.5"/>'
+                    : '<polygon points="10,2 18.5,17 1.5,17" fill="' + col + '" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/>') +
+                  "</svg>",
+              }),
+            });
       dot.on("click", (e) => {
         L.DomEvent.stopPropagation(e);
         J.selHead = i;
@@ -1353,6 +1365,22 @@
       });
       lay.addLayer(m);
     }
+  }
+
+  // small key under the zones: which symbol is which head, only for types on this job
+  function shapeKeyRow(heads) {
+    const sym = {
+      spray: '<circle cx="8" cy="8" r="5.5" fill="#1d2320"/>',
+      5004: '<rect x="2.5" y="2.5" width="11" height="11" fill="#1d2320"/>',
+      3504: '<polygon points="8,1.5 14.5,13.5 1.5,13.5" fill="#1d2320"/>',
+    };
+    const names = { spray: "Pop-up", 5004: "5004 rotor", 3504: "3504 rotor" };
+    const have = ["spray", "5004", "3504"].filter((k) => heads.some((h) => Plan.shapeKey(h) === k));
+    return (
+      '<p class="note" style="display:flex;gap:14px;flex-wrap:wrap">' +
+      have.map((k) => '<span style="display:inline-flex;align-items:center;gap:5px"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">' + sym[k] + "</svg>" + names[k] + "</span>").join("") +
+      "</p>"
+    );
   }
 
   /* ---------------- panel ---------------- */
@@ -1782,7 +1810,8 @@
         job.psi +
         " PSI · " +
         lineTxt +
-        ". Tap a head to move or delete it.</p>";
+        ". Tap a head to move or delete it.</p>" +
+        shapeKeyRow(L0.heads);
       h +=
         '<div class="row"><button class="btn primary grow" id="gen">Generate again</button><button class="btn grow" id="pl">' +
         icon("list") +

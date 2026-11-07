@@ -50,7 +50,13 @@
       x1 = Math.max(...pts.map((p) => p.x));
     const y0 = Math.min(...pts.map((p) => p.y)),
       y1 = Math.max(...pts.map((p) => p.y));
-    const head = 150,
+    // which head types are on this plan, for the symbol legend in the top corner
+    const kinds = [
+      { key: "spray", name: "Pop-up spray (1804)", count: d.heads.filter((h) => h.kind !== "R").length },
+      { key: "5004", name: "5004 rotor, 24 to 30 ft", count: d.heads.filter((h) => h.kind === "R" && h.model === "5004").length },
+      { key: "3504", name: "3504 rotor, 18 to 23 ft", count: d.heads.filter((h) => h.kind === "R" && h.model === "3504").length },
+    ].filter((t) => t.count);
+    const head = 130 + Math.max(1, kinds.length) * 32,
       foot = d.legendRows ? 70 + Math.ceil(d.legendRows / 2) * 34 : 90,
       side = 70;
     const k = Math.min(
@@ -76,7 +82,18 @@
       W - 48,
       70,
     );
-    drawNorth(ctx, W - 80, 108);
+    // symbol legend, top right
+    ctx.font = "600 19px Inter, sans-serif";
+    kinds.forEach((t, i) => {
+      const y = 104 + i * 32;
+      const lx = W - 400;
+      headShape(ctx, t.key, lx + 10, y - 6, "#1d2320", "#ffffff", 1.15);
+      ctx.fillStyle = "#1d2320";
+      ctx.textAlign = "left";
+      ctx.fillText(t.name, lx + 30, y);
+      ctx.textAlign = "right";
+      ctx.fillText(String(t.count), W - 48, y);
+    });
 
     // lawns, then beds on top
     d.shapes
@@ -142,17 +159,8 @@
       ctx.fillText(m.letter, X(m.x), Y(m.y) + 5);
     });
 
-    // head dots and labels
-    d.heads.forEach((h) => {
-      const col = zoneColor(h.zone || 1);
-      ctx.beginPath();
-      ctx.arc(X(h.x), Y(h.y), 7, 0, Math.PI * 2);
-      ctx.fillStyle = col;
-      ctx.fill();
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = "#fff";
-      ctx.stroke();
-    });
+    // head symbols: circle pop-up, square 5004, triangle 3504
+    d.heads.forEach((h) => headShape(ctx, shapeKey(h), X(h.x), Y(h.y), zoneColor(h.zone || 1), "#fff", 1));
     ctx.font = "800 19px Inter, sans-serif";
     ctx.textAlign = "center";
     d.heads.forEach((h) => {
@@ -177,6 +185,7 @@
     ctx.fillText("0", 44, by + 30);
     ctx.textAlign = "center";
     ctx.fillText(barFt + " ft", 48 + barFt * k, by + 30);
+    drawNorth(ctx, 48 + barFt * k + 70, by + 2);
 
     // zone legend
     if (d.zones && d.zones.length) {
@@ -235,6 +244,30 @@
     return 100;
   }
 
+  function shapeKey(h) {
+    return h.kind === "R" ? h.model : "spray";
+  }
+
+  // one symbol per head model, so they read apart in black and white
+  function headShape(ctx, key, x, y, fill, stroke, scale) {
+    ctx.beginPath();
+    if (key === "5004") {
+      const a = 7.5 * scale;
+      ctx.rect(x - a, y - a, 2 * a, 2 * a);
+    } else if (key === "3504") {
+      const a = 9.5 * scale;
+      ctx.moveTo(x, y - a);
+      ctx.lineTo(x + a * 0.95, y + a * 0.7);
+      ctx.lineTo(x - a * 0.95, y + a * 0.7);
+      ctx.closePath();
+    } else ctx.arc(x, y, 7 * scale, 0, Math.PI * 2);
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = stroke;
+    ctx.stroke();
+  }
+
   function drawNorth(ctx, x, y) {
     ctx.save();
     ctx.translate(x, y);
@@ -252,5 +285,5 @@
     ctx.restore();
   }
 
-  window.SprinklerPlan = { drawPlan, zoneColor, ZONE_COLORS };
+  window.SprinklerPlan = { drawPlan, zoneColor, ZONE_COLORS, shapeKey };
 })();
