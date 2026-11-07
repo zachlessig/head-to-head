@@ -8,6 +8,9 @@
   const FT_PER_DEG = 365221; // feet per degree of latitude
   const DEFAULT_CENTER = { lat: 41.0602, lng: -111.9711 }; // default map center when no address is picked
   const STORE_KEY = "headtohead.jobs.v1";
+  // Mapbox public token (pk.). Public tokens are meant to sit in browser code; usage bills to Zach's account.
+  const MAPBOX_TOKEN =
+    "pk.eyJ1IjoiemFjaGxlc3NpZyIsImEiOiJjbXc2bWFyaHcwMGk3Mnlvb2hjcG1lemNrIn0.ZbZrd_YpTtswPnCeqPN_WA";
   const MARKERS = {
     tree: { letter: "T", color: "#7bc96f", name: "Tree" },
     meter: { letter: "M", color: "#5bc8e6", name: "Meter" },
@@ -186,7 +189,7 @@
       });
     }
     h +=
-      '<p class="note" style="margin-top:22px">Jobs save on this phone. Address search goes to OpenStreetMap and the photos come from Esri.</p>';
+      '<p class="note" style="margin-top:22px">Jobs save on this phone. Address search and satellite photos come from Mapbox.</p>';
     h += "</main>";
     app.innerHTML = h;
     app.querySelector("#new").onclick = newJobSheet;
@@ -217,14 +220,21 @@
         const search = async () => {
           const q = addr.value.trim();
           if (!q) return;
-          res.innerHTML = '<p class="note">Searching...</p>';
+          if (!res.querySelector("button")) res.innerHTML = '<p class="note">Searching...</p>';
           try {
             const r = await fetch(
-              "https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=us&q=" +
-                encodeURIComponent(q),
+              "https://api.mapbox.com/search/geocode/v6/forward?country=us&autocomplete=true&limit=5&proximity=ip&types=address,street,place&q=" +
+                encodeURIComponent(q) +
+                "&access_token=" +
+                MAPBOX_TOKEN,
             );
             if (!r.ok) throw new Error("search " + r.status);
-            const list = await r.json();
+            const list = (await r.json()).features.map((f) => ({
+              display_name: f.properties.full_address || f.properties.name,
+              lat: f.geometry.coordinates[1],
+              lon: f.geometry.coordinates[0],
+            }));
+            if (q !== addr.value.trim()) return; // a newer keystroke already searched
             if (!list.length) {
               res.innerHTML =
                 '<p class="note">No match. Try adding the city.</p>';
@@ -259,6 +269,12 @@
         el.querySelector("#js").onclick = search;
         addr.addEventListener("keydown", (e) => {
           if (e.key === "Enter") search();
+        });
+        // suggestions as you type, after a short pause so every keystroke isn't a search
+        let typeTimer;
+        addr.addEventListener("input", () => {
+          clearTimeout(typeTimer);
+          if (addr.value.trim().length >= 4) typeTimer = setTimeout(search, 350);
         });
         el.querySelector("#jl").onclick = () => {
           if (!navigator.geolocation)
@@ -571,14 +587,32 @@
       tap: true,
     });
     J.map = map;
-    L.tileLayer(
-      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    // Mapbox satellite through the Static Tiles API. The v4 raster endpoint answered 429 for this
+    // account on 2026-11-07 while this one served z21 imagery, so this is the one wired in.
+    const satellite = L.tileLayer(
+      "https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/512/{z}/{x}/{y}?access_token=" + MAPBOX_TOKEN,
       {
+        tileSize: 512,
+        zoomOffset: -1,
+        maxZoom: 22,
+        maxNativeZoom: 22,
+        attribution:
+          '© <a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noopener">Mapbox</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> © Maxar <a href="https://www.mapbox.com/map-feedback/" target="_blank" rel="noopener"><b>Improve this map</b></a>',
+      },
+    ).addTo(map);
+    // if Mapbox refuses (token, quota, outage), fall back to Esri photos so the job still opens
+    let tileFails = 0, swapped = false;
+    satellite.on("tileerror", () => {
+      if (swapped || ++tileFails < 6) return;
+      swapped = true;
+      map.removeLayer(satellite);
+      L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
         maxZoom: 22,
         maxNativeZoom: 19,
         attribution: "Imagery: Esri, Maxar, Earthstar Geographics",
-      },
-    ).addTo(map);
+      }).addTo(map);
+      toast("Mapbox photos didn't load, so these are backup photos.");
+    });
     map.setView([job.view.lat, job.view.lng], job.view.zoom);
     ["shapes", "heads", "labels", "edit", "gps", "measure", "markers"].forEach(
       (k) => (J.layers[k] = L.layerGroup().addTo(map)),
