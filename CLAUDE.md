@@ -1,0 +1,44 @@
+# Head to Head: working rules
+
+Zach's phone app for laying out sprinkler systems. He ran a sprinkler supply counter, so the
+irrigation rules come from him. Every rule below has a test in `test/engine.test.js`; run
+`node test/engine.test.js` after any engine change.
+
+## Never
+
+- Never turn Zach's preference into a hard ban. On 2026-11-08 a "no VAN under 8VAN on a curve"
+  rule was shipped and he said: "8 van should be the smallest for a general curve, but I don't
+  want to make a rule because surely there will be curves where people are in a tight area and
+  require a smaller head." When he gives a usual size, build it as the first try with a fallback,
+  never as the only option.
+- Never ship a guessed limit as if it were his. When a number isn't his (overspray allowance,
+  minimum head size), say it's a guess and ask him for the real one in the same reply.
+- Never trust the engine's own checker for a new limit. On 2026-11-08 the checker passed a
+  kidney lawn with a spray tip 1.08 ft past a curve against a 1 ft rule, because sampling stopped
+  short of the tip. Measure new limits with an independent script at a finer step before you
+  claim them.
+- Never list rotor nozzles on the parts list. Rotors come with every nozzle (Zach, 2026-11-08).
+
+## His rules
+
+- Overspray: zero on straight edges. Up to 1 ft past a curve, "nothing over a foot ever".
+  A spot past the corner where a curve meets a straight edge counts as straight.
+- Curves: "overspray is better than a bunch of small heads". Use 8VAN and up first, and add
+  4VAN or 6VAN only where a tight curve is still dry.
+- Rotors: 3504 throws 18 to 23 ft, 5004 throws 24 to 30 ft. Use rotors only where 3 or more fit
+  in a zone.
+- Parts list sections, in order: heads, pipe, fittings, manifold, controller, water connection.
+  - Pop-ups: one total of 1804 bodies, plus a count for each nozzle that's on the map. No zero lines.
+  - Rotors: a total per model only.
+  - Swing joints: a 1/2" elbow for each pop-up and 3504, a 3/4" elbow for each 5004. Swing pipe
+    is 3 ft per head, in whole 100 ft rolls rounded up, never fewer than 1.
+  - Manifold: one zone valve per zone.
+  - Water: every job is culinary or secondary, picked on the new job screen. Culinary needs a
+    backflow preventer and secondary needs a filter. Zach is writing a fixed list for each, and it
+    goes in `WATER_SOURCE_PARTS` in `js/engine.js`.
+
+## Shipping
+
+The site is GitHub Pages from `main` (zachlessig/head-to-head). Push and it's live in about
+a minute. The Mapbox key is a public `pk.` token. GitHub push protection flags it, and Zach has
+to click "Allow secret" once for each new token.
