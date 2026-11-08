@@ -1298,17 +1298,13 @@
     [...nozzles.keys()].sort(order).forEach((k) =>
       lines.push({ group: "Spray nozzles", item: k + " nozzle", qty: nozzles.get(k) }),
     );
-    [...rotors.keys()]
-      .sort()
-      .reverse()
-      .forEach((k) => {
-        const [model, g] = k.split("|");
-        lines.push({
-          group: "Rotors",
-          item: model + " rotor, " + g + " GPM nozzle (" + (model === "5004" ? "R" : "S") + g + ")",
-          qty: rotors.get(k),
-        });
-      });
+    // Rotors ship with every nozzle, so the list counts rotors by model only and the crew
+    // reads each rotor's nozzle off the map (Zach 2026-11-08). Pop-up nozzles are bought
+    // separately, so those stay counted one line per nozzle.
+    ["5004", "3504"].forEach((model) => {
+      const n = rotorCount(rotors, model);
+      if (n) lines.push({ group: "Rotors", item: model + " rotor", qty: n });
+    });
 
     // Swing joints, per Zach 2026-11-07: a 1/2" swing elbow under every pop-up and 3504,
     // a 3/4" swing elbow under every 5004, and 3 ft of swing pipe per head, bought in

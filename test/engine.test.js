@@ -258,5 +258,23 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(groups(cul).join(" > "), "Spray heads > Spray nozzles > Rotors > Pipe > Fittings > Manifold > Controller > Culinary water connection", "section order");
 }
 
+
+// Zach 2026-11-08: rotors counted by model only (they come with every nozzle); pop-ups as one
+// body count plus a count per nozzle that's actually on the map, never a zero line.
+{
+  const fake = [
+    { kind: "S", label: "15H" }, { kind: "S", label: "15H" }, { kind: "S", label: "8Q" },
+    { kind: "R", model: "5004", gpmBase: 2 }, { kind: "R", model: "5004", gpmBase: 4 },
+    { kind: "R", model: "3504", gpmBase: 1 },
+  ];
+  const p = E.parts(fake, [{}], 0, "culinary");
+  const rot = p.lines.filter((l) => l.group === "Rotors").map((l) => l.item + " x" + l.qty);
+  eq(rot.join(", "), "5004 rotor x2, 3504 rotor x1", "rotors by model, no nozzle lines");
+  eq(p.lines.find((l) => l.item === "1804 pop-up spray body").qty, 3, "pop-up body total");
+  const noz = p.lines.filter((l) => l.group === "Spray nozzles").map((l) => l.item + " x" + l.qty);
+  eq(noz.join(", "), "15H nozzle x2, 8Q nozzle x1", "a count per pop-up nozzle on the map");
+  eq(p.lines.some((l) => l.qty === 0), false, "no zero lines");
+}
+
 console.log(fail ? fail + " failing" : "all passing");
 process.exit(fail ? 1 : 0);
