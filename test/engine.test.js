@@ -295,9 +295,14 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
       eq(o.areas[0].check.overspray, 0, name + " " + mode + ": overspray within the curve allowance");
       if (o.areas[0].check.coverage < 0.99) { fail++; console.log("FAIL", name, mode, "coverage", o.areas[0].check.coverage); }
     }
-  // overspray past a curve is real but capped
+  // nothing past a curve over 1 ft, ever (verify flags past ARC_OVER; worst stays on its 0.35 scale)
   const o = E.layoutJob({ areas: [{ outer: curvy["kidney"], mode: "spray" }], psi: 50, cap: 12 });
   if (o.areas[0].check.worstOverspray > 0.35) { fail++; console.log("FAIL kidney worst overspray over the allowance"); }
+  // Zach: small VANs aren't banned, "there will be curves where people are in a tight area and
+  // require a smaller head". A 4 ft curved strip still gets them.
+  const tight = E.layoutJob({ areas: [{ outer: P([[0, 0, 6], [30, 0], [30, 4, -6], [0, 4]]), mode: "spray" }], psi: 50, cap: 12 });
+  eq(tight.heads.some((h) => /^(4|6)VAN$/.test(h.label)), true, "a tight curved strip can still use small VANs");
+  eq(tight.areas[0].check.overspray, 0, "tight curved strip stays within the overspray limit");
 }
 
 console.log(fail ? fail + " failing" : "all passing");

@@ -38,12 +38,14 @@
   const TOL = 0.2; // ft. Closer than this to the boundary counts as on the line
   const BSTEP = 0.25; // boundary sample spacing
   const CURVE_OVER = 0.3; // ft a curve head may reach past a curved edge; verify() flags past 0.35
-  // Zach 2026-11-08: "in the arc areas there will need to be slight overspray" and avoid lots of
-  // small heads like 4VAN. Along a curved edge a head may throw up to ARC_OVER past the curve, and
-  // no VAN under MIN_ARC_VAN sits on a curve. Straight edges keep zero overspray.
-  // ARC_OVER is a first guess for Zach to tune, not measured.
+  // Zach 2026-11-08: along a curve "the most overspray that I think is okay is probably a foot.
+  // nothing over a foot ever", and "overspray is better than a bunch of small heads. 8 van should be
+  // the smallest for a general curve", but small VANs stay allowed where a tight curve needs one.
+  // ARC_OVER is his hard limit and verify() flags anything past it. Heads are fitted to ARC_FIT so
+  // the 0.5 ft sampling in rayOver can't land one a few inches over. Straight edges keep zero.
   const ARC_OVER = 1.0;
-  const MIN_ARC_VAN = 8;
+  const ARC_FIT = 0.9;
+  const MIN_ARC_VAN = 8; // smallest VAN on a curve unless a spot is still dry after the first pass
   const DEG = Math.PI / 180;
   const TAU = Math.PI * 2;
 
@@ -381,6 +383,71 @@
     return best;
   }
 
+  // Distance to the nearest edge, and whether that edge is part of a curve.
+  function nearestEdge(G, x, y) {
+    const bx = Math.floor(x / G.sbin),
+      by = Math.floor(y / G.sbin);
+    let best = Infinity,
+      curve = false;
+    const maxRing = Math.ceil(Math.max(G.x1 - G.x0, G.y1 - G.y0) / G.sbin) + 2;
+    for (let ring = 0; ring <= maxRing; ring++) {
+      if (best < (ring - 1) * G.sbin) break;
+      for (let a = bx - ring; a <= bx + ring; a++)
+        for (let b = by - ring; b <= by + ring; b++) {
+          if (Math.max(Math.abs(a - bx), Math.abs(b - by)) !== ring) continue;
+          const list = G.sbins.get(binKey(a, b));
+          if (!list) continue;
+          for (const i of list) {
+            const d = segDist(G.segs[i], x, y);
+            // a tie means the spot is past the corner where a curve meets a straight edge:
+            // count it as straight (first test: a 10VAN put 0.72 ft past such a corner)
+            if (d < best - 1e-6) {
+              best = d;
+              curve = G.segs[i].curve;
+            } else if (d <= best + 1e-6 && !G.segs[i].curve) curve = false;
+          }
+        }
+    }
+    return { d: best, curve };
+  }
+
+  // How far a point outside the lawn sits past what its nearest edge allows (0 = within).
+  // Curves allow `curveAllow`, straight edges CURVE_OVER (the old few-inch tolerance).
+  function excessAt(G, x, y, curveAllow) {
+    if (inLawn(G, x, y)) return 0;
+    const e = nearestEdge(G, x, y);
+    return Math.max(0, e.d - (e.curve ? curveAllow : CURVE_OVER));
+  }
+
+  // Does any part of this spray land further out than its edges allow?
+  // The outer rim of a spray is where overspray peaks, and past a corner it peaks in a sliver a
+  // couple of degrees wide (an 18VAN tip 0.43 ft past a curve-to-straight corner slipped between
+  // 2 degree samples). So the rim is checked every quarter degree, the inside more coarsely.
+  function rimExcess(G, p, a0, a1, r, curveAllow) {
+    const span = a1 - a0;
+    const na = Math.max(8, Math.ceil(span / (0.25 * DEG)));
+    let worst = 0;
+    for (let i = 0; i <= na; i++) {
+      const a = a0 + (span * i) / na;
+      worst = Math.max(worst, excessAt(G, p.x + r * Math.cos(a), p.y + r * Math.sin(a), curveAllow));
+    }
+    return worst;
+  }
+
+  function sprayTooFar(G, p, a0, a1, r) {
+    if (rimExcess(G, p, a0, a1, r, ARC_FIT) > 0) return true;
+    const span = a1 - a0;
+    const na = Math.max(8, Math.ceil(span / (2 * DEG)));
+    for (let i = 0; i <= na; i++) {
+      const a = a0 + (span * i) / na;
+      const c = Math.cos(a),
+        sn = Math.sin(a);
+      for (const f of reachSteps(r, 0.5))
+        if (excessAt(G, p.x + f * c, p.y + f * sn, ARC_FIT) > 0) return true;
+    }
+    return false;
+  }
+
   // Is a curved stretch of edge within rad of this point?
   function nearCurve(G, x, y, rad) {
     const a0 = Math.floor((x - rad) / G.sbin), a1 = Math.floor((x + rad) / G.sbin);
@@ -427,12 +494,21 @@
 
   let STAMP = 1;
 
+  // Distances out along a spray, every `step` ft and always the tip itself: stopping at the last
+  // whole step missed the tip of an 8H on a kidney lawn, which sat 1.08 ft past the curve.
+  function reachSteps(r, step) {
+    const out = [];
+    for (let f = step; f < r - 1e-9; f += step) out.push(f);
+    out.push(r);
+    return out;
+  }
+
   // How far past the lawn edge a ray from p at angle ang reaches within distance r.
   function rayOver(G, p, ang, r) {
     const c = Math.cos(ang),
       sn = Math.sin(ang);
     let worst = 0;
-    for (let f = 0.5; f <= r + 1e-9; f += 0.5) {
+    for (const f of reachSteps(r, 0.5)) {
       const x = p.x + f * c,
         y = p.y + f * sn;
       if (!inLawn(G, x, y)) worst = Math.max(worst, distB(G, x, y));
@@ -441,7 +517,7 @@
   }
 
   // Given a boundary sample, find the biggest head that sits there without spraying outside the lawn.
-  function fitBoundary(G, smp, isCorner, family, rMax) {
+  function fitBoundary(G, smp, isCorner, family, rMax, allowSmallArc) {
     const list = G.ringSamples[smp.ring];
     const n = list.length;
     const p = { x: smp.x, y: smp.y };
@@ -516,7 +592,7 @@
           if (d < 0.05) continue;
           const phi =
             wrapPi(Math.atan2(s.y - p.y, s.x - p.x) - thetaN) -
-            Math.asin(Math.min(1, ARC_OVER / d));
+            Math.asin(Math.min(1, ARC_FIT / d));
           if (phi > phiR) phiR = phi;
         }
         for (const s of back) {
@@ -524,7 +600,7 @@
           if (d < 0.05) continue;
           const phi =
             wrapPi(Math.atan2(s.y - p.y, s.x - p.x) - thetaN) +
-            Math.asin(Math.min(1, ARC_OVER / d));
+            Math.asin(Math.min(1, ARC_FIT / d));
           if (phi < phiL) phiL = phi;
         }
       }
@@ -533,9 +609,9 @@
       if (curved) {
         // Widening by the angle alone overshoots on a lawn that bulges out: the curve falls away
         // past the sample, so the arc's outer edge lands further out the longer the throw
-        // (1.4 ft on a 40x30 kidney at a 1 ft allowance). Walk each edge back until it's within ARC_OVER.
-        for (let t = 0; t < 45 && rayOver(G, p, thetaN + phiR, r) > ARC_OVER; t++) phiR += DEG;
-        for (let t = 0; t < 45 && rayOver(G, p, thetaN + phiL, r) > ARC_OVER; t++) phiL -= DEG;
+        // (1.4 ft on a 40x30 kidney at a 1 ft allowance). Walk each edge back until it's within ARC_FIT.
+        for (let t = 0; t < 45 && rayOver(G, p, thetaN + phiR, r) > ARC_FIT; t++) phiR += DEG;
+        for (let t = 0; t < 45 && rayOver(G, p, thetaN + phiL, r) > ARC_FIT; t++) phiL -= DEG;
       }
       if (phiL - phiR < 10 * DEG) return null;
       // anything else on the boundary that pokes into this wedge closer than r limits the radius
@@ -545,7 +621,7 @@
         if (s._stamp === stamp) return;
         const d0 = Math.hypot(s.x - p.x, s.y - p.y);
         if (d0 <= TOL) return;
-        const d = s.curve ? d0 + ARC_OVER : d0; // a curve can take a little overspray
+        const d = s.curve ? d0 + ARC_FIT : d0; // a curve can take a little overspray
         if (d >= dmin) return;
         const phi = wrapPi(Math.atan2(s.y - p.y, s.x - p.x) - thetaN);
         if (phi > phiR + margin && phi < phiL - margin) dmin = d;
@@ -562,8 +638,16 @@
       if (kind === "VAN" && arc > 330) useArc = 330;
       const nz = nozzle(kind, useArc, r);
       if (!nz) return null;
-      // no little VANs on a curve: the neighbours' allowed overspray covers that spot instead
-      if (nz.kind === "VAN" && nz.series < MIN_ARC_VAN && (smp.curve || curved || nearCurve(G, p.x, p.y, 1)))
+      // Near a curve, check the whole spray: nothing past ARC_FIT over a curve, nothing past the
+      // old tolerance over a straight edge. Without this a 40x30 kidney reached 1.08 ft past its
+      // curve and rotors put 0.78 ft on a straight edge where it meets a curve.
+      if (nearCurve(G, p.x, p.y, nz.r + 1) && sprayTooFar(G, p, dir - (useArc * DEG) / 2, dir + (useArc * DEG) / 2, nz.r)) {
+        r = nz.r - 0.5;
+        if (r < 2.2) return null;
+        continue;
+      }
+      // no little VANs on a curve unless asked for: the neighbours' overspray covers it first
+      if (!allowSmallArc && nz.kind === "VAN" && nz.series < MIN_ARC_VAN && (smp.curve || curved || nearCurve(G, p.x, p.y, 1)))
         return null;
       if (nz.r < r - 1e-6) {
         r = nz.r;
@@ -894,6 +978,23 @@
     // 4. patch any leftovers with whichever head helps most
     greedy(edgeCands.concat(midCands), S, cov, all, minGain, heads, 600);
 
+    // 5. a curve still dry after that is a tight spot: now a small VAN may go in
+    let dryNearCurve = false;
+    for (let k = 0; k < S.n && !dryNearCurve; k++)
+      if (all[k] && cov[k] < 2 && nearCurve(G, S.x[k], S.y[k], 8)) dryNearCurve = true;
+    if (spray && dryNearCurve) {
+      const smallCands = [];
+      G.ringSamples.forEach((list) => {
+        for (let i = 0; i < list.length; i += every) {
+          const s = list[i];
+          if (s.corner || !nearCurve(G, s.x, s.y, 1)) continue;
+          const h = fitBoundary(G, s, false, family, maxR, true);
+          if (h && h.kind === "VAN" && h.series < MIN_ARC_VAN) smallCands.push({ head: h });
+        }
+      });
+      greedy(smallCands, S, cov, all, minGain, heads, 600);
+    }
+
     let gaps = 0;
     const gapPts = [];
     let owned = 0;
@@ -1035,22 +1136,25 @@
       const full = h.arc >= 359.5;
       const a0 = full ? 0 : h.dir - h.arc / 2;
       const span = full ? 360 : h.arc;
-      const na = Math.max(8, Math.ceil(span / 1.5));
+      const na = Math.max(8, Math.ceil(span / 1));
       for (let i = 0; i <= na; i++) {
         const a = (a0 + (span * i) / na) * DEG;
         const c = Math.cos(a),
           s = Math.sin(a);
-        for (let f = 0.5; f <= h.r + 1e-9; f += 0.5) {
+        for (const f of reachSteps(h.r, 0.25)) {
           const x = h.x + f * c,
             y = h.y + f * s;
           if (!inLawn(G, x, y)) {
-            let d = distB(G, x, y);
-            // overspray past a curve counts only beyond the ARC_OVER allowance
-            if (nearCurve(G, x, y, d + 0.05)) d = Math.max(0, d - ARC_OVER + 0.3);
+            // judged by the nearest edge: past a curve counts only beyond ARC_OVER (flags past 1 ft)
+            const e = nearestEdge(G, x, y);
+            const d = e.curve ? Math.max(0, e.d - ARC_OVER + 0.35) : e.d;
             if (d > hWorst) hWorst = d;
           }
         }
       }
+      // the rim at quarter-degree spacing, on the same scale as hWorst (flags past 0.35)
+      const re = rimExcess(G, h, a0 * DEG, (a0 + span) * DEG, h.r, ARC_OVER);
+      if (re > 0) hWorst = Math.max(hWorst, 0.35 + re);
       if (hWorst > 0.35) {
         overspray++;
         bad.push(h);
