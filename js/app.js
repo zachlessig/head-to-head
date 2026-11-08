@@ -2086,6 +2086,10 @@
     ov.querySelector("#pc").onclick = () => ov.remove();
   }
 
+  // Rebuilt on every open so jobs saved before a parts rule changed still get the current list.
+  function freshParts(L0) {
+    return E.parts(L0.heads, L0.zones || [], J.job ? J.job.dripZones : 0);
+  }
   function partsTable(parts) {
     let h = '<table class="parts">';
     let group = null;
@@ -2121,7 +2125,7 @@
       '<img alt="Sprinkler plan" src="' +
       cv.toDataURL("image/png") +
       '">' +
-      (copy === "contractor" && L0 ? partsTable(L0.parts) : "");
+      (copy === "contractor" && L0 ? partsTable(freshParts(L0)) : "");
     setTimeout(() => window.print(), 50);
   }
 
@@ -2144,8 +2148,8 @@
         ? '<div class="badge warn">The yard or settings changed since the last Generate. Generate again before using this.</div>'
         : "") +
       (L0
-        ? partsTable(L0.parts) +
-          '<p class="note">Heads, nozzles, valves and the controller. Pipe, fittings and wire are not counted yet. Drip zones count toward stations but their parts are not listed.</p>' +
+        ? partsTable(freshParts(L0)) +
+          '<p class="note">Heads, nozzles, swing elbows, swing pipe, valves and the controller. Mainline and lateral pipe, other fittings and wire are not counted yet. Drip zones count toward stations but their parts are not listed.</p>' +
           '<div class="row"><button class="btn primary grow" id="xcopy">' +
           icon("copy") +
           "Copy to text or email</button></div>"
@@ -2156,7 +2160,7 @@
     const copy = async () => {
       if (!L0) return;
       try {
-        await navigator.clipboard.writeText(partsText(L0.parts));
+        await navigator.clipboard.writeText(partsText(freshParts(L0)));
         toast("Parts list copied.");
       } catch (e) {
         console.warn("Clipboard blocked", e);

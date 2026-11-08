@@ -1248,6 +1248,20 @@
 
   /* ---------------- parts ---------------- */
 
+  const SWING_FT_PER_HEAD = 3;
+  const SWING_ROLL_FT = 100;
+  function swingRolls(headCount) {
+    if (!headCount) return 0;
+    return Math.max(1, Math.ceil((headCount * SWING_FT_PER_HEAD) / SWING_ROLL_FT));
+  }
+  function rotorCount(rotors, model) {
+    let n = 0;
+    rotors.forEach((qty, key) => {
+      if (key.split("|")[0] === model) n += qty;
+    });
+    return n;
+  }
+
   function parts(heads, zones, dripZones) {
     const nozzles = new Map();
     let sprayBodies = 0;
@@ -1298,6 +1312,23 @@
           qty: rotors.get(k),
         });
       });
+    // Swing joints, per Zach 2026-11-07: a 1/2" swing elbow under every pop-up and 3504,
+    // a 3/4" swing elbow under every 5004, and 3 ft of swing pipe per head, bought in
+    // 100 ft rolls (whole rolls, rounded up, never fewer than one).
+    const elbows34 = rotorCount(rotors, "5004");
+    const elbows12 = heads.length - elbows34;
+    if (elbows12)
+      lines.push({ group: "Swing pipe and fittings", item: '1/2" swing elbow', qty: elbows12 });
+    if (elbows34)
+      lines.push({ group: "Swing pipe and fittings", item: '3/4" swing elbow', qty: elbows34 });
+    if (heads.length) {
+      const swingFeet = heads.length * SWING_FT_PER_HEAD;
+      lines.push({
+        group: "Swing pipe and fittings",
+        item: "Swing pipe, " + SWING_ROLL_FT + " ft roll (" + swingFeet + " ft needed)",
+        qty: swingRolls(heads.length),
+      });
+    }
     const valves = zones.length;
     if (valves)
       lines.push({
@@ -1422,6 +1453,7 @@
     covers,
     zoneHeads,
     parts,
+    swingRolls,
     FIXED,
     VAN,
     ROTOR,

@@ -210,5 +210,33 @@ for (let w = 20; w <= 62; w += 7)
     if (short) { fail++; console.log("FAIL", w + "x" + h, "has a rotor zone under 3 heads"); }
   }
 
+
+// Zach 2026-11-07: swing joints. 1/2" elbow per pop-up and 3504, 3/4" per 5004,
+// 3 ft of swing pipe per head in 100 ft rolls, whole rolls rounded up, at least one.
+eq(E.swingRolls(1), 1, "1 head is still 1 roll");
+eq(E.swingRolls(33), 1, "33 heads = 99 ft = 1 roll");
+eq(E.swingRolls(34), 2, "34 heads = 102 ft = 2 rolls");
+eq(E.swingRolls(67), 3, "67 heads = 201 ft = 3 rolls");
+eq(E.swingRolls(0), 0, "no heads, no pipe");
+{
+  const fake = [
+    { kind: "S", label: "15Q" }, { kind: "S", label: "15H" }, { kind: "S", label: "15H" },
+    { kind: "R", model: "3504", gpmBase: 1 }, { kind: "R", model: "3504", gpmBase: 2 },
+    { kind: "R", model: "5004", gpmBase: 3 }, { kind: "R", model: "5004", gpmBase: 3 }, { kind: "R", model: "5004", gpmBase: 4 },
+  ];
+  const p = E.parts(fake, [{}, {}], 0);
+  const q = (item) => (p.lines.find((l) => l.item.startsWith(item)) || {}).qty;
+  eq(q('1/2" swing elbow'), 5, "3 pop-ups + 2 3504s get 1/2 inch elbows");
+  eq(q('3/4" swing elbow'), 3, "3 5004s get 3/4 inch elbows");
+  eq(q("Swing pipe"), 1, "8 heads = 24 ft = 1 roll");
+}
+{
+  // every generated job: elbows add up to the head count and rolls follow the rule
+  const o = E.layoutJob({ areas: [{ outer: P([[0, 0], [120, 0], [120, 90], [0, 90]]), mode: "auto" }], psi: 50, cap: 12 });
+  const q = (item) => (o.parts.lines.find((l) => l.item.startsWith(item)) || { qty: 0 }).qty;
+  eq(q('1/2" swing elbow') + q('3/4" swing elbow'), o.heads.length, "one elbow per head on a real job");
+  eq(q("Swing pipe"), Math.max(1, Math.ceil((o.heads.length * 3) / 100)), "rolls on a real job");
+}
+
 console.log(fail ? fail + " failing" : "all passing");
 process.exit(fail ? 1 : 0);
