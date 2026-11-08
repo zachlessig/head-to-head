@@ -1262,7 +1262,19 @@
     return n;
   }
 
-  function parts(heads, zones, dripZones) {
+  // Water source parts, per Zach 2026-11-07: culinary needs a backflow preventer, secondary
+  // needs a filter. Zach is writing the full fixed list for each; it goes here when it comes.
+  const WATER_SOURCE_PARTS = {
+    culinary: [{ item: "Backflow preventer", qty: 1 }],
+    secondary: [{ item: "Filter", qty: 1 }],
+  };
+  const WATER_SOURCE_GROUP = {
+    culinary: "Culinary water connection",
+    secondary: "Secondary water connection",
+  };
+
+  // Sections, per Zach 2026-11-07: heads, pipe, fittings, manifold, controller, water source.
+  function parts(heads, zones, dripZones, water) {
     const nozzles = new Map();
     let sprayBodies = 0;
     const rotors = new Map();
@@ -1282,17 +1294,9 @@
     };
     const lines = [];
     if (sprayBodies)
-      lines.push({
-        group: "Spray heads",
-        item: "1804 pop-up spray body",
-        qty: sprayBodies,
-      });
+      lines.push({ group: "Spray heads", item: "1804 pop-up spray body", qty: sprayBodies });
     [...nozzles.keys()].sort(order).forEach((k) =>
-      lines.push({
-        group: "Spray nozzles",
-        item: k + " nozzle",
-        qty: nozzles.get(k),
-      }),
+      lines.push({ group: "Spray nozzles", item: k + " nozzle", qty: nozzles.get(k) }),
     );
     [...rotors.keys()]
       .sort()
@@ -1301,55 +1305,39 @@
         const [model, g] = k.split("|");
         lines.push({
           group: "Rotors",
-          item:
-            model +
-            " rotor, " +
-            g +
-            " GPM nozzle (" +
-            (model === "5004" ? "R" : "S") +
-            g +
-            ")",
+          item: model + " rotor, " + g + " GPM nozzle (" + (model === "5004" ? "R" : "S") + g + ")",
           qty: rotors.get(k),
         });
       });
+
     // Swing joints, per Zach 2026-11-07: a 1/2" swing elbow under every pop-up and 3504,
     // a 3/4" swing elbow under every 5004, and 3 ft of swing pipe per head, bought in
     // 100 ft rolls (whole rolls, rounded up, never fewer than one).
-    const elbows34 = rotorCount(rotors, "5004");
-    const elbows12 = heads.length - elbows34;
-    if (elbows12)
-      lines.push({ group: "Swing pipe and fittings", item: '1/2" swing elbow', qty: elbows12 });
-    if (elbows34)
-      lines.push({ group: "Swing pipe and fittings", item: '3/4" swing elbow', qty: elbows34 });
     if (heads.length) {
       const swingFeet = heads.length * SWING_FT_PER_HEAD;
       lines.push({
-        group: "Swing pipe and fittings",
+        group: "Pipe",
         item: "Swing pipe, " + SWING_ROLL_FT + " ft roll (" + swingFeet + " ft needed)",
         qty: swingRolls(heads.length),
       });
     }
+    const elbows34 = rotorCount(rotors, "5004");
+    const elbows12 = heads.length - elbows34;
+    if (elbows12) lines.push({ group: "Fittings", item: '1/2" swing elbow', qty: elbows12 });
+    if (elbows34) lines.push({ group: "Fittings", item: '3/4" swing elbow', qty: elbows34 });
+
     const valves = zones.length;
-    if (valves)
-      lines.push({
-        group: "Valves and controller",
-        item: "Zone valve",
-        qty: valves,
-      });
-    const stations = valves + (dripZones || 0);
+    if (valves) lines.push({ group: "Manifold", item: "Zone valve", qty: valves });
     if (dripZones)
-      lines.push({
-        group: "Valves and controller",
-        item: "Drip zone (parts not included yet)",
-        qty: dripZones,
-      });
+      lines.push({ group: "Manifold", item: "Drip zone (parts not included yet)", qty: dripZones });
+    const stations = valves + (dripZones || 0);
     if (stations)
-      lines.push({
-        group: "Valves and controller",
-        item: "Controller with at least " + stations + " stations",
-        qty: 1,
-      });
-    return { lines, stations, overLimit: stations > 16 };
+      lines.push({ group: "Controller", item: "Controller with at least " + stations + " stations", qty: 1 });
+
+    (WATER_SOURCE_PARTS[water] || []).forEach((p) =>
+      lines.push({ group: WATER_SOURCE_GROUP[water], item: p.item, qty: p.qty }),
+    );
+    return { lines, stations, overLimit: stations > 16, waterSet: !!WATER_SOURCE_PARTS[water] };
   }
 
   /* ---------------- whole job ---------------- */
@@ -1397,7 +1385,7 @@
       });
     });
     const zones = zoneHeads(allHeads, job.cap || 12);
-    const p = parts(allHeads, zones, job.dripZones || 0);
+    const p = parts(allHeads, zones, job.dripZones || 0, job.water);
     const totals = areaResults.reduce(
       (t, a) => {
         t.points += a.check.points;

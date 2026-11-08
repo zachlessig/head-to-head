@@ -238,5 +238,25 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(q("Swing pipe"), Math.max(1, Math.ceil((o.heads.length * 3) / 100)), "rolls on a real job");
 }
 
+
+// Zach 2026-11-07: one zone valve per zone in the manifold section; culinary adds a backflow
+// preventer, secondary a filter; sections run heads, pipe, fittings, manifold, controller, water.
+{
+  const fake = [{ kind: "S", label: "15H" }, { kind: "R", model: "5004", gpmBase: 3 }];
+  const zones3 = [{}, {}, {}];
+  const groups = (p) => [...new Set(p.lines.map((l) => l.group))];
+  const cul = E.parts(fake, zones3, 0, "culinary");
+  const sec = E.parts(fake, zones3, 0, "secondary");
+  const none = E.parts(fake, zones3, 0);
+  eq(cul.lines.find((l) => l.item === "Zone valve").qty, 3, "a zone valve for each of 3 zones");
+  eq(cul.lines.find((l) => l.item === "Zone valve").group, "Manifold", "zone valves sit in the manifold section");
+  eq(!!cul.lines.find((l) => l.item === "Backflow preventer"), true, "culinary gets a backflow preventer");
+  eq(!!cul.lines.find((l) => l.item === "Filter"), false, "culinary gets no filter");
+  eq(!!sec.lines.find((l) => l.item === "Filter"), true, "secondary gets a filter");
+  eq(!!sec.lines.find((l) => l.item === "Backflow preventer"), false, "secondary gets no backflow preventer");
+  eq(none.waterSet, false, "no water source flagged as unset");
+  eq(groups(cul).join(" > "), "Spray heads > Spray nozzles > Rotors > Pipe > Fittings > Manifold > Controller > Culinary water connection", "section order");
+}
+
 console.log(fail ? fail + " failing" : "all passing");
 process.exit(fail ? 1 : 0);

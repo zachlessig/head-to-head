@@ -200,8 +200,35 @@
       );
   }
 
+  // Culinary (city) or secondary water decides the connection parts on the parts list.
+  function waterSeg(cur) {
+    return (
+      '<div><label class="f">Water source</label><div class="seg" id="ws">' +
+      [
+        ["culinary", "Culinary"],
+        ["secondary", "Secondary"],
+      ]
+        .map(
+          ([k, t]) =>
+            '<button type="button" data-w="' + k + '" aria-pressed="' + (cur === k) + '">' + t + "</button>",
+        )
+        .join("") +
+      '</div><p class="note" id="wn">Culinary adds a backflow preventer. Secondary adds a filter.</p></div>'
+    );
+  }
+  function wireWaterSeg(el, onPick) {
+    el.querySelectorAll("[data-w]").forEach(
+      (b) =>
+        (b.onclick = () => {
+          el.querySelectorAll("[data-w]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+          onPick(b.dataset.w);
+        }),
+    );
+  }
+
   function newJobSheet() {
     let picked = null;
+    let water = null;
     sheet(
       '<h2>New job</h2><div class="stack">' +
         '<div><label class="f" for="jn">Customer or job name</label><input class="t" id="jn" placeholder="Smith backyard" autocomplete="off"></div>' +
@@ -211,6 +238,7 @@
         '<button class="btn" id="jl" style="width:100%">' +
         icon("pin") +
         "Use where I am now</button>" +
+        waterSeg(null) +
         '<div class="row"><button class="btn grow" id="jc">Cancel</button><button class="btn primary grow" id="jo">Start mapping</button></div></div>',
       (el, close) => {
         const name = el.querySelector("#jn"),
@@ -292,8 +320,15 @@
             { enableHighAccuracy: true, timeout: 15000 },
           );
         };
+        wireWaterSeg(el, (w) => (water = w));
         el.querySelector("#jc").onclick = close;
         el.querySelector("#jo").onclick = () => {
+          if (!water) {
+            const wn = el.querySelector("#wn");
+            wn.textContent = "Pick culinary or secondary first.";
+            wn.style.color = "var(--bad)";
+            return;
+          }
           const center = picked || DEFAULT_CENTER;
           const job = {
             id: uid(),
@@ -309,6 +344,7 @@
             customCap: 12,
             popupsOnly: false,
             dripZones: 0,
+            water,
             shapes: [],
             markers: [],
             layout: null,
@@ -1273,7 +1309,7 @@
       gpm: z.gpm,
       count: z.count,
     }));
-    L0.parts = E.parts(L0.heads, zones, job.dripZones);
+    L0.parts = E.parts(L0.heads, zones, job.dripZones, job.water);
     L0.totals = {
       points: totals.points,
       gaps: totals.gaps,
@@ -1914,6 +1950,7 @@
         '><label class="f" for="cv">Max GPM per zone</label><input class="t" id="cv" inputmode="decimal" value="' +
         job.customCap +
         '"></div></div>' +
+        waterSeg(job.water) +
         '<label class="toggle"><span><b>Pop-ups only</b><br><span class="note" style="margin:0">Skip rotors on every lawn</span></span><input type="checkbox" id="po"' +
         (job.popupsOnly ? " checked" : "") +
         "></label>" +
@@ -1929,7 +1966,9 @@
       (el, close) => {
         let psi = job.psi,
           line = job.line,
-          drip = job.dripZones;
+          drip = job.dripZones,
+          water = job.water || null;
+        wireWaterSeg(el, (w) => (water = w));
         const pn = el.querySelector("#pn");
         const note = () => {
           pn.textContent =
@@ -1981,6 +2020,7 @@
               "Custom cap must be at least 5 GPM. Kept " + job.customCap + ".",
             );
           job.popupsOnly = el.querySelector("#po").checked;
+          if (water) job.water = water;
           const dripChanged = drip !== job.dripZones;
           job.dripZones = drip;
           if (job.layout && dripChanged && job.layout.totals)
@@ -2088,7 +2128,7 @@
 
   // Rebuilt on every open so jobs saved before a parts rule changed still get the current list.
   function freshParts(L0) {
-    return E.parts(L0.heads, L0.zones || [], J.job ? J.job.dripZones : 0);
+    return E.parts(L0.heads, L0.zones || [], J.job ? J.job.dripZones : 0, J.job ? J.job.water : null);
   }
   function partsTable(parts) {
     let h = '<table class="parts">';
@@ -2147,9 +2187,12 @@
       (isStale()
         ? '<div class="badge warn">The yard or settings changed since the last Generate. Generate again before using this.</div>'
         : "") +
+      (L0 && !J.job.water
+        ? '<div class="badge warn">Water source isn\'t set, so the backflow preventer or filter is missing. Pick culinary or secondary in Job settings.</div>'
+        : "") +
       (L0
         ? partsTable(freshParts(L0)) +
-          '<p class="note">Heads, nozzles, swing elbows, swing pipe, valves and the controller. Mainline and lateral pipe, other fittings and wire are not counted yet. Drip zones count toward stations but their parts are not listed.</p>' +
+          '<p class="note">Mainline and lateral pipe, other fittings and wire are not counted yet. Drip zones count toward stations but their parts are not listed.</p>' +
           '<div class="row"><button class="btn primary grow" id="xcopy">' +
           icon("copy") +
           "Copy to text or email</button></div>"
