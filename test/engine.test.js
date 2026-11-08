@@ -276,5 +276,29 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(p.lines.some((l) => l.qty === 0), false, "no zero lines");
 }
 
+
+// Zach 2026-11-08: curved edges get slight overspray (up to ARC_OVER, 1 ft) and no small VANs
+// (4VAN, 6VAN) along them; straight edges still get zero overspray.
+{
+  const curvy = {
+    "bed curving in": P([[0, 0], [50, 0], [50, 40], [0, 40, 10]]),
+    "lawn bulging out": P([[0, 0], [50, 0], [50, 40], [0, 40, -10]]),
+    "kidney": P([[0, 0, 5], [40, 0, -6], [40, 30, 5], [0, 30, -6]]),
+    "curved bed line": P([[0, 0], [60, 0, 6], [60, 35], [0, 35]]),
+    "big curve": P([[0, 0], [90, 0], [90, 60, -15], [0, 60]]),
+  };
+  for (const [name, outer] of Object.entries(curvy))
+    for (const mode of ["spray", "auto"]) {
+      const o = E.layoutJob({ areas: [{ outer, mode }], psi: 50, cap: 12 });
+      const small = o.heads.filter((h) => /^(4|6)VAN$/.test(h.label)).length;
+      eq(small, 0, name + " " + mode + ": no 4VAN or 6VAN on a curved lawn");
+      eq(o.areas[0].check.overspray, 0, name + " " + mode + ": overspray within the curve allowance");
+      if (o.areas[0].check.coverage < 0.99) { fail++; console.log("FAIL", name, mode, "coverage", o.areas[0].check.coverage); }
+    }
+  // overspray past a curve is real but capped
+  const o = E.layoutJob({ areas: [{ outer: curvy["kidney"], mode: "spray" }], psi: 50, cap: 12 });
+  if (o.areas[0].check.worstOverspray > 0.35) { fail++; console.log("FAIL kidney worst overspray over the allowance"); }
+}
+
 console.log(fail ? fail + " failing" : "all passing");
 process.exit(fail ? 1 : 0);
