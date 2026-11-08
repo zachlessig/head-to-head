@@ -4,8 +4,8 @@
   "description": "Map a yard on your phone and get sprinkler heads, zones and a parts list.",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#f4f1ea",
-  "theme_color": "#f4f1ea",
+  "background_color": "#f6f3ea",
+  "theme_color": "#f6f3ea",
   "icons": [
     { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" },
     { "src": "icons/icon-180.png", "sizes": "180x180", "type": "image/png" },

@@ -1,19 +1,19 @@
-/* Field tool: read in full sun, worked with one thumb. Light paper, one marking-flag orange accent. */
+/* Fresh Cut: lawn green and cream, softer corners, a serif for headings. Readable in sun, friendly enough to hand to a homeowner. */
 :root {
-  --paper: #f4f1ea;
-  --card: #fffdf8;
-  --ink: #1d2320;
-  --muted: #5f6964;
-  --line: #ddd7cb;
-  --chip: #ece7dc;
-  --flag: #f05a1a;
-  --flag-ink: #fffdf8;
-  --flag-soft: #fde4d6;
+  --paper: #f6f3ea;
+  --card: #ffffff;
+  --ink: #16301f;
+  --muted: #5d6f62;
+  --line: #dde3d3;
+  --chip: #eaf0e2;
+  --flag: #1f6b45;
+  --flag-ink: #f6f3ea;
+  --flag-soft: #dcebdf;
   --ok: #1e7f4f;
   --ok-soft: #dcefe4;
   --bad: #b8321f;
   --bad-soft: #f7ddd7;
-  --radius: 14px;
+  --radius: 18px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
   color-scheme: light;
@@ -34,7 +34,8 @@ body {
   background: var(--paper);
   color: var(--ink);
   font:
-    16px/1.4 Inter,
+    16px/1.4 "DM Sans",
+    Inter,
     system-ui,
     -apple-system,
     "Segoe UI",
@@ -137,11 +138,16 @@ svg.i {
   gap: 10px;
   margin: 4px 0 18px;
 }
+.brand h1,
+.sheet h2,
+.home h2 {
+  font-family: Fraunces, Georgia, serif;
+}
 .brand h1 {
   margin: 0;
   font-size: 26px;
-  letter-spacing: -0.02em;
-  font-weight: 800;
+  letter-spacing: -0.01em;
+  font-weight: 700;
 }
 .brand .mark {
   width: 34px;
@@ -438,8 +444,8 @@ select.t {
   color: var(--bad);
 }
 .badge.warn {
-  background: var(--flag-soft);
-  color: #8a3a12;
+  background: #fbeccb;
+  color: #7a4d00;
 }
 .chips {
   display: flex;

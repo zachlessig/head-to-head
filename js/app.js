@@ -159,7 +159,7 @@
     const list = jobs.slice().sort((a, b) => b.updated - a.updated);
     let h = '<main class="home">';
     h +=
-      '<div class="brand"><svg class="mark" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="9" fill="#f05a1a"/><path d="M9 25a11 11 0 0 1 16 0M12 21a7 7 0 0 1 10 0" stroke="#fffdf8" stroke-width="2.6" fill="none" stroke-linecap="round"/><circle cx="17" cy="25" r="2.6" fill="#fffdf8"/></svg><h1>Head to Head</h1></div>';
+      '<div class="brand"><svg class="mark" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="9" fill="#1f6b45"/><path d="M9 25a11 11 0 0 1 16 0M12 21a7 7 0 0 1 10 0" stroke="#fffdf8" stroke-width="2.6" fill="none" stroke-linecap="round"/><circle cx="17" cy="25" r="2.6" fill="#fffdf8"/></svg><h1>Head to Head</h1></div>';
     h +=
       '<p class="lede">Trace the yard, tap Generate, and get heads, zones and a parts list.</p>';
     h +=
@@ -168,7 +168,7 @@
       "New job</button>";
     if (!list.length) {
       h +=
-        '<div class="empty"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="6" y="14" width="52" height="38" rx="6" fill="#e3f0d6" stroke="#3d5a2c" stroke-width="2"/><g fill="none" stroke="#f05a1a" stroke-width="2"><path d="M6 52a14 14 0 0 1 14-14"/><path d="M58 52a14 14 0 0 0-14-14"/><path d="M6 14a14 14 0 0 0 14 14"/></g><circle cx="6" cy="52" r="3" fill="#f05a1a"/><circle cx="58" cy="52" r="3" fill="#f05a1a"/><circle cx="6" cy="14" r="3" fill="#f05a1a"/></svg><div><b>No jobs yet</b></div><div>Start one from the truck or standing in the yard.</div></div>';
+        '<div class="empty"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="6" y="14" width="52" height="38" rx="6" fill="#e3f0d6" stroke="#3d5a2c" stroke-width="2"/><g fill="none" stroke="#1f6b45" stroke-width="2"><path d="M6 52a14 14 0 0 1 14-14"/><path d="M58 52a14 14 0 0 0-14-14"/><path d="M6 14a14 14 0 0 0 14 14"/></g><circle cx="6" cy="52" r="3" fill="#1f6b45"/><circle cx="58" cy="52" r="3" fill="#1f6b45"/><circle cx="6" cy="14" r="3" fill="#1f6b45"/></svg><div><b>No jobs yet</b></div><div>Start one from the truck or standing in the yard.</div></div>';
     } else {
       list.forEach((j) => {
         const heads = j.layout
@@ -702,7 +702,7 @@
       const sel = J.selShape === s.id || (J.drawing && J.drawing === s.id);
       const lawn = s.type === "lawn";
       const style = {
-        color: sel ? "#f05a1a" : lawn ? "#ffffff" : "#ffd8a8",
+        color: sel ? "#f5b700" : lawn ? "#ffffff" : "#ffd8a8",
         weight: sel ? 4 : 2.5,
         fillColor: lawn ? "#8fd16a" : "#b07a45",
         fillOpacity: J.mode === "heads" ? 0.08 : lawn ? 0.28 : 0.5,
@@ -1149,7 +1149,7 @@
           radius: 8,
           color: "#fff",
           weight: 3,
-          fillColor: "#f05a1a",
+          fillColor: "#f5b700",
           fillOpacity: 1,
         }),
       ),
@@ -1157,7 +1157,7 @@
     if (J.measure.length === 2) {
       lay.addLayer(
         L.polyline(J.measure, {
-          color: "#f05a1a",
+          color: "#f5b700",
           weight: 4,
           dashArray: "8 6",
         }),
