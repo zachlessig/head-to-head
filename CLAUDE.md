@@ -28,7 +28,7 @@ irrigation rules come from him. Every rule below has a test in `test/engine.test
 - Rotors: 3504 throws 18 to 23 ft, 5004 throws 24 to 30 ft. Use rotors only where 3 or more fit
   in a zone.
 - Parts list sections, in order: heads, pipe, fittings, manifold, controller, water connection.
-  - Pop-ups: one total of 1804 bodies, plus a count for each nozzle that's on the map. No zero lines.
+  - Pop-ups: one total of 1804 bodies, plus a count for each nozzle that's on the map, listed as just "15H" under the Spray nozzles header. No zero lines.
   - Rotors: a total per model only.
   - Swing joints: a 1/2" elbow for each pop-up and 3504, a 3/4" elbow for each 5004. Swing pipe
     is 3 ft per head, in whole 100 ft rolls rounded up, never fewer than 1.

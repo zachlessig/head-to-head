@@ -1627,7 +1627,7 @@
     if (sprayBodies)
       lines.push({ group: "Spray heads", item: "1804 pop-up spray body", qty: sprayBodies });
     [...nozzles.keys()].sort(order).forEach((k) =>
-      lines.push({ group: "Spray nozzles", item: k + " nozzle", qty: nozzles.get(k) }),
+      lines.push({ group: "Spray nozzles", item: k, qty: nozzles.get(k) }), // just "15H": the header says nozzles (Zach 2026-11-08)
     );
     // Rotors ship with every nozzle, so the list counts rotors by model only and the crew
     // reads each rotor's nozzle off the map (Zach 2026-11-08). Pop-up nozzles are bought

@@ -272,7 +272,7 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(rot.join(", "), "5004 rotor x2, 3504 rotor x1", "rotors by model, no nozzle lines");
   eq(p.lines.find((l) => l.item === "1804 pop-up spray body").qty, 3, "pop-up body total");
   const noz = p.lines.filter((l) => l.group === "Spray nozzles").map((l) => l.item + " x" + l.qty);
-  eq(noz.join(", "), "15H nozzle x2, 8Q nozzle x1", "a count per pop-up nozzle on the map");
+  eq(noz.join(", "), "15H x2, 8Q x1", "a count per pop-up nozzle on the map, named without the word nozzle");
   eq(p.lines.some((l) => l.qty === 0), false, "no zero lines");
 }
 
