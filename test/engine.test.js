@@ -326,7 +326,16 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(plan(R(0, 0, 100, 3), R(0, 50, 100, 3)).zones.length, 2, "separate beds are separate zones");
   eq(plan(R(0, 0, 40, 3), R(0, 15, 6, 2)).zones.length, 1, "a small bed nearby joins the zone");
   eq(plan(R(0, 0, 40, 3), R(0, 80, 6, 2)).zones.length, 2, "a small bed far away gets its own zone");
-  eq(JSON.stringify(E.dripRolls(380)), JSON.stringify({ 100: 4, 250: 0, 500: 0 }), "380 ft buys the least pipe");
+  // Zach 2026-11-08 rolls: 100s up to 350 ft, 250s and 100s to 750, 500s past that, no leftover
+  const rolls = (ft) => { const r = E.dripRolls(ft); return [500, 250, 100].map((k) => r[k] || 0).join("/"); };
+  eq(rolls(40), "0/0/1", "40 ft is one 100 roll");
+  eq(rolls(350), "0/0/4", "350 ft is four 100s");
+  eq(rolls(600), "0/2/1", "600 ft is two 250s and a 100");
+  eq(rolls(750), "0/3/0", "750 ft is three 250s");
+  eq(rolls(760), "1/0/3", "760 ft gets a 500 and three 100s");
+  eq(rolls(1000), "2/0/0", "1000 ft is two 500s");
+  eq(plan(R(0, 0, 40, 3), R(0, 20, 6, 2)).zones.length, 2, "a small bed 17 ft away is its own zone");
+  eq(plan(R(0, 0, 40, 3), R(0, 15, 6, 2)).zones.length, 1, "a small bed 12 ft away joins");
   const p = E.parts([{ kind: "S", label: "15H" }], [{}], plan(R(0, 0, 40, 3), R(0, 50, 100, 3)), "culinary");
   eq(p.lines.find((l) => l.item === "Drip zone valve").qty, 2, "a drip zone valve per drip zone");
   eq(p.lines.find((l) => l.item === "Drip zone valve").group, "Manifold", "drip valves in the manifold");

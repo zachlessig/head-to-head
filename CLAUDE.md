@@ -37,7 +37,9 @@ irrigation rules come from him. Every rule below has a test in `test/engine.test
     checked all over the bed, and wherever it's over 7 ft the bed gets an extra row (7 ft or
     less is one row). A drip zone carries 250 ft at most, and the line from the valve box
     isn't counted. Separate beds are separate zones and touching beds share one. A bed under
-    20 ft of pipe joins a bed nearby. Drip pipe comes in 100, 250 and 500 ft rolls. The list
+    20 ft of pipe joins a bed within 15 ft. Rolls, with no pipe left over: 100s up to 350 ft,
+    250s and 100s from 351 to 750, and 500s too past 750. A bed over 14 ft wide gets a row for
+    every 7 ft. The list
     says "Drip zone valve", one per drip zone. Drip zones are counted from the beds on the map;
     the old manual counter is gone.
   - Editing: a company can edit any job's list and reset it back to the app's list. The edited

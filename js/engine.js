@@ -1396,8 +1396,8 @@
   const DRIP_STEP = 1;
   const DRIP_ZONE_FT = 250;
   const DRIP_SMALL_FT = 20;
-  // "same general area in the yard": a first guess Zach hasn't confirmed. Measured edge to edge.
-  const DRIP_NEAR_FT = 25;
+  // "same general area in the yard": within 15 ft, edge to edge (Zach 2026-11-08).
+  const DRIP_NEAR_FT = 15;
   const DRIP_ROLLS = [500, 250, 100];
 
   function bedRing(pts) {
@@ -1549,18 +1549,23 @@
     };
   }
 
-  // Cheapest cover in feet first, then the fewest rolls.
+  // Zach 2026-11-08: "dont have left over". Up to 350 ft only 100 ft rolls; 351 to 750 ft 250 and
+  // 100 ft rolls; over 750 ft the 500s come in too. Within those sizes, the least pipe left over,
+  // then the fewest rolls.
   function dripRolls(ft) {
     if (ft <= 0) return {};
+    const sizes = ft <= 350 ? [100] : ft <= 750 ? [250, 100] : [500, 250, 100];
+    const max = (sz) => (sizes.includes(sz) ? Math.ceil(ft / sz) : 0);
     let best = null;
-    for (let a = 0; a <= Math.ceil(ft / 500); a++)
-      for (let b = 0; b <= 2; b++)
-        for (let c = 0; c <= 4; c++) { // 5 x 100 would just be a 500 roll
-          const tot = a * 500 + b * 250 + c * 100;
-          if (tot < ft) continue;
-          const cnt = a + b + c;
-          if (!best || tot < best.tot || (tot === best.tot && cnt < best.cnt)) best = { tot, cnt, r: { 500: a, 250: b, 100: c } };
-        }
+    for (let a = 0; a <= max(500); a++)
+      for (let b = 0; b <= max(250); b++) {
+        const rest = ft - a * 500 - b * 250;
+        const c = sizes.includes(100) ? Math.max(0, Math.ceil(rest / 100)) : 0;
+        const tot = a * 500 + b * 250 + c * 100;
+        if (tot < ft) continue;
+        const cnt = a + b + c;
+        if (!best || tot < best.tot || (tot === best.tot && cnt < best.cnt)) best = { tot, cnt, r: { 500: a, 250: b, 100: c } };
+      }
     return best.r;
   }
 
