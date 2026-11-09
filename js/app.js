@@ -94,6 +94,26 @@
       toast("This phone would not save the job. Check storage space.");
     }
   }
+  // Settings for the whole company on this phone, not one job: how they buy drip pipe.
+  const PREFS_KEY = "headtohead.prefs.v1";
+  function loadPrefs() {
+    try {
+      return JSON.parse(localStorage.getItem(PREFS_KEY)) || {};
+    } catch (e) {
+      console.warn("Prefs unreadable", e);
+      return {};
+    }
+  }
+  let prefs = loadPrefs();
+  function savePrefs() {
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+    } catch (e) {
+      console.warn("Prefs not saved", e);
+      toast("Couldn't save that setting on this phone.");
+    }
+  }
+
   function touch(job) {
     job.updated = Date.now();
     saveJobs();
@@ -1315,7 +1335,7 @@
       gpm: z.gpm,
       count: z.count,
     }));
-    L0.parts = E.parts(L0.heads, zones, dripFor(job), job.water);
+    L0.parts = E.parts(L0.heads, zones, dripFor(job), job.water, { dripRoll: prefs.dripRoll });
     L0.totals = {
       points: totals.points,
       gaps: totals.gaps,
@@ -2121,7 +2141,7 @@
 
   // Rebuilt on every open so jobs saved before a parts rule changed still get the current list.
   function freshParts(L0) {
-    return E.parts(L0.heads, L0.zones || [], dripFor(J.job), J.job.water);
+    return E.parts(L0.heads, L0.zones || [], dripFor(J.job), J.job.water, { dripRoll: prefs.dripRoll });
   }
   // The list the crew sees: the company's edited copy if there is one, else the app's.
   function shownParts(L0) {
@@ -2220,8 +2240,24 @@
               ? "This is your edited list."
               : "This is your edited list. The layout changed after you edited it, so it may be out of date. Reset to get the app's new list.") +
             "</div>";
+        const hasDrip = freshParts(L0).lines.some((l) => l.group === "Drip");
         body +=
           partsTable(shownParts(L0)) +
+          (hasDrip && !job.partsEdit
+            ? '<div style="margin-top:12px"><label class="f">Drip pipe rolls (every job on this phone)</label><div class="seg" id="dr">' +
+              [
+                [0, "App's rule"],
+                [100, "All 100s"],
+                [250, "All 250s"],
+                [500, "All 500s"],
+              ]
+                .map(
+                  ([k, t]) =>
+                    '<button type="button" data-r="' + k + '" aria-pressed="' + ((prefs.dripRoll || 0) === k) + '">' + t + "</button>",
+                )
+                .join("") +
+              "</div></div>"
+            : "") +
           '<p class="note">Drip covers the beds only, not the line from the valve box to each bed. Mainline and lateral pipe, other fittings and wire are not counted yet.</p>' +
           '<div class="row"><button class="btn grow" id="pedit">' + icon("pen") + "Edit list</button>" +
           (job.partsEdit ? '<button class="btn grow" id="preset">' + icon("undo") + "Reset to the app's list</button>" : "") +
@@ -2263,6 +2299,14 @@
       if (xp) xp.onclick = copy;
       const xcopy = ov.querySelector("#xcopy");
       if (xcopy) xcopy.onclick = copy;
+      ov.querySelectorAll("[data-r]").forEach(
+        (b) =>
+          (b.onclick = () => {
+            prefs.dripRoll = +b.dataset.r || 0;
+            savePrefs();
+            render();
+          }),
+      );
       const pe = ov.querySelector("#pedit");
       if (pe)
         pe.onclick = () => {

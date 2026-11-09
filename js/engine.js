@@ -1504,6 +1504,8 @@
     }
     // touching beds share a zone
     for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) if (gap[i][j] < 0.5) parent[find(i)] = find(j);
+    // a drip area is a bed, or beds touching each other: each run of drip ends in one end cap
+    const areas = new Set(list.map((_, i) => find(i))).size;
     // a small bed joins the nearest bed in the same part of the yard
     for (let i = 0; i < n; i++) {
       if (list[i].ft >= DRIP_SMALL_FT) continue;
@@ -1545,6 +1547,7 @@
     return {
       beds: list.map((b) => ({ id: b.id, ft: b.ft, zone: b.zone, maxWidth: b.maxWidth })),
       zones,
+      areas,
       ft: list.reduce((a, b) => a + b.ft, 0),
     };
   }
@@ -1552,8 +1555,10 @@
   // Zach 2026-11-08: "dont have left over". Up to 350 ft only 100 ft rolls; 351 to 750 ft 250 and
   // 100 ft rolls; over 750 ft the 500s come in too. Within those sizes, the least pipe left over,
   // then the fewest rolls.
-  function dripRolls(ft) {
+  // rollSize: 100, 250 or 500 to buy only that size (a contractor's own rule); anything else = Zach's rule.
+  function dripRolls(ft, rollSize) {
     if (ft <= 0) return {};
+    if (DRIP_ROLLS.includes(rollSize)) return { [rollSize]: Math.ceil(ft / rollSize) };
     const sizes = ft <= 350 ? [100] : ft <= 750 ? [250, 100] : [500, 250, 100];
     const max = (sz) => (sizes.includes(sz) ? Math.ceil(ft / sz) : 0);
     let best = null;
@@ -1598,7 +1603,8 @@
 
   // Sections, per Zach 2026-11-07: heads, pipe, fittings, manifold, controller, water source.
   // drip: a dripPlan() result. A bare number (old jobs) is read as that many drip zones with no pipe.
-  function parts(heads, zones, drip, water) {
+  // opts.dripRoll: a roll size the contractor buys every time (see dripRolls).
+  function parts(heads, zones, drip, water, opts) {
     const dz = typeof drip === "number" ? drip : drip ? drip.zones.length : 0;
     const dripFt = drip && typeof drip === "object" ? drip.ft : 0;
     const nozzles = new Map();
@@ -1643,24 +1649,25 @@
         qty: swingRolls(heads.length),
       });
     }
-    if (dripFt) {
-      const rolls = dripRolls(dripFt);
-      let first = true;
-      DRIP_ROLLS.forEach((size) => {
-        if (!rolls[size]) return;
-        lines.push({
-          group: "Pipe",
-          item: "Drip pipe, " + size + " ft roll" + (first ? " (" + dripFt + " ft in the beds)" : ""),
-          qty: rolls[size],
-        });
-        first = false;
-      });
-    }
     const elbows34 = rotorCount(rotors, "5004");
     const elbows12 = heads.length - elbows34;
     if (elbows12) lines.push({ group: "Fittings", item: '1/2" swing elbow', qty: elbows12 });
     if (elbows34) lines.push({ group: "Fittings", item: '3/4" swing elbow', qty: elbows34 });
 
+    // Drip, per Zach 2026-11-08: total feet, the rolls, 3 drip tees and 1 coupling for every
+    // 100 ft (no elbows), and a figure 8 end cap for each separate drip area.
+    if (dripFt) {
+      const per100 = Math.ceil(dripFt / 100);
+      lines.push({ group: "Drip", item: "Total drip pipe, feet", qty: dripFt });
+      const rolls = dripRolls(dripFt, opts && opts.dripRoll);
+      DRIP_ROLLS.forEach((size) => {
+        if (rolls[size]) lines.push({ group: "Drip", item: "Drip pipe, " + size + " ft roll", qty: rolls[size] });
+      });
+      lines.push({ group: "Drip", item: "Drip tee", qty: 3 * per100 });
+      lines.push({ group: "Drip", item: "Drip coupling", qty: per100 });
+      const caps = drip && drip.areas ? drip.areas : dz;
+      if (caps) lines.push({ group: "Drip", item: "Figure 8 end cap", qty: caps });
+    }
     const valves = zones.length;
     if (valves) lines.push({ group: "Manifold", item: "Zone valve", qty: valves });
     if (dz) lines.push({ group: "Manifold", item: "Drip zone valve", qty: dz });
