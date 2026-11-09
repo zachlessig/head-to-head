@@ -33,6 +33,15 @@ irrigation rules come from him. Every rule below has a test in `test/engine.test
   - Swing joints: a 1/2" elbow for each pop-up and 3504, a 3/4" elbow for each 5004. Swing pipe
     is 3 ft per head, in whole 100 ft rolls rounded up, never fewer than 1.
   - Manifold: one zone valve per zone.
+  - Drip (2026-11-08): every bed is drip. A row runs the length of the bed. The width is
+    checked all over the bed, and wherever it's over 7 ft the bed gets an extra row (7 ft or
+    less is one row). A drip zone carries 250 ft at most, and the line from the valve box
+    isn't counted. Separate beds are separate zones and touching beds share one. A bed under
+    20 ft of pipe joins a bed nearby. Drip pipe comes in 100, 250 and 500 ft rolls. The list
+    says "Drip zone valve", one per drip zone. Drip zones are counted from the beds on the map;
+    the old manual counter is gone.
+  - Editing: a company can edit any job's list and reset it back to the app's list. The edited
+    list is what gets copied and printed.
   - Water: every job is culinary or secondary, picked on the new job screen. Culinary needs a
     backflow preventer and secondary needs a filter. Zach is writing a fixed list for each, and it
     goes in `WATER_SOURCE_PARTS` in `js/engine.js`.

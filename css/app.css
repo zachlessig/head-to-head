@@ -693,3 +693,31 @@ table.parts td.q {
   }
 }
 .hshape { background: none; border: 0; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)); }
+
+/* parts list editing */
+.pe {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 6px 0;
+}
+.pe .t {
+  flex: 1;
+  min-width: 0;
+}
+.pe .t.q {
+  flex: none;
+  width: 64px;
+  text-align: right;
+}
+.pe .x {
+  flex: none;
+}
+.pe-g {
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 16px 0 2px;
+}

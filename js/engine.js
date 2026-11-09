@@ -1384,6 +1384,186 @@
     zones.forEach((z) => (z.small = z.family === 'rotor' && z.heads.length < 3));
   }
 
+  /* ---------------- drip ---------------- */
+
+  // Zach 2026-11-08: every bed gets drip. A row runs from one side of the bed to the other; the
+  // width is checked every DRIP_STEP ft and anywhere it's over DRIP_ROW_W the bed gets an extra
+  // row there ("anything under 7 gets 1 row"). A drip zone carries DRIP_ZONE_FT of pipe at most,
+  // not counting the line from the valve box. Separate beds are separate zones, except beds that
+  // touch share a zone, and a small bed (under DRIP_SMALL_FT of pipe) joins a bed in the same part
+  // of the yard. Rolls come in 100, 250 and 500 ft.
+  const DRIP_ROW_W = 7;
+  const DRIP_STEP = 1;
+  const DRIP_ZONE_FT = 250;
+  const DRIP_SMALL_FT = 20;
+  // "same general area in the yard": a first guess Zach hasn't confirmed. Measured edge to edge.
+  const DRIP_NEAR_FT = 25;
+  const DRIP_ROLLS = [500, 250, 100];
+
+  function bedRing(pts) {
+    const out = [];
+    pts.forEach((v, i) => {
+      out.push({ x: v.x, y: v.y });
+      arcPoints(v, pts[(i + 1) % pts.length], v.b || 0, 0.5).forEach((p) => out.push(p));
+    });
+    return out;
+  }
+
+  // Width of the bed through point (x,y) along direction (ux,uy): the inside stretch of that line.
+  function chordAt(ring, x, y, ux, uy) {
+    const ts = [];
+    const n = ring.length;
+    for (let i = 0; i < n; i++) {
+      const a = ring[i], b = ring[(i + 1) % n];
+      const ex = b.x - a.x, ey = b.y - a.y;
+      const den = ux * ey - uy * ex;
+      if (Math.abs(den) < 1e-12) continue;
+      const wx = a.x - x, wy = a.y - y;
+      const t = (wx * ey - wy * ex) / den;
+      const s = (wx * uy - wy * ux) / den;
+      if (s >= 0 && s < 1) ts.push(t);
+    }
+    ts.sort((p, q) => p - q);
+    for (let k = 0; k + 1 < ts.length; k += 2) if (ts[k] <= 0 && ts[k + 1] >= 0) return ts[k + 1] - ts[k];
+    return 0;
+  }
+
+  // Pipe for one bed. The width is checked all over the bed every DRIP_STEP/2 ft, across the
+  // bed's run (the way you'd tape it). A strip w wide needs 1/w ft of row
+  // per sq ft, times the rows it gets. Slicing one way only read an L-shaped bed's leg lengthwise
+  // as 30 ft wide and came out 46 ft instead of 56.
+  function bedPipe(ring) {
+    const cell = DRIP_STEP / 2;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    ring.forEach((p) => {
+      x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x);
+      y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
+    });
+    const dirs = [];
+    for (let d = 0; d < 180; d += 7.5) dirs.push([Math.cos(d * DEG), Math.sin(d * DEG)]);
+    // the bed's main direction: the long side of its tightest bounding box
+    let bb = null;
+    dirs.forEach(([ux, uy], i) => {
+      let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
+      ring.forEach((p) => {
+        const a = p.x * ux + p.y * uy, b = -p.x * uy + p.y * ux;
+        a0 = Math.min(a0, a); a1 = Math.max(a1, a); b0 = Math.min(b0, b); b1 = Math.max(b1, b);
+      });
+      const area = (a1 - a0) * (b1 - b0);
+      if (!bb || area < bb.area - 1e-9) bb = { area, i: a1 - a0 >= b1 - b0 ? i : (i + dirs.length / 2) % dirs.length };
+    });
+    let ft = 0, maxW = 0;
+    for (let x = x0 + cell / 2; x < x1; x += cell)
+      for (let y = y0 + cell / 2; y < y1; y += cell) {
+        // the run direction here is the longest line through the spot; the width is the line square
+        // to it. The plain narrowest line read a strip's ends as thin, cutting across the corners,
+        // and put a 7x40 bed at 47 ft; lines up to 30 degrees off square still gave 45.
+        const ch = dirs.map(([ux, uy]) => chordAt(ring, x, y, ux, uy));
+        let li = 0;
+        ch.forEach((c, i) => { if (c > ch[li]) li = i; });
+        if (ch[li] <= 0) continue; // outside the bed
+        // rows follow the bed's main direction unless this spot clearly runs another way (an L's
+        // other leg, the ends of a curve). Going by the longest line alone ran a 40x40 bed's rows
+        // corner to corner, 270 ft instead of 240.
+        if (ch[bb.i] * 1.5 >= ch[li]) li = bb.i;
+        const perp = (li + dirs.length / 2) % dirs.length;
+        const w = ch[perp];
+        if (!(w > 0)) continue;
+        maxW = Math.max(maxW, w);
+        // the 0.05 ft slack keeps a 7 ft bed that measures 7.0000001 from getting double rows
+        const rows = w > DRIP_ROW_W + 0.05 ? Math.ceil((w - 0.05) / DRIP_ROW_W) : 1;
+        ft += (rows / w) * cell * cell;
+      }
+    return { ft: Math.max(1, Math.round(ft)), maxWidth: maxW };
+  }
+
+  function ringGap(r1, r2) {
+    let best = Infinity;
+    for (const p of r1)
+      for (let i = 0; i < r2.length; i++) {
+        const a = r2[i], b = r2[(i + 1) % r2.length];
+        best = Math.min(best, segDist({ ax: a.x, ay: a.y, bx: b.x, by: b.y }, p.x, p.y));
+      }
+    return best;
+  }
+
+  // beds: [{id, pts:[{x,y,b}]}] in feet. Returns {beds:[{id, ft, zone}], zones:[{n, ft, beds}], ft}.
+  function dripPlan(beds) {
+    const list = beds.map((b, i) => {
+      const ring = bedRing(b.pts);
+      return Object.assign({ id: b.id != null ? b.id : i, ring }, bedPipe(ring));
+    });
+    const n = list.length;
+    const parent = list.map((_, i) => i);
+    const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+    const gap = [];
+    for (let i = 0; i < n; i++) {
+      gap[i] = [];
+      for (let j = 0; j < n; j++)
+        gap[i][j] = i === j ? 0 : j < i ? gap[j][i] : Math.min(ringGap(list[i].ring, list[j].ring), ringGap(list[j].ring, list[i].ring));
+    }
+    // touching beds share a zone
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) if (gap[i][j] < 0.5) parent[find(i)] = find(j);
+    // a small bed joins the nearest bed in the same part of the yard
+    for (let i = 0; i < n; i++) {
+      if (list[i].ft >= DRIP_SMALL_FT) continue;
+      let bj = -1;
+      for (let j = 0; j < n; j++) if (j !== i && gap[i][j] <= DRIP_NEAR_FT && (bj < 0 || gap[i][j] < gap[i][bj])) bj = j;
+      if (bj >= 0) parent[find(i)] = find(bj);
+    }
+    const groups = new Map();
+    list.forEach((b, i) => {
+      const r = find(i);
+      if (!groups.has(r)) groups.set(r, []);
+      groups.get(r).push(b);
+    });
+    // each group fills zones up to DRIP_ZONE_FT; a bed bigger than that gets zones of its own
+    const zones = [];
+    [...groups.values()].forEach((g) => {
+      const bins = [];
+      g.slice()
+        .sort((a, b) => b.ft - a.ft)
+        .forEach((b) => {
+          if (b.ft > DRIP_ZONE_FT) {
+            const k = Math.ceil(b.ft / DRIP_ZONE_FT);
+            for (let m = 0; m < k; m++) zones.push({ ft: Math.round(b.ft / k), beds: [b.id] });
+            b.zone = zones.length - k + 1;
+            return;
+          }
+          let bin = bins.find((z) => z.ft + b.ft <= DRIP_ZONE_FT);
+          if (!bin) {
+            bin = { ft: 0, beds: [] };
+            bins.push(bin);
+            zones.push(bin);
+          }
+          bin.ft += b.ft;
+          bin.beds.push(b.id);
+          b.zone = zones.indexOf(bin) + 1;
+        });
+    });
+    zones.forEach((z, i) => (z.n = i + 1));
+    return {
+      beds: list.map((b) => ({ id: b.id, ft: b.ft, zone: b.zone, maxWidth: b.maxWidth })),
+      zones,
+      ft: list.reduce((a, b) => a + b.ft, 0),
+    };
+  }
+
+  // Cheapest cover in feet first, then the fewest rolls.
+  function dripRolls(ft) {
+    if (ft <= 0) return {};
+    let best = null;
+    for (let a = 0; a <= Math.ceil(ft / 500); a++)
+      for (let b = 0; b <= 2; b++)
+        for (let c = 0; c <= 4; c++) { // 5 x 100 would just be a 500 roll
+          const tot = a * 500 + b * 250 + c * 100;
+          if (tot < ft) continue;
+          const cnt = a + b + c;
+          if (!best || tot < best.tot || (tot === best.tot && cnt < best.cnt)) best = { tot, cnt, r: { 500: a, 250: b, 100: c } };
+        }
+    return best.r;
+  }
+
   /* ---------------- parts ---------------- */
 
   const SWING_FT_PER_HEAD = 3;
@@ -1412,7 +1592,10 @@
   };
 
   // Sections, per Zach 2026-11-07: heads, pipe, fittings, manifold, controller, water source.
-  function parts(heads, zones, dripZones, water) {
+  // drip: a dripPlan() result. A bare number (old jobs) is read as that many drip zones with no pipe.
+  function parts(heads, zones, drip, water) {
+    const dz = typeof drip === "number" ? drip : drip ? drip.zones.length : 0;
+    const dripFt = drip && typeof drip === "object" ? drip.ft : 0;
     const nozzles = new Map();
     let sprayBodies = 0;
     const rotors = new Map();
@@ -1455,6 +1638,19 @@
         qty: swingRolls(heads.length),
       });
     }
+    if (dripFt) {
+      const rolls = dripRolls(dripFt);
+      let first = true;
+      DRIP_ROLLS.forEach((size) => {
+        if (!rolls[size]) return;
+        lines.push({
+          group: "Pipe",
+          item: "Drip pipe, " + size + " ft roll" + (first ? " (" + dripFt + " ft in the beds)" : ""),
+          qty: rolls[size],
+        });
+        first = false;
+      });
+    }
     const elbows34 = rotorCount(rotors, "5004");
     const elbows12 = heads.length - elbows34;
     if (elbows12) lines.push({ group: "Fittings", item: '1/2" swing elbow', qty: elbows12 });
@@ -1462,9 +1658,8 @@
 
     const valves = zones.length;
     if (valves) lines.push({ group: "Manifold", item: "Zone valve", qty: valves });
-    if (dripZones)
-      lines.push({ group: "Manifold", item: "Drip zone (parts not included yet)", qty: dripZones });
-    const stations = valves + (dripZones || 0);
+    if (dz) lines.push({ group: "Manifold", item: "Drip zone valve", qty: dz });
+    const stations = valves + dz;
     if (stations)
       lines.push({ group: "Controller", item: "Controller with at least " + stations + " stations", qty: 1 });
 
@@ -1519,7 +1714,7 @@
       });
     });
     const zones = zoneHeads(allHeads, job.cap || 12);
-    const p = parts(allHeads, zones, job.dripZones || 0, job.water);
+    const p = parts(allHeads, zones, job.drip || 0, job.water);
     const totals = areaResults.reduce(
       (t, a) => {
         t.points += a.check.points;
@@ -1575,6 +1770,8 @@
     covers,
     zoneHeads,
     parts,
+    dripPlan,
+    dripRolls,
     swingRolls,
     FIXED,
     VAN,

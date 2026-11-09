@@ -343,7 +343,6 @@
             line: "34",
             customCap: 12,
             popupsOnly: false,
-            dripZones: 0,
             water,
             shapes: [],
             markers: [],
@@ -454,6 +453,15 @@
     return areas;
   }
 
+  // Drip, per Zach 2026-11-08: every bed on the map is drip, zoned by the engine's rules.
+  function dripFor(job) {
+    const P = proj(job);
+    const beds = job.shapes
+      .filter((s) => s.type === "bed" && s.closed && s.pts.length >= 3)
+      .map((s) => ({ id: s.id, pts: shapeLocal(s, P) }));
+    return E.dripPlan(beds);
+  }
+
   function signature(job) {
     return JSON.stringify([
       job.shapes.map((s) => [
@@ -470,7 +478,6 @@
       job.psi,
       capOf(job),
       job.popupsOnly,
-      job.dripZones,
     ]);
   }
 
@@ -1233,7 +1240,6 @@
           psi: J.job.psi,
           cap: capOf(J.job),
           popupsOnly: J.job.popupsOnly,
-          dripZones: J.job.dripZones,
         });
         J.job.layout = {
           heads: out.heads.map(cleanHead),
@@ -1309,7 +1315,7 @@
       gpm: z.gpm,
       count: z.count,
     }));
-    L0.parts = E.parts(L0.heads, zones, job.dripZones, job.water);
+    L0.parts = E.parts(L0.heads, zones, dripFor(job), job.water);
     L0.totals = {
       points: totals.points,
       gaps: totals.gaps,
@@ -1849,13 +1855,16 @@
           )
           .join("") +
         "</div>";
-      if (job.dripZones)
+      const drip = dripFor(job);
+      if (drip.zones.length)
         h +=
           '<p class="note">Plus ' +
-          job.dripZones +
+          drip.zones.length +
           " drip zone" +
-          (job.dripZones > 1 ? "s" : "") +
-          " on the controller.</p>";
+          (drip.zones.length > 1 ? "s" : "") +
+          " for the beds, " +
+          drip.ft +
+          " ft of drip pipe.</p>";
       const smallRotor = L0.zones.filter(
         (z) => z.family === "rotor" && z.count < 3,
       );
@@ -1954,9 +1963,6 @@
         '<label class="toggle"><span><b>Pop-ups only</b><br><span class="note" style="margin:0">Skip rotors on every lawn</span></span><input type="checkbox" id="po"' +
         (job.popupsOnly ? " checked" : "") +
         "></label>" +
-        '<div><label class="f">Drip zones (count toward the controller)</label><div class="stepper"><button id="dm" aria-label="Fewer drip zones">-</button><output id="dv">' +
-        job.dripZones +
-        '</output><button id="dp" aria-label="More drip zones">+</button></div></div>' +
         '<button class="btn primary" style="width:100%" id="sv">' +
         icon("check") +
         "Save</button>" +
@@ -1966,7 +1972,6 @@
       (el, close) => {
         let psi = job.psi,
           line = job.line,
-          drip = job.dripZones,
           water = job.water || null;
         wireWaterSeg(el, (w) => (water = w));
         const pn = el.querySelector("#pn");
@@ -1999,14 +2004,6 @@
               el.querySelector("#cc").hidden = line !== "c";
             }),
         );
-        el.querySelector("#dm").onclick = () => {
-          drip = Math.max(0, drip - 1);
-          el.querySelector("#dv").textContent = drip;
-        };
-        el.querySelector("#dp").onclick = () => {
-          drip = Math.min(16, drip + 1);
-          el.querySelector("#dv").textContent = drip;
-        };
         el.querySelector("#sv").onclick = () => {
           job.name = el.querySelector("#sn").value.trim() || job.name;
           job.address = el.querySelector("#sa").value.trim();
@@ -2021,10 +2018,6 @@
             );
           job.popupsOnly = el.querySelector("#po").checked;
           if (water) job.water = water;
-          const dripChanged = drip !== job.dripZones;
-          job.dripZones = drip;
-          if (job.layout && dripChanged && job.layout.totals)
-            applyCheck(job, job.layout.totals, job.layout.gapPts || []);
           touch(job);
           close();
           setTitle();
@@ -2128,7 +2121,11 @@
 
   // Rebuilt on every open so jobs saved before a parts rule changed still get the current list.
   function freshParts(L0) {
-    return E.parts(L0.heads, L0.zones || [], J.job ? J.job.dripZones : 0, J.job ? J.job.water : null);
+    return E.parts(L0.heads, L0.zones || [], dripFor(J.job), J.job.water);
+  }
+  // The list the crew sees: the company's edited copy if there is one, else the app's.
+  function shownParts(L0) {
+    return J.job.partsEdit ? { lines: J.job.partsEdit.lines } : freshParts(L0);
   }
   function partsTable(parts) {
     let h = '<table class="parts">';
@@ -2165,54 +2162,171 @@
       '<img alt="Sprinkler plan" src="' +
       cv.toDataURL("image/png") +
       '">' +
-      (copy === "contractor" && L0 ? partsTable(freshParts(L0)) : "");
+      (copy === "contractor" && L0 ? partsTable(shownParts(L0)) : "");
     setTimeout(() => window.print(), 50);
   }
 
   function openParts() {
     const L0 = J.job.layout;
+    const job = J.job;
     const ov = document.createElement("div");
     ov.className = "overlay";
     ov.style.zIndex = 950;
-    ov.innerHTML =
-      '<header class="topbar"><button class="iconbtn" id="xc" aria-label="Back">' +
-      icon("back") +
-      '</button><div class="title"><b>Parts list</b><span>' +
-      esc(J.job.name) +
-      "</span></div>" +
-      '<button class="iconbtn" id="xp" aria-label="Copy list">' +
-      icon("copy") +
-      "</button></header>" +
-      '<div class="body">' +
-      (isStale()
-        ? '<div class="badge warn">The yard or settings changed since the last Generate. Generate again before using this.</div>'
-        : "") +
-      (L0 && !J.job.water
-        ? '<div class="badge warn">Water source isn\'t set, so the backflow preventer or filter is missing. Pick culinary or secondary in Job settings.</div>'
-        : "") +
-      (L0
-        ? partsTable(freshParts(L0)) +
-          '<p class="note">Mainline and lateral pipe, other fittings and wire are not counted yet. Drip zones count toward stations but their parts are not listed.</p>' +
-          '<div class="row"><button class="btn primary grow" id="xcopy">' +
-          icon("copy") +
-          "Copy to text or email</button></div>"
-        : '<p class="note">Generate a layout first.</p>') +
-      "</div>";
-    document.body.appendChild(ov);
-    ov.querySelector("#xc").onclick = () => ov.remove();
-    const copy = async () => {
-      if (!L0) return;
-      try {
-        await navigator.clipboard.writeText(partsText(freshParts(L0)));
-        toast("Parts list copied.");
-      } catch (e) {
-        console.warn("Clipboard blocked", e);
-        toast("Copy was blocked. Press and hold the list to select it.");
+    let editing = null; // working copy of the lines while editing
+
+    const appLines = () => (L0 ? freshParts(L0).lines : []);
+    const sameAsBase = () =>
+      !job.partsEdit || job.partsEdit.base === JSON.stringify(appLines());
+
+    function editRows() {
+      let h = "";
+      let group = null;
+      editing.forEach((l, i) => {
+        if (l.group !== group) {
+          if (group !== null)
+            h += '<button class="btn small ghost" data-add="' + esc(group) + '">' + icon("plus") + "Add to " + esc(group) + "</button>";
+          group = l.group;
+          h += '<div class="pe-g">' + esc(group) + "</div>";
+        }
+        h +=
+          '<div class="pe"><input class="t" data-i="' + i + '" data-f="item" value="' + esc(l.item) +
+          '" aria-label="Part"><input class="t q" data-i="' + i + '" data-f="qty" inputmode="numeric" value="' + esc(String(l.qty)) +
+          '" aria-label="How many"><button class="iconbtn x" data-del="' + i + '" aria-label="Remove ' + esc(l.item) + '">' + icon("trash") + "</button></div>";
+      });
+      if (group !== null)
+        h += '<button class="btn small ghost" data-add="' + esc(group) + '">' + icon("plus") + "Add to " + esc(group) + "</button>";
+      h += '<button class="btn small ghost" data-add="Other parts">' + icon("plus") + "Add a part in its own section</button>";
+      return h;
+    }
+
+    function render() {
+      let body = "";
+      if (isStale())
+        body += '<div class="badge warn">The yard or settings changed since the last Generate. Generate again before using this.</div>';
+      if (L0 && !job.water)
+        body += '<div class="badge warn">Water source isn\'t set, so the backflow preventer or filter is missing. Pick culinary or secondary in Job settings.</div>';
+      if (!L0) body += '<p class="note">Generate a layout first.</p>';
+      else if (editing) {
+        body +=
+          '<p class="note">Change any part or count, remove lines, or add your own. The app\'s list stays saved, so you can go back to it.</p>' +
+          editRows() +
+          '<div class="row" style="margin-top:14px"><button class="btn grow" id="pcancel">Cancel</button><button class="btn primary grow" id="psave">' +
+          icon("check") + "Save list</button></div>";
+      } else {
+        if (job.partsEdit)
+          body +=
+            '<div class="badge warn">' +
+            (sameAsBase()
+              ? "This is your edited list."
+              : "This is your edited list. The layout changed after you edited it, so it may be out of date. Reset to get the app's new list.") +
+            "</div>";
+        body +=
+          partsTable(shownParts(L0)) +
+          '<p class="note">Drip covers the beds only, not the line from the valve box to each bed. Mainline and lateral pipe, other fittings and wire are not counted yet.</p>' +
+          '<div class="row"><button class="btn grow" id="pedit">' + icon("pen") + "Edit list</button>" +
+          (job.partsEdit ? '<button class="btn grow" id="preset">' + icon("undo") + "Reset to the app's list</button>" : "") +
+          "</div>" +
+          '<div class="row"><button class="btn primary grow" id="xcopy">' + icon("copy") + "Copy to text or email</button></div>";
       }
-    };
-    ov.querySelector("#xp").onclick = copy;
-    const xc = ov.querySelector("#xcopy");
-    if (xc) xc.onclick = copy;
+      ov.innerHTML =
+        '<header class="topbar"><button class="iconbtn" id="xc" aria-label="Back">' + icon("back") +
+        '</button><div class="title"><b>Parts list</b><span>' + esc(job.name) + "</span></div>" +
+        (editing ? "" : '<button class="iconbtn" id="xp" aria-label="Copy list">' + icon("copy") + "</button>") +
+        "</header>" +
+        '<div class="body">' + body + "</div>";
+      wire();
+    }
+
+    // keep typed values in the working copy before any re-render
+    function pull() {
+      ov.querySelectorAll("[data-f]").forEach((inp) => {
+        const l = editing[+inp.dataset.i];
+        if (!l) return;
+        if (inp.dataset.f === "item") l.item = inp.value;
+        else l.qty = inp.value;
+      });
+    }
+
+    function wire() {
+      ov.querySelector("#xc").onclick = () => ov.remove();
+      const copy = async () => {
+        if (!L0) return;
+        try {
+          await navigator.clipboard.writeText(partsText(shownParts(L0)));
+          toast("Parts list copied.");
+        } catch (e) {
+          console.warn("Clipboard blocked", e);
+          toast("Copy was blocked. Press and hold the list to select it.");
+        }
+      };
+      const xp = ov.querySelector("#xp");
+      if (xp) xp.onclick = copy;
+      const xcopy = ov.querySelector("#xcopy");
+      if (xcopy) xcopy.onclick = copy;
+      const pe = ov.querySelector("#pedit");
+      if (pe)
+        pe.onclick = () => {
+          editing = shownParts(L0).lines.map((l) => ({ group: l.group, item: l.item, qty: l.qty }));
+          render();
+        };
+      const pr = ov.querySelector("#preset");
+      if (pr)
+        pr.onclick = () => {
+          if (!confirm("Throw away your edits and go back to the list the app made?")) return;
+          delete job.partsEdit;
+          touch(job);
+          render();
+          toast("Back to the app's list.");
+        };
+      ov.querySelectorAll("[data-del]").forEach(
+        (b) =>
+          (b.onclick = () => {
+            pull();
+            editing.splice(+b.dataset.del, 1);
+            render();
+          }),
+      );
+      ov.querySelectorAll("[data-add]").forEach(
+        (b) =>
+          (b.onclick = () => {
+            pull();
+            const g = b.dataset.add;
+            let at = -1;
+            editing.forEach((l, i) => {
+              if (l.group === g) at = i;
+            });
+            const row = { group: g, item: "", qty: 1 };
+            if (at < 0) editing.push(row);
+            else editing.splice(at + 1, 0, row);
+            render();
+            const inputs = ov.querySelectorAll('[data-f="item"]');
+            const target = [...inputs].find((x) => +x.dataset.i === (at < 0 ? editing.length - 1 : at + 1));
+            if (target) target.focus();
+          }),
+      );
+      const pc = ov.querySelector("#pcancel");
+      if (pc)
+        pc.onclick = () => {
+          editing = null;
+          render();
+        };
+      const ps = ov.querySelector("#psave");
+      if (ps)
+        ps.onclick = () => {
+          pull();
+          const lines = editing
+            .map((l) => ({ group: l.group, item: String(l.item).trim(), qty: Math.max(0, Math.round(parseFloat(l.qty) || 0)) }))
+            .filter((l) => l.item);
+          job.partsEdit = { lines, base: JSON.stringify(appLines()) };
+          touch(job);
+          editing = null;
+          render();
+          toast("Your list is saved for this job.");
+        };
+    }
+
+    document.body.appendChild(ov);
+    render();
   }
 
   route();

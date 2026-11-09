@@ -305,5 +305,34 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(tight.areas[0].check.overspray, 0, "tight curved strip stays within the overspray limit");
 }
 
+
+// Zach 2026-11-08: drip. Width checked all over each bed; over 7 ft gets an extra row there.
+// 250 ft per drip zone (beds only, not the line from the valve box). Separate beds are separate
+// zones, touching beds share one, a bed under 20 ft of pipe joins one nearby. Rolls 100/250/500.
+{
+  const R = (x, y, w, h) => [{ x, y, b: 0 }, { x: x + w, y, b: 0 }, { x: x + w, y: y + h, b: 0 }, { x, y: y + h, b: 0 }];
+  const plan = (...beds) => E.dripPlan(beds.map((pts, i) => ({ id: i, pts })));
+  eq(plan(R(0, 0, 40, 3)).ft, 40, "3x40 bed is one 40 ft row");
+  eq(plan(R(0, 0, 40, 7)).ft, 40, "a 7 ft wide bed is still one row");
+  eq(plan(R(0, 0, 40, 8)).ft, 80, "over 7 ft wide gets a second row");
+  eq(plan(R(0, 0, 40, 40)).ft, 240, "a 40 ft square runs 6 rows along a side");
+  const L = [[0, 0], [30, 0], [30, 4], [4, 4], [4, 30], [0, 30]].map(([x, y]) => ({ x, y, b: 0 }));
+  const lf = plan(L).ft;
+  if (lf < 52 || lf > 60) { fail++; console.log("FAIL L-shaped 4 ft bed should be about 56 ft, got", lf); }
+  const big = plan(R(0, 0, 300, 3));
+  eq(big.zones.length, 2, "300 ft of drip splits into 2 zones");
+  eq(Math.max(...big.zones.map((z) => z.ft)) <= 250, true, "no drip zone over 250 ft");
+  eq(plan(R(0, 0, 20, 3), R(20, 0, 20, 3)).zones.length, 1, "touching beds share a zone");
+  eq(plan(R(0, 0, 100, 3), R(0, 50, 100, 3)).zones.length, 2, "separate beds are separate zones");
+  eq(plan(R(0, 0, 40, 3), R(0, 15, 6, 2)).zones.length, 1, "a small bed nearby joins the zone");
+  eq(plan(R(0, 0, 40, 3), R(0, 80, 6, 2)).zones.length, 2, "a small bed far away gets its own zone");
+  eq(JSON.stringify(E.dripRolls(380)), JSON.stringify({ 100: 4, 250: 0, 500: 0 }), "380 ft buys the least pipe");
+  const p = E.parts([{ kind: "S", label: "15H" }], [{}], plan(R(0, 0, 40, 3), R(0, 50, 100, 3)), "culinary");
+  eq(p.lines.find((l) => l.item === "Drip zone valve").qty, 2, "a drip zone valve per drip zone");
+  eq(p.lines.find((l) => l.item === "Drip zone valve").group, "Manifold", "drip valves in the manifold");
+  eq(p.stations, 3, "drip zones count as controller stations");
+  eq(!!p.lines.find((l) => /^Drip pipe, 100 ft roll/.test(l.item)), true, "drip pipe on the list");
+}
+
 console.log(fail ? fail + " failing" : "all passing");
 process.exit(fail ? 1 : 0);
