@@ -27,6 +27,12 @@ irrigation rules come from him. Every rule below has a test in `test/engine.test
   4VAN or 6VAN only where a tight curve is still dry.
 - Rotors: 3504 throws 18 to 23 ft, 5004 throws 24 to 30 ft. Use rotors only where 3 or more fit
   in a zone.
+- Pop-up zones: a zone of 1 or 2 pop-ups joins the nearest pop-up zone with room (same lawn
+  first, then a lawn within 30 ft). The minimum of 3 copies his rotor rule and is a guess;
+  ask Zach for his real number.
+- Example yard: "Try an example yard" on the home screen builds a made-up yard with every
+  feature, on a plain background (no satellite photo of a real place), and lays it out.
+  When a feature is added, add it to `exampleJob()` in `js/app.js` too.
 - Parts list sections, in order: heads, pipe, fittings, manifold, controller, water connection.
   - Pop-ups: one total of 1804 bodies, plus a count for each nozzle that's on the map, listed as just "15H" under the Spray nozzles header. No zero lines.
   - Rotors: a total per model only.

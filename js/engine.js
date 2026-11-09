@@ -1232,6 +1232,7 @@
     }
     // never leave a rotor zone under 3 heads when a neighbouring rotor zone can absorb or share
     fixSmallRotorZones(zones, cap);
+    mergeSmallSprayZones(zones, cap);
     zones.forEach((z) => (z.gpm = z.heads.reduce((s, h) => s + h.gpm, 0)));
     // number zones top-left to bottom-right so the plan reads naturally
     zones.forEach((z) => {
@@ -1382,6 +1383,38 @@
       if (!changed) break;
     }
     zones.forEach((z) => (z.small = z.family === 'rotor' && z.heads.length < 3));
+  }
+
+  // A pop-up zone of one or two heads (stray pop-ups along a curve on a rotor lawn) joins the
+  // nearest pop-up zone with room: same lawn first, then a lawn within SPRAY_JOIN_FT. The example
+  // yard came out with three zones of a single 15H each. MIN_SPRAYS mirrors Zach's rotor rule;
+  // he hasn't given a number for pop-ups yet.
+  const MIN_SPRAYS = 3;
+  const SPRAY_JOIN_FT = 30;
+  function mergeSmallSprayZones(zones, cap) {
+    const sum = (zz) => zz.reduce((s, h) => s + h.gpm, 0);
+    const gap = (a, b) => Math.min(...a.heads.map((p) => Math.min(...b.heads.map((q) => Math.hypot(p.x - q.x, p.y - q.y)))));
+    for (let pass = 0; pass < 8; pass++) {
+      let changed = false;
+      const small = zones
+        .filter((z) => z.family === "spray" && z.heads.length && z.heads.length < MIN_SPRAYS)
+        .sort((a, b) => a.heads.length - b.heads.length);
+      for (const z of small) {
+        if (!z.heads.length) continue;
+        const area = z.heads[0].area;
+        const into = zones
+          .filter((o) => o !== z && o.family === "spray" && o.heads.length && sum(z.heads) + sum(o.heads) <= cap + 1e-9)
+          .map((o) => ({ o, d: gap(z, o), same: o.heads[0].area === area }))
+          .filter(({ d, same }) => same || d <= SPRAY_JOIN_FT)
+          .sort((a, b) => (b.same - a.same) || a.d - b.d)[0];
+        if (!into) continue;
+        into.o.heads.push(...z.heads);
+        z.heads = [];
+        changed = true;
+      }
+      for (let i = zones.length - 1; i >= 0; i--) if (!zones[i].heads.length) zones.splice(i, 1);
+      if (!changed) break;
+    }
   }
 
   /* ---------------- drip ---------------- */

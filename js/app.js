@@ -189,15 +189,101 @@
       });
     }
     h +=
+      '<button class="btn" style="width:100%;margin-top:14px" id="example">' +
+      icon("plan") +
+      "Try an example yard</button>";
+    h +=
       '<p class="note" style="margin-top:22px">Jobs save on this phone. Address search and satellite photos come from Mapbox.</p>';
     h += "</main>";
     app.innerHTML = h;
     app.querySelector("#new").onclick = newJobSheet;
+    app.querySelector("#example").onclick = openExample;
     app
       .querySelectorAll(".job")
       .forEach(
         (b) => (b.onclick = () => (location.hash = "#/job/" + b.dataset.id)),
       );
+  }
+
+  // A made-up yard that shows every feature: rotors in the open, pop-ups in a narrow strip, curved
+  // edges, a bed inside a lawn, a wide bed that needs two rows, beds that touch, a small bed that
+  // joins its neighbour, a bed far enough away to be its own drip zone, and markers.
+  function exampleJob() {
+    const origin = { lat: DEFAULT_CENTER.lat, lng: DEFAULT_CENTER.lng };
+    const c = Math.cos((origin.lat * Math.PI) / 180);
+    const ll = (x, y, bf) => ({
+      lat: origin.lat + y / FT_PER_DEG,
+      lng: origin.lng + x / (FT_PER_DEG * c),
+      bf: bf || 0,
+    });
+    const shape = (type, pts) => ({
+      id: uid(),
+      type,
+      closed: true,
+      mode: "auto",
+      pts: pts.map(([x, y, bf]) => ll(x, y, bf)),
+    });
+    const shapes = [
+      // backyard, 90 x 70 ft, its back edge curving in along the fence bed
+      shape("lawn", [[0, 40], [90, 40], [90, 110, 8 / 90], [0, 110]]),
+      // side yard strip, 10 ft wide: pop-up country
+      shape("lawn", [[96, 40], [106, 40], [106, 110], [96, 110]]),
+      // front lawn with a curved edge bulging out toward the street corner
+      shape("lawn", [[0, -50], [70, -50], [70, -12], [0, -12, -6 / 38]]),
+      // fence bed behind the backyard, 12 to 20 ft deep: two and three rows of drip
+      shape("bed", [[0, 110.5, -8 / 90], [90, 110.5], [90, 122], [0, 122]]),
+      // round tree ring inside the backyard
+      // (4 points: the app skips shapes under 3 corners, and 0.2071 bends each quarter into a circle)
+      shape("bed", [[55, 70, 0.2071], [60, 75, 0.2071], [65, 70, 0.2071], [60, 65, 0.2071]]),
+      // two beds along the front of the house that touch: one drip area
+      shape("bed", [[8, -8], [35, -8], [35, -4], [8, -4]]),
+      shape("bed", [[35, -8], [62, -8], [62, -4], [35, -4]]),
+      // a little bed by the porch, close enough to join the porch beds
+      shape("bed", [[65, -8], [68, -8], [68, -5], [65, -5]]),
+      // a raised garden bed out past the side yard: its own drip zone
+      shape("bed", [[112, 60], [118, 60], [118, 92], [112, 92]]),
+    ];
+    const marker = (tag, x, y) => Object.assign({ id: uid(), tag }, ll(x, y));
+    const view = ll(53, 30);
+    return {
+      id: uid(),
+      name: "Example yard",
+      example: true,
+      address: "Made-up yard to show the app",
+      created: Date.now(),
+      updated: Date.now(),
+      origin,
+      view: { lat: view.lat, lng: view.lng, zoom: 19 },
+      scale: 1,
+      psi: 50,
+      line: "34",
+      customCap: 12,
+      popupsOnly: false,
+      water: "secondary",
+      shapes,
+      markers: [marker("meter", -8, -52), marker("valve", -4, 34), marker("tree", 60, 70), marker("gate", 93, 75)],
+      layout: null,
+    };
+  }
+
+  function openExample() {
+    const job = exampleJob();
+    jobs.push(job);
+    saveJobs();
+    location.hash = "#/job/" + job.id;
+    // lay it out right away so the heads, zones and parts list are there to look at
+    setTimeout(() => {
+      if (!J || J.job !== job) return;
+      setMode("heads");
+      generate();
+      // the heads panel is taller than the drawing one, so fit the yard once it has settled
+      setTimeout(() => {
+        if (!J || J.job !== job) return;
+        J.map.invalidateSize();
+        const pts = job.shapes.flatMap((sh) => sh.pts.map((p) => [p.lat, p.lng]));
+        J.map.fitBounds(pts, { padding: [16, 16] });
+      }, 900);
+    }, 300);
   }
 
   // Culinary (city) or secondary water decides the connection parts on the parts list.
@@ -630,9 +716,11 @@
       tap: true,
     });
     J.map = map;
+    // the example yard is made up, so no photo of a real place goes under it
+    if (job.example) map.getContainer().style.background = "#e9efe2";
     // Mapbox satellite through the Static Tiles API. The v4 raster endpoint answered 429 for this
     // account on 2026-11-07 while this one served z21 imagery, so this is the one wired in.
-    const satellite = L.tileLayer(
+    const satellite = job.example ? null : L.tileLayer(
       "https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/512/{z}/{x}/{y}?access_token=" + MAPBOX_TOKEN,
       {
         tileSize: 512,
@@ -642,10 +730,11 @@
         attribution:
           '© <a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noopener">Mapbox</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> © Maxar <a href="https://www.mapbox.com/map-feedback/" target="_blank" rel="noopener"><b>Improve this map</b></a>',
       },
-    ).addTo(map);
+    );
+    if (satellite) satellite.addTo(map);
     // if Mapbox refuses (token, quota, outage), fall back to Esri photos so the job still opens
     let tileFails = 0, swapped = false;
-    satellite.on("tileerror", () => {
+    if (satellite) satellite.on("tileerror", () => {
       if (swapped || ++tileFails < 6) return;
       swapped = true;
       map.removeLayer(satellite);

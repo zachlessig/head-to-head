@@ -358,5 +358,25 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
 
 }
 
+
+// pop-up zones of one or two heads join a nearby pop-up zone (the example yard had three
+// single-15H zones along a curved edge of a rotor lawn)
+{
+  const chord = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const S = (pts) => P(pts.map((p, i) => { const q = pts[(i + 1) % pts.length]; return [p[0], p[1], (p[2] || 0) * chord(p, q)]; }));
+  const o = E.layoutJob({
+    areas: [
+      { outer: S([[0, 40], [90, 40], [90, 110, 8 / 90], [0, 110]]), holes: [S([[55, 70, 0.2071], [60, 75, 0.2071], [65, 70, 0.2071], [60, 65, 0.2071]])], mode: "auto" },
+      { outer: S([[96, 40], [106, 40], [106, 110], [96, 110]]), mode: "auto" },
+      { outer: S([[0, -50], [70, -50], [70, -12], [0, -12, -6 / 38]]), mode: "auto" },
+    ],
+    psi: 50,
+    cap: 12,
+  });
+  const tiny = o.zones.filter((z) => z.family === "spray" && z.heads.length < 3).length;
+  eq(tiny, 0, "no pop-up zone under 3 heads in the example yard");
+  eq(o.zones.every((z) => z.gpm <= 12 + 1e-9), true, "every zone still under the GPM cap");
+}
+
 console.log(fail ? fail + " failing" : "all passing");
 process.exit(fail ? 1 : 0);
