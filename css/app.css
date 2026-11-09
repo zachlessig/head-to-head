@@ -721,3 +721,6 @@ table.parts td.q {
   color: var(--muted);
   margin: 16px 0 2px;
 }
+.parts th.g .gn {
+  font-weight: 600;
+}

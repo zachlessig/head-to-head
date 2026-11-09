@@ -347,15 +347,15 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   const dp = E.parts([], [], d, "culinary");
   const q = (item) => (dp.lines.find((l) => l.item === item) || {}).qty;
   eq(d.ft, 280, "drip total for four beds");
-  eq(q("Total drip pipe, feet"), 280, "total drip feet on the list");
+  eq(dp.notes.Drip, "280 ft of drip pipe", "total drip feet in the Drip header");
+  eq(dp.lines.some((l) => /total/i.test(l.item)), false, "no separate total line");
   eq(q("Drip tee"), 9, "3 tees per 100 ft, rounded up");
   eq(q("Drip coupling"), 3, "1 coupling per 100 ft, rounded up");
   eq(q("Figure 8 end cap"), 3, "an end cap per drip area (two touching beds are one area)");
   eq(dp.lines.some((l) => /elbow/i.test(l.item) && l.group === "Drip"), false, "no drip elbows");
   eq(dp.lines.filter((l) => (/^Drip /.test(l.item) || /end cap/.test(l.item)) && l.item !== "Drip zone valve").every((l) => l.group === "Drip"), true, "drip parts in the Drip section");
   eq((dp.lines.find((l) => l.item === "Drip zone valve") || {}).group, "Manifold", "drip valves stay with the manifold");
-  const forced = E.parts([], [], d, "culinary", { dripRoll: 500 });
-  eq((forced.lines.find((l) => l.item === "Drip pipe, 500 ft roll") || {}).qty, 1, "a contractor can buy only 500s");
+
 }
 
 console.log(fail ? fail + " failing" : "all passing");

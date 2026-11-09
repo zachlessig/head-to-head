@@ -1555,10 +1555,8 @@
   // Zach 2026-11-08: "dont have left over". Up to 350 ft only 100 ft rolls; 351 to 750 ft 250 and
   // 100 ft rolls; over 750 ft the 500s come in too. Within those sizes, the least pipe left over,
   // then the fewest rolls.
-  // rollSize: 100, 250 or 500 to buy only that size (a contractor's own rule); anything else = Zach's rule.
-  function dripRolls(ft, rollSize) {
+  function dripRolls(ft) {
     if (ft <= 0) return {};
-    if (DRIP_ROLLS.includes(rollSize)) return { [rollSize]: Math.ceil(ft / rollSize) };
     const sizes = ft <= 350 ? [100] : ft <= 750 ? [250, 100] : [500, 250, 100];
     const max = (sz) => (sizes.includes(sz) ? Math.ceil(ft / sz) : 0);
     let best = null;
@@ -1603,8 +1601,9 @@
 
   // Sections, per Zach 2026-11-07: heads, pipe, fittings, manifold, controller, water source.
   // drip: a dripPlan() result. A bare number (old jobs) is read as that many drip zones with no pipe.
-  // opts.dripRoll: a roll size the contractor buys every time (see dripRolls).
-  function parts(heads, zones, drip, water, opts) {
+  // notes: text shown in a section's header, like the total drip footage.
+  function parts(heads, zones, drip, water) {
+    const notes = {};
     const dz = typeof drip === "number" ? drip : drip ? drip.zones.length : 0;
     const dripFt = drip && typeof drip === "object" ? drip.ft : 0;
     const nozzles = new Map();
@@ -1658,8 +1657,8 @@
     // 100 ft (no elbows), and a figure 8 end cap for each separate drip area.
     if (dripFt) {
       const per100 = Math.ceil(dripFt / 100);
-      lines.push({ group: "Drip", item: "Total drip pipe, feet", qty: dripFt });
-      const rolls = dripRolls(dripFt, opts && opts.dripRoll);
+      notes.Drip = dripFt + " ft of drip pipe";
+      const rolls = dripRolls(dripFt);
       DRIP_ROLLS.forEach((size) => {
         if (rolls[size]) lines.push({ group: "Drip", item: "Drip pipe, " + size + " ft roll", qty: rolls[size] });
       });
@@ -1678,7 +1677,7 @@
     (WATER_SOURCE_PARTS[water] || []).forEach((p) =>
       lines.push({ group: WATER_SOURCE_GROUP[water], item: p.item, qty: p.qty }),
     );
-    return { lines, stations, overLimit: stations > 16, waterSet: !!WATER_SOURCE_PARTS[water] };
+    return { lines, notes, stations, overLimit: stations > 16, waterSet: !!WATER_SOURCE_PARTS[water] };
   }
 
   /* ---------------- whole job ---------------- */

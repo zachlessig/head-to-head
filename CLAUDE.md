@@ -42,10 +42,11 @@ irrigation rules come from him. Every rule below has a test in `test/engine.test
     every 7 ft. The list
     says "Drip zone valve", one per drip zone. Drip zones are counted from the beds on the map;
     the old manual counter is gone.
-  - Drip section (2026-11-08): total drip feet, the rolls, 3 drip tees and 1 drip coupling for
-    every 100 ft (rounded up, no elbows), and a figure 8 end cap per drip area (a bed, or beds
-    that touch). Contractors can switch the rolls to all 100s, 250s or 500s; that's saved for
-    every job on the phone. Drip zone valves stay in the Manifold section.
+  - Drip section (2026-11-08): total drip feet goes in the shaded Drip header ("Drip · 151 ft
+    of drip pipe"), then the rolls by Zach's rule, 3 drip tees and 1 drip coupling for every
+    100 ft (rounded up, no elbows), and a figure 8 end cap per drip area (a bed, or beds that
+    touch). No roll-size picker: "just let them decide that at the store". Drip zone valves
+    stay in the Manifold section.
   - Editing: a company can edit any job's list and reset it back to the app's list. The edited
     list is what gets copied and printed.
   - Water: every job is culinary or secondary, picked on the new job screen. Culinary needs a
