@@ -782,6 +782,9 @@
       (k) => (J.layers[k] = L.layerGroup().addTo(map)),
     );
     map.on("click", onMapClick);
+    map.on("zoomend", () => {
+      if (J && J.mode === "heads") renderHeads();
+    });
     map.on("moveend", () => {
       const c = map.getCenter();
       job.view = { lat: c.lat, lng: c.lng, zoom: map.getZoom() };
@@ -1507,6 +1510,14 @@
     const L0 = J.job.layout;
     if (!L0 || J.mode !== "heads") return;
     const P = proj(J.job);
+    // heads sharing a spot (both sides of a fence) are drawn a few pixels apart, toward the side
+    // each one waters, so they read as two dots
+    const nd = Plan.nudges(L0.heads, 7);
+    const shift = (ll, i, k) => {
+      if (!nd[i].dx && !nd[i].dy) return ll;
+      const pt = J.map.latLngToContainerPoint(ll);
+      return J.map.containerPointToLatLng(L.point(pt.x + nd[i].dx * k, pt.y + nd[i].dy * k));
+    };
     L0.heads.forEach((h, i) => {
       const col = Plan.zoneColor(h.zone || 1);
       const dim = J.selZone != null && J.selZone !== h.zone;
@@ -1520,7 +1531,7 @@
           interactive: false,
         }),
       );
-      const ll = P.toLL(h.x, h.y);
+      const ll = shift(P.toLL(h.x, h.y), i, 1);
       // circle pop-up, square 5004, triangle 3504, same as the printed plan
       const key = Plan.shapeKey(h);
       const sel = J.selHead === i;
@@ -1550,7 +1561,7 @@
       lay.addLayer(dot);
       if (!dim)
         lay.addLayer(
-          L.marker(ll, {
+          L.marker(shift(P.toLL(h.x, h.y), i, 3.2), {
             icon: L.divIcon({
               className: "hlabel",
               html: esc(h.label),

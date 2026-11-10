@@ -171,12 +171,15 @@
     });
 
     // head symbols: circle pop-up, square 5004, triangle 3504
-    d.heads.forEach((h) => headShape(ctx, shapeKey(h), X(h.x), Y(h.y), zoneColor(h.zone || 1), "#fff", 1));
+    const nd = nudges(d.heads, 11);
+    d.heads.forEach((h, i) => headShape(ctx, shapeKey(h), X(h.x) + nd[i].dx, Y(h.y) + nd[i].dy, zoneColor(h.zone || 1), "#fff", 1));
     ctx.font = "800 19px Inter, sans-serif";
     ctx.textAlign = "center";
-    d.heads.forEach((h) => {
-      const tx = X(h.x),
-        ty = Y(h.y) - 14;
+    d.heads.forEach((h, i) => {
+      // a nudged twin gets its label out past its dot, on the side it waters
+      const n = nd[i], len = Math.hypot(n.dx, n.dy);
+      const tx = len ? X(h.x) + n.dx + (n.dx / len) * 26 : X(h.x),
+        ty = len ? Y(h.y) + n.dy + (n.dy / len) * 26 + 7 : Y(h.y) - 14;
       ctx.lineWidth = 4;
       ctx.strokeStyle = "#fff";
       // the contractor copy shows how far to dial each rotor in, since the screw sets the throw
@@ -296,5 +299,23 @@
     ctx.restore();
   }
 
-  window.SprinklerPlan = { drawPlan, zoneColor, ZONE_COLORS, shapeKey };
+  // Two heads on the same spot (one each side of a fence, Zach 2026-11-09) read as one dot. Each
+  // gets drawn px pixels toward the side it waters, so the fence line runs between two dots.
+  // Drawing only: the head's real position and the coverage math don't move.
+  function nudges(heads, px) {
+    return heads.map((h) => {
+      const twin = heads.find((o) => o !== h && Math.hypot(o.x - h.x, o.y - h.y) < 0.5);
+      if (!twin) return { dx: 0, dy: 0 };
+      // lean square to the fence: this head's spray direction minus its twin's (two quarter heads
+      // aimed 45 and 315 degrees lean straight apart). Same aim, or a full circle: its own aim.
+      const u = (g) => (g.arc < 359.5 ? [Math.cos((g.dir * Math.PI) / 180), Math.sin((g.dir * Math.PI) / 180)] : [0, 0]);
+      const [hx, hy] = u(h), [tx, ty] = u(twin);
+      let vx = hx - tx, vy = hy - ty;
+      if (Math.hypot(vx, vy) < 0.2) [vx, vy] = Math.hypot(hx, hy) ? [hx, hy] : [1, 0];
+      const L = Math.hypot(vx, vy);
+      return { dx: (vx / L) * px, dy: (-vy / L) * px };
+    });
+  }
+
+  window.SprinklerPlan = { drawPlan, zoneColor, ZONE_COLORS, shapeKey, nudges };
 })();
