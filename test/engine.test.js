@@ -462,9 +462,8 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   const lawns = E.splitByFences(lawn, fence);
   const split = E.splitByFences(bed, fence);
   eq(split.length, 2, "the bed splits along the fence too");
-  // same 0.3 ft pull-back from the fence as offFence() in js/app.js
-  const beds = split.map((r) => { const cx = r.reduce((a, p) => a + p.x, 0) / r.length, cy = r.reduce((a, p) => a + p.y, 0) / r.length;
-    return r.map((p) => Math.abs(p.x - 40) < 0.05 ? Object.assign({}, p, { x: p.x + ((cx - p.x) / Math.hypot(cx - p.x, cy - p.y)) * 0.3, y: p.y + ((cy - p.y) / Math.hypot(cx - p.x, cy - p.y)) * 0.3 }) : p); });
+  // the same 0.3 ft pull-back from the fence that js/app.js makes
+  const beds = split.map((r) => E.offFence(r, fence));
   const inside = (r, p) => { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const a = r[i], b = r[j]; if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) c = !c; } return c; };
   const areas = lawns.map((outer) => ({ outer, mode: "spray", holes: beds.filter((h) => inside(outer, { x: h.reduce((a, p) => a + p.x, 0) / h.length, y: h.reduce((a, p) => a + p.y, 0) / h.length })) }));
   eq(areas.every((a) => a.holes.length === 1), true, "each side of the fence gets its piece of the bed");
@@ -481,6 +480,27 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   const pieces = E.splitByFences(L, [[{ x: 209.6, y: 1.3 }, { x: 213.8, y: 78.3 }]]);
   const o = E.layoutJob({ areas: pieces.map((outer) => ({ outer, mode: "auto" })), psi: 50, cap: 12 });
   eq(o.totals.overspray, 0, "no overspray beside a slightly slanted fence");
+}
+
+
+// random yards seed 3, yard 34, 2026-11-09: a bed on the bend of an L fence splits into an L piece.
+// Pulling it off the fence toward its corner average moved the inside corner across the fence, the
+// hole poked out of its lawn, and a 15VAN on that corner sprayed 8.7 ft past a straight edge. In
+// the same commit js/app.js lost its offFence() while still calling it, so any lawn with a bed
+// threw; the app and the random yards now share E.offFence.
+{
+  const lawn = P([[0, -0.6], [84.9, -0.6], [84.9, 58.3], [0, 58.3]]);
+  const fence = [[{ x: -2, y: 35.4 }, { x: 42.5, y: 35.4 }, { x: 42.5, y: 60.3 }]];
+  const bed = P([[32.8, 33.3], [43.4, 33.3], [43.4, 37.9], [32.8, 37.9]]);
+  eq(typeof E.offFence, "function", "the engine has offFence for js/app.js");
+  const inside = (r, p) => { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const a = r[i], b = r[j]; if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) c = !c; } return c; };
+  const pieces = E.splitByFences(lawn, fence);
+  const beds = E.splitByFences(bed, fence).map((h) => E.offFence(h, fence));
+  const areas = pieces.map((outer) => ({ outer, mode: "auto", holes: beds.filter((h) => inside(outer, E.pointInside(h))) }));
+  eq(areas.every((a) => a.holes.length === 1), true, "each side of the L fence gets its piece of the bed");
+  eq(areas.every((a) => a.holes.every((h) => h.every((p) => inside(a.outer, p)))), true, "a bed piece pulled off the fence stays inside its own lawn");
+  const o = E.layoutJob({ areas, psi: 60, cap: 12 });
+  eq(o.totals.overspray, 0, "no overspray from a head on a bed corner at the bend of an L fence");
 }
 
 console.log(fail ? fail + " failing" : "all passing");

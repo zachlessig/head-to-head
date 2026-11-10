@@ -2016,6 +2016,56 @@
     return c;
   }
 
+  // A bed piece cut by a fence sits flush on the fence, which is now the lawn's edge, and the
+  // engine read that stretch of edge as lawn: two heads landed in the bed. Pulling the bed's
+  // fence edges BED_OFF_FENCE ft back into the bed makes it a proper hole; the gap is too thin for
+  // a head and under the 0.4 ft the coverage check skips at an edge.
+  // Each edge lying on a fence moves square to itself, into the bed, and a corner between two such
+  // edges moves to where the two moved edges meet. The old pull toward the corner average moved
+  // the inside corner of an L-shaped bed piece (a bed on the bend of an L fence) across the fence,
+  // so the hole poked out of its lawn and a 15VAN on that corner sprayed 8.7 ft past a straight
+  // edge (random yards seed 3, yard 34, 2026-11-09).
+  const BED_OFF_FENCE = 0.3;
+  function offFence(ring, fences) {
+    const onFence = (p, q) =>
+      fences.some((f) =>
+        f.some((a, i) => {
+          const b = f[i + 1];
+          if (!b) return false;
+          const s = { ax: a.x, ay: a.y, bx: b.x, by: b.y };
+          return segDist(s, p.x, p.y) < 0.05 && segDist(s, q.x, q.y) < 0.05 && segDist(s, (p.x + q.x) / 2, (p.y + q.y) / 2) < 0.05;
+        }),
+      );
+    const n = ring.length;
+    const ccw = signedArea(ringPolygon(ring)) > 0;
+    // inward normal of each straight edge that lies on a fence, null otherwise
+    const normals = ring.map((p, i) => {
+      const q = ring[(i + 1) % n];
+      if (Math.abs(p.b || 0) > 1e-6 || !onFence(p, q)) return null;
+      const L = Math.hypot(q.x - p.x, q.y - p.y);
+      if (L < 1e-9) return null;
+      const lx = -(q.y - p.y) / L, ly = (q.x - p.x) / L; // left of travel
+      return ccw ? { x: lx, y: ly } : { x: -lx, y: -ly };
+    });
+    if (!normals.some(Boolean)) return ring;
+    return ring.map((p, i) => {
+      const n1 = normals[(i - 1 + n) % n], n2 = normals[i];
+      if (!n1 && !n2) return p;
+      let mx, my;
+      if (n1 && n2) {
+        // miter: the two moved edges meet out along the bisector; capped for a needle-sharp turn
+        const s = Math.min(1 / Math.max(1 + n1.x * n2.x + n1.y * n2.y, 1e-9), 4);
+        mx = (n1.x + n2.x) * s;
+        my = (n1.y + n2.y) * s;
+      } else {
+        const m = n1 || n2;
+        mx = m.x;
+        my = m.y;
+      }
+      return Object.assign({}, p, { x: p.x + mx * BED_OFF_FENCE, y: p.y + my * BED_OFF_FENCE });
+    });
+  }
+
   // out along the path and back: a hole with no area, for a fence floating inside a lawn
   function slitHole(pts) {
     const back = pts.slice(1, -1).reverse();
@@ -2209,6 +2259,7 @@
     splitByFences,
     fenceSlits,
     pointInside,
+    offFence,
     dripRolls,
     swingRolls,
     FIXED,

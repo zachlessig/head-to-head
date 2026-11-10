@@ -540,7 +540,7 @@
         // (whole, it only cut into one side and the other side put pop-ups in the bed)
         const holes = beds
           .flatMap((b) => E.splitByFences(shapeLocal(b, P), fences))
-          .map((h) => offFence(h, fences))
+          .map((h) => E.offFence(h, fences))
           .filter((h) => pointInRing(E.pointInside(h), ring));
         areas.push({ outer, holes: holes.concat(slit.holes), mode: s.mode || "auto", shapeId: s.id });
       });

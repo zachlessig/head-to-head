@@ -386,24 +386,7 @@ function segDist(a, b, p) {
   );
   return Math.hypot(a.x + t * dx - p.x, a.y + t * dy - p.y);
 }
-// same as offFence() in js/app.js
-function offFence(ring, fences) {
-  const near = (p) =>
-    fences.some((f) =>
-      f.some((a, i) => f[i + 1] && segDist(a, f[i + 1], p) < 0.05),
-    );
-  if (!ring.some(near)) return ring;
-  const cx = ring.reduce((a, p) => a + p.x, 0) / ring.length,
-    cy = ring.reduce((a, p) => a + p.y, 0) / ring.length;
-  return ring.map((p) => {
-    if (!near(p)) return p;
-    const d = Math.hypot(cx - p.x, cy - p.y) || 1;
-    return Object.assign({}, p, {
-      x: p.x + ((cx - p.x) / d) * 0.3,
-      y: p.y + ((cy - p.y) / d) * 0.3,
-    });
-  });
-}
+// beds are pulled off fences with E.offFence, the same call js/app.js makes
 function buildAreas(y) {
   const fences = y.fences.map((f) => f.pts);
   const areas = [];
@@ -414,7 +397,7 @@ function buildAreas(y) {
       const ring = dens(outer);
       const holes = y.beds
         .flatMap((b) => E.splitByFences(b.ring, fences))
-        .map((h) => offFence(h, fences))
+        .map((h) => E.offFence(h, fences))
         .filter((h) => ptInRing(E.pointInside(h), ring));
       areas.push({ outer, holes: holes.concat(slit.holes), mode: l.mode });
     });
