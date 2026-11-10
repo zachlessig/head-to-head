@@ -27,9 +27,14 @@ irrigation rules come from him. Every rule below has a test in `test/engine.test
   4VAN or 6VAN only where a tight curve is still dry.
 - Rotors: 3504 throws 18 to 23 ft, 5004 throws 24 to 30 ft. Use rotors only where 3 or more fit
   in a zone.
-- Pop-up zones: a zone of 1 or 2 pop-ups joins the nearest pop-up zone with room (same lawn
-  first, then a lawn within 30 ft). The minimum of 3 copies his rotor rule and is a guess;
-  ask Zach for his real number.
+- Zones stay in one part of the yard (Zach 2026-11-09): "dont spread rotors across the entire
+  yard", no "blender of heads". Two zones of the same kind merge only when they're neighbours
+  (their sprays reach each other) and fit under the cap; a 1 or 2 head zone may reach 45 ft on
+  the same lawn. Rotor borrowing is neighbours only. There's no minimum number of pop-ups for a
+  zone. A test fails if any zone has a head off on its own.
+- Rotor rule both ways: a mostly pop-up area with under 3 rotors goes all pop-ups, and a rotor
+  lawn drops a lone pop-up or two that can't share a valve, if nothing goes dry and no more than
+  10 sq ft loses double coverage.
 - Example yard: "Try an example yard" on the home screen builds a made-up yard with every
   feature, on a plain background (no satellite photo of a real place), and lays it out.
   When a feature is added, add it to `exampleJob()` in `js/app.js` too.

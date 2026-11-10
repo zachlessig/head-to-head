@@ -1232,7 +1232,7 @@
     }
     // never leave a rotor zone under 3 heads when a neighbouring rotor zone can absorb or share
     fixSmallRotorZones(zones, cap);
-    mergeSmallSprayZones(zones, cap);
+    mergeNeighbourZones(zones, cap);
     zones.forEach((z) => (z.gpm = z.heads.reduce((s, h) => s + h.gpm, 0)));
     // number zones top-left to bottom-right so the plan reads naturally
     zones.forEach((z) => {
@@ -1344,6 +1344,21 @@
     return zones;
   }
 
+  // Zach 2026-11-09: "keep the same heads that are in the same zone in the same general area",
+  // never "rotors across the entire yard" so the crew runs pipe all over for an 'optimal' layout.
+  // Two zones are neighbours when their closest heads are within reach of each other: the
+  // bigger throw of the two plus ZONE_REACH_SLACK ft.
+  const ZONE_REACH_SLACK = 3;
+  function zoneGap(a, b) {
+    let best = Infinity;
+    for (const p of a.heads) for (const q of b.heads) best = Math.min(best, Math.hypot(p.x - q.x, p.y - q.y));
+    return best;
+  }
+  function zonesNeighbour(a, b) {
+    const reach = Math.max(...a.heads.map((h) => h.r), ...b.heads.map((h) => h.r)) + ZONE_REACH_SLACK;
+    return zoneGap(a, b) <= reach;
+  }
+
   function fixSmallRotorZones(zones, cap) {
     const sum = (zz) => zz.reduce((s, h) => s + h.gpm, 0);
     const gap = (a, b) => Math.min(...a.heads.map((p) => Math.min(...b.heads.map((q) => Math.hypot(p.x - q.x, p.y - q.y)))));
@@ -1353,7 +1368,7 @@
         if (z.family !== 'rotor' || z.heads.length >= 3 || !z.heads.length) continue;
         // every other rotor zone on this lawn, nearest first (empty ones skipped)
         const others = zones
-          .filter((o) => o !== z && o.family === 'rotor' && o.heads.length && o.heads[0].area === z.heads[0].area)
+          .filter((o) => o !== z && o.family === 'rotor' && o.heads.length && o.heads[0].area === z.heads[0].area && zonesNeighbour(z, o))
           .map((o) => ({ o, d: gap(z, o) }))
           .sort((a, b) => a.d - b.d);
         const into = others.find(({ o }) => sum(z.heads) + sum(o.heads) <= cap + 1e-9);
@@ -1385,35 +1400,38 @@
     zones.forEach((z) => (z.small = z.family === 'rotor' && z.heads.length < 3));
   }
 
-  // A pop-up zone of one or two heads (stray pop-ups along a curve on a rotor lawn) joins the
-  // nearest pop-up zone with room: same lawn first, then a lawn within SPRAY_JOIN_FT. The example
-  // yard came out with three zones of a single 15H each. MIN_SPRAYS mirrors Zach's rotor rule;
-  // he hasn't given a number for pop-ups yet.
-  const MIN_SPRAYS = 3;
-  const SPRAY_JOIN_FT = 30;
-  function mergeSmallSprayZones(zones, cap) {
+  // A zone of one or two heads may join a zone on the same lawn up to TINY_JOIN_FT away: a valve
+  // for a lone head costs more than a lateral that long. In the example yard the pop-ups along
+  // the curved back bed sat 18 to 42 ft apart with rotors between, all on one bed line; true
+  // opposite sides of a yard are farther than this. A guess, not measured.
+  const TINY_JOIN_FT = 45;
+
+  // Fewest valves, per Zach 2026-11-09: two zones of the same kind merge when they're neighbours
+  // and fit under the cap together, so stray pop-ups along a curve don't get a valve of their
+  // own (the example yard had three single-15H zones). No minimum head count for pop-ups ("in
+  // almost every yard there will be pop ups"). Smallest zones merge first, into their closest
+  // neighbour.
+  function mergeNeighbourZones(zones, cap) {
     const sum = (zz) => zz.reduce((s, h) => s + h.gpm, 0);
-    const gap = (a, b) => Math.min(...a.heads.map((p) => Math.min(...b.heads.map((q) => Math.hypot(p.x - q.x, p.y - q.y)))));
-    for (let pass = 0; pass < 8; pass++) {
-      let changed = false;
-      const small = zones
-        .filter((z) => z.family === "spray" && z.heads.length && z.heads.length < MIN_SPRAYS)
-        .sort((a, b) => a.heads.length - b.heads.length);
-      for (const z of small) {
+    for (let pass = 0; pass < 50; pass++) {
+      let best = null;
+      for (const z of zones) {
         if (!z.heads.length) continue;
-        const area = z.heads[0].area;
-        const into = zones
-          .filter((o) => o !== z && o.family === "spray" && o.heads.length && sum(z.heads) + sum(o.heads) <= cap + 1e-9)
-          .map((o) => ({ o, d: gap(z, o), same: o.heads[0].area === area }))
-          .filter(({ d, same }) => same || d <= SPRAY_JOIN_FT)
-          .sort((a, b) => (b.same - a.same) || a.d - b.d)[0];
-        if (!into) continue;
-        into.o.heads.push(...z.heads);
-        z.heads = [];
-        changed = true;
+        for (const o of zones) {
+          if (o === z || !o.heads.length || o.family !== z.family) continue;
+          if (sum(z.heads) + sum(o.heads) > cap + 1e-9) continue;
+          const tiny = z.heads.length <= 2 || o.heads.length <= 2;
+          const sameLawn = z.heads[0].area === o.heads[0].area;
+          if (!zonesNeighbour(z, o) && !(tiny && sameLawn && zoneGap(z, o) <= TINY_JOIN_FT)) continue;
+          const size = Math.min(sum(z.heads), sum(o.heads));
+          const d = zoneGap(z, o);
+          if (!best || size < best.size - 1e-9 || (Math.abs(size - best.size) < 1e-9 && d < best.d)) best = { z, o, size, d };
+        }
       }
+      if (!best) break;
+      best.o.heads.push(...best.z.heads);
+      best.z.heads = [];
       for (let i = zones.length - 1; i >= 0; i--) if (!zones[i].heads.length) zones.splice(i, 1);
-      if (!changed) break;
     }
   }
 
@@ -1716,6 +1734,34 @@
   /* ---------------- whole job ---------------- */
 
   // job: {areas:[{outer, holes, mode:'auto'|'spray'|'rotor'}], psi, cap, popupsOnly, dripZones}
+  // Zach's rotor rule turned around (2026-11-09): a yard that's mostly pop-ups with 2 rotors goes
+  // all pop-ups, and a rotor lawn with a lone pop-up or two that can't share a valve with other
+  // pop-ups drops them, as long as nothing goes dry. In the example yard two 15Hs on the curved
+  // back bed, 57 ft apart, each needed a valve to double-cover about 4 sq ft that rotors already
+  // reached once. STRAY_GAP_SQFT caps how much single-only coverage that may leave.
+  const STRAY_GAP_SQFT = 10;
+  function dropStrayPopups(allHeads, zones, areaResults) {
+    let dropped = false;
+    for (const z of zones) {
+      if (z.family !== "spray" || z.heads.length > 2) continue;
+      const ai = z.heads[0].area;
+      const lawn = allHeads.filter((h) => h.area === ai);
+      if (!lawn.some((h) => h.kind === "R")) continue; // a pop-up lawn keeps its pop-ups
+      const G = areaResults[ai].G;
+      const before = areaResults[ai].check;
+      const without = lawn.filter((h) => !z.heads.includes(h));
+      const after = verify(G, without);
+      const addedSqft = (after.gaps - before.gaps) * 0.25; // verify samples every 0.5 ft
+      const dry = after.gapPts.some((g) => g.c === 0);
+      if (addedSqft > STRAY_GAP_SQFT || dry || after.overspray > before.overspray) continue;
+      z.heads.forEach((h) => allHeads.splice(allHeads.indexOf(h), 1));
+      areaResults[ai].check = after;
+      areaResults[ai].strays = (areaResults[ai].strays || 0) + z.heads.length;
+      dropped = true;
+    }
+    return dropped;
+  }
+
   function layoutJob(job) {
     const factor = Math.sqrt((job.psi || 50) / 30);
     const allHeads = [];
@@ -1757,7 +1803,8 @@
         G,
       });
     });
-    const zones = zoneHeads(allHeads, job.cap || 12);
+    let zones = zoneHeads(allHeads, job.cap || 12);
+    if (dropStrayPopups(allHeads, zones, areaResults)) zones = zoneHeads(allHeads, job.cap || 12);
     const p = parts(allHeads, zones, job.drip || 0, job.water);
     const totals = areaResults.reduce(
       (t, a) => {

@@ -374,8 +374,45 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
     cap: 12,
   });
   const tiny = o.zones.filter((z) => z.family === "spray" && z.heads.length < 3).length;
-  eq(tiny, 0, "no pop-up zone under 3 heads in the example yard");
+  eq(tiny, 0, "stray pop-ups along the back bed share a valve");
   eq(o.zones.every((z) => z.gpm <= 12 + 1e-9), true, "every zone still under the GPM cap");
+}
+
+
+// Zach 2026-11-09: a zone stays in one part of the yard. No head sits off on its own away from
+// the rest of its zone, and two zones that are neighbours and fit under the cap together are merged.
+{
+  const chord = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const S = (pts) => P(pts.map((p, i) => { const q = pts[(i + 1) % pts.length]; return [p[0], p[1], (p[2] || 0) * chord(p, q)]; }));
+  const jobs = {
+    "example": [
+      { outer: S([[0, 40], [90, 40], [90, 110, 8 / 90], [0, 110]]), mode: "auto" },
+      { outer: S([[96, 40], [106, 40], [106, 110], [96, 110]]), mode: "auto" },
+      { outer: S([[0, -50], [70, -50], [70, -12], [0, -12, -6 / 38]]), mode: "auto" },
+    ],
+    "big rectangle": [{ outer: S([[0, 0], [120, 0], [120, 90], [0, 90]]), mode: "auto" }],
+    "L shape": [{ outer: S([[0, 65], [0, 0], [80, 0], [80, 35], [40, 35], [40, 65]]), mode: "spray" }],
+    "two lawns far apart": [
+      { outer: S([[0, 0], [20, 0], [20, 15], [0, 15]]), mode: "spray" },
+      { outer: S([[0, 120], [20, 120], [20, 135], [0, 135]]), mode: "spray" },
+    ],
+  };
+  for (const [name, areas] of Object.entries(jobs)) {
+    const o = E.layoutJob({ areas, psi: 50, cap: 12 });
+    for (const z of o.zones) {
+      // connected when each link is within 45 ft or the two heads' sprays reach each other
+      // (30 ft rotors sit 45.3 ft apart on a diagonal, head to head)
+      const seen = new Set([z.heads[0]]);
+      const stack = [z.heads[0]];
+      while (stack.length) {
+        const u = stack.pop();
+        for (const v of z.heads) if (!seen.has(v) && Math.hypot(u.x - v.x, u.y - v.y) <= Math.max(45, u.r + v.r)) { seen.add(v); stack.push(v); }
+      }
+      if (seen.size !== z.heads.length) { fail++; console.log("FAIL", name, "zone", z.n, "is split across the yard"); }
+    }
+  }
+  const far = E.layoutJob({ areas: jobs["two lawns far apart"], psi: 50, cap: 12 });
+  eq(far.zones.length >= 2, true, "lawns 105 ft apart never share a zone");
 }
 
 console.log(fail ? fail + " failing" : "all passing");
