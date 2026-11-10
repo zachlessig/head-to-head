@@ -658,7 +658,9 @@
     beds.forEach((b) => {
       lawns.forEach((l) => {
         const inside = b.ring.filter((p) => pointInRing(p, l.ring)).length;
-        if (inside && (inside < b.ring.length || ringsCross(b.ring, l.ring)))
+        // edges crossing count even with no corner inside: a bed drawn straight across a narrow
+        // lawn has all four corners outside it (random yard 24, 2026-11-09)
+        if ((inside && inside < b.ring.length) || ringsCross(b.ring, l.ring))
           out.push(
             "A bed hangs over the lawn edge. Move its corners inside the lawn.",
           );

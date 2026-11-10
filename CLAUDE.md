@@ -2,7 +2,11 @@
 
 Zach's phone app for laying out sprinkler systems. He ran a sprinkler supply counter, so the
 irrigation rules come from him. Every rule below has a test in `test/engine.test.js`; run
-`node test/engine.test.js` after any engine change.
+`node test/engine.test.js` after any engine change. `node test/fuzz.js 50 <seed>` builds 50 random
+yards with every feature, runs them the way the app does, and checks the rules independently; run
+seeds 1 to 3 after engine changes (147 of 150 clean on 2026-11-09; the 3 are fences running
+lengthwise down a 10 ft strip, which leave slivers at 98.5% coverage). Timing on a loaded Mac
+swings 10x, so compare old and new engines back to back before calling anything slow.
 
 ## Never
 

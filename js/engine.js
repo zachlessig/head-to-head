@@ -580,10 +580,14 @@
       // dry lens between neighbouring heads (2.7 ft deep for a 25 ft rotor on a 30 ft radius curve,
       // first test on a real traced yard). Let curve heads reach up to CURVE_OVER past the line,
       // the same small allowance Zach gives VANs on curves. Straight edges stay exactly 180.
+      // Only an actual curve earns the allowance. A slanted fence meeting a straight edge at under
+      // 5 degrees isn't a corner, and that bend alone used to switch this on: an 18VAN threw
+      // 0.9 ft past a straight edge (random yard 10, 2026-11-09).
       const curved =
         !isCorner &&
         (Math.abs(phiR + Math.PI / 2) > DEG ||
-          Math.abs(phiL - Math.PI / 2) > DEG);
+          Math.abs(phiL - Math.PI / 2) > DEG) &&
+        (smp.curve || nearCurve(G, p.x, p.y, r));
       if (curved) {
         phiR = -Math.PI;
         phiL = Math.PI;
@@ -1381,12 +1385,16 @@
         // nothing can absorb it: borrow the nearest heads from neighbours that can spare them
         for (const { o } of others) {
           while (z.heads.length < 3 && o.heads.length > 3) {
+            // the closest rotor that still fits under the cap: taking only the very closest left
+            // a 9 GPM zone at 2 rotors when a 1 GPM rotor next door would fit (random yard 25)
             let mv = null, md = Infinity;
+            const room = cap - sum(z.heads) + 1e-9;
             o.heads.forEach((b) => {
+              if (b.gpm > room) return;
               const d = Math.min(...z.heads.map((a) => Math.hypot(a.x - b.x, a.y - b.y)));
               if (d < md) { md = d; mv = b; }
             });
-            if (sum(z.heads) + mv.gpm > cap + 1e-9) break;
+            if (!mv) break;
             o.heads.splice(o.heads.indexOf(mv), 1);
             z.heads.push(mv);
             changed = true;

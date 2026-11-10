@@ -473,5 +473,15 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(inBed, 0, "no heads inside a bed that crosses a fence");
 }
 
+
+// random yard 10, 2026-11-09: a fence slanted under 5 degrees off a straight lawn edge isn't a
+// corner, and that small bend used to switch on the curve allowance: 0.9 ft past a straight edge
+{
+  const L = P([[190, 3.3], [225.2, 3.3], [225.2, 32.8], [213.5, 32.8], [213.5, 76.3], [190.1, 76.3]]);
+  const pieces = E.splitByFences(L, [[{ x: 209.6, y: 1.3 }, { x: 213.8, y: 78.3 }]]);
+  const o = E.layoutJob({ areas: pieces.map((outer) => ({ outer, mode: "auto" })), psi: 50, cap: 12 });
+  eq(o.totals.overspray, 0, "no overspray beside a slightly slanted fence");
+}
+
 console.log(fail ? fail + " failing" : "all passing");
 process.exit(fail ? 1 : 0);
