@@ -1731,6 +1731,206 @@
     return { lines, notes, stations, overLimit: stations > 16, waterSet: !!WATER_SOURCE_PARTS[water] };
   }
 
+  /* ---------------- fences ---------------- */
+
+  // Zach 2026-11-09: a lawn can be traced right through a fence, but sprinklers can't spray through
+  // one, so a fence is a boundary with no width. A fence that crosses a lawn splits it into
+  // separate lawns along the fence line; each side then gets its own heads with the fence as a
+  // straight edge (zero overspray). Fence ends get FENCE_SNAP ft of reach so a line stopped just
+  // short of the lawn edge still counts as crossing.
+  const FENCE_SNAP = 1;
+
+  // Circle of the arc edge a->b (bulge a.b = sagitta, + left of travel), or null if straight.
+  function arcOf(a, b) {
+    const dx = b.x - a.x, dy = b.y - a.y, c = Math.hypot(dx, dy);
+    const bb = a.b || 0;
+    if (Math.abs(bb) < 1e-6 || c < 1e-9) return null;
+    const nx = -dy / c, ny = dx / c;
+    const R = (c * c / 4 + bb * bb) / (2 * Math.abs(bb));
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    const off = bb - Math.sign(bb) * R;
+    const cx = mx + nx * off, cy = my + ny * off;
+    const a0 = Math.atan2(a.y - cy, a.x - cx), a1 = Math.atan2(b.y - cy, b.x - cx);
+    const ap = Math.atan2(my + ny * bb - cy, mx + nx * bb - cx);
+    const ccwDist = (f, t) => (((t - f) % TAU) + TAU) % TAU;
+    const ccw = ccwDist(a0, ap) < ccwDist(a0, a1);
+    const sweep = ccw ? ccwDist(a0, a1) : ccwDist(a1, a0);
+    return { cx, cy, R, a0, ccw, sweep, sign: Math.sign(bb) };
+  }
+  function arcPos(arc, x, y) {
+    const ang = Math.atan2(y - arc.cy, x - arc.cx);
+    const d = arc.ccw ? (((ang - arc.a0) % TAU) + TAU) % TAU : (((arc.a0 - ang) % TAU) + TAU) % TAU;
+    return d <= arc.sweep + 1e-9 ? d / arc.sweep : -1;
+  }
+  // bulge of the piece of an arc between positions u0 < u1 (same side, same circle)
+  function subBulge(arc, u0, u1) {
+    return arc.sign * arc.R * (1 - Math.cos(((u1 - u0) * arc.sweep) / 2));
+  }
+
+  // Where fence segment P->Q crosses edge a->b: [{t (along PQ), u (along the edge), x, y}]
+  function edgeHits(P, Q, a, b) {
+    const out = [];
+    const arc = arcOf(a, b);
+    const dx = Q.x - P.x, dy = Q.y - P.y;
+    if (!arc) {
+      const ex = b.x - a.x, ey = b.y - a.y;
+      const den = dx * ey - dy * ex;
+      if (Math.abs(den) < 1e-12) return out;
+      const t = ((a.x - P.x) * ey - (a.y - P.y) * ex) / den;
+      const u = ((a.x - P.x) * dy - (a.y - P.y) * dx) / den;
+      if (t >= 0 && t <= 1 && u >= 0 && u < 1) out.push({ t, u, x: P.x + t * dx, y: P.y + t * dy });
+      return out;
+    }
+    const fx = P.x - arc.cx, fy = P.y - arc.cy;
+    const A = dx * dx + dy * dy, B = 2 * (fx * dx + fy * dy), C = fx * fx + fy * fy - arc.R * arc.R;
+    const disc = B * B - 4 * A * C;
+    if (disc < 0 || A < 1e-12) return out;
+    for (const sg of [-1, 1]) {
+      const t = (-B + sg * Math.sqrt(disc)) / (2 * A);
+      if (t < 0 || t > 1) continue;
+      const x = P.x + t * dx, y = P.y + t * dy;
+      const u = arcPos(arc, x, y);
+      if (u >= 0 && u < 1) out.push({ t, u, x, y });
+    }
+    return out;
+  }
+
+  function ringPolygon(ring) {
+    const out = [];
+    ring.forEach((v, i) => {
+      out.push({ x: v.x, y: v.y });
+      arcPoints(v, ring[(i + 1) % ring.length], v.b || 0, 0.5).forEach((p) => out.push(p));
+    });
+    return out;
+  }
+  function insidePolygon(poly, x, y) {
+    let c = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const a = poly[i], b = poly[j];
+      if (a.y > y !== b.y > y && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) c = !c;
+    }
+    return c;
+  }
+  function polygonArea(poly) {
+    let s = 0;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) s += (poly[j].x + poly[i].x) * (poly[j].y - poly[i].y);
+    return Math.abs(s) / 2;
+  }
+
+  // The first stretch of this fence that runs through the lawn from edge to edge, or null.
+  function fenceCut(ring, fence) {
+    if (fence.length < 2) return null;
+    const pts = fence.map((p) => ({ x: p.x, y: p.y }));
+    const ext = (A, B) => {
+      const L = Math.hypot(A.x - B.x, A.y - B.y) || 1;
+      return { x: A.x + ((A.x - B.x) / L) * FENCE_SNAP, y: A.y + ((A.y - B.y) / L) * FENCE_SNAP };
+    };
+    pts[0] = ext(pts[0], pts[1]);
+    pts[pts.length - 1] = ext(pts[pts.length - 1], pts[pts.length - 2]);
+    const cum = [0];
+    for (let k = 1; k < pts.length; k++) cum.push(cum[k - 1] + Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y));
+    const hits = [];
+    for (let k = 0; k + 1 < pts.length; k++)
+      ring.forEach((a, i) =>
+        edgeHits(pts[k], pts[k + 1], a, ring[(i + 1) % ring.length]).forEach((h) =>
+          hits.push(Object.assign(h, { i, s: cum[k] + h.t * (cum[k + 1] - cum[k]) })),
+        ),
+      );
+    hits.sort((p, q) => p.s - q.s);
+    const poly = ringPolygon(ring);
+    for (let j = 0; j + 1 < hits.length; j++) {
+      const h1 = hits[j], h2 = hits[j + 1];
+      if (h2.s - h1.s < 0.5) continue;
+      const mid = (h1.s + h2.s) / 2;
+      let k = 0;
+      while (k + 2 < cum.length && cum[k + 1] < mid) k++;
+      const f = (mid - cum[k]) / (cum[k + 1] - cum[k] || 1);
+      const mx = pts[k].x + f * (pts[k + 1].x - pts[k].x), my = pts[k].y + f * (pts[k + 1].y - pts[k].y);
+      if (!insidePolygon(poly, mx, my)) continue;
+      const inner = [];
+      for (let m = 1; m + 1 < pts.length; m++) if (cum[m] > h1.s + 1e-9 && cum[m] < h2.s - 1e-9) inner.push({ x: pts[m].x, y: pts[m].y, b: 0 });
+      return { h1, h2, inner };
+    }
+    return null;
+  }
+
+  // Split ring along a cut, keeping curved edges curved. Returns [ringA, ringB].
+  function cutRing(ring, cut) {
+    const n = ring.length;
+    const marks = [Object.assign({ tag: 1 }, cut.h1), Object.assign({ tag: 2 }, cut.h2)];
+    const out = [], startIdx = [], idx = {}, toNext = [];
+    ring.forEach((a, i) => {
+      const b = ring[(i + 1) % n];
+      const arc = arcOf(a, b);
+      const L = Math.hypot(b.x - a.x, b.y - a.y);
+      let cur = { x: a.x, y: a.y, b: 0 };
+      startIdx[i] = out.length;
+      out.push(cur);
+      let prevU = 0;
+      marks
+        .filter((m) => m.i === i)
+        .sort((p, q) => p.u - q.u)
+        .forEach((m) => {
+          if (Math.hypot(m.x - a.x, m.y - a.y) < 0.05) return void (idx[m.tag] = startIdx[i]);
+          if (Math.hypot(m.x - b.x, m.y - b.y) < 0.05) return void toNext.push([m.tag, i]);
+          cur.b = arc ? subBulge(arc, prevU, m.u) : 0;
+          const v = { x: m.x, y: m.y, b: 0 };
+          idx[m.tag] = out.length;
+          out.push(v);
+          cur = v;
+          prevU = m.u;
+        });
+      cur.b = arc ? subBulge(arc, prevU, 1) : 0;
+      void L;
+    });
+    toNext.forEach(([tag, i]) => (idx[tag] = startIdx[(i + 1) % n]));
+    const s0 = idx[1], e0 = idx[2];
+    if (s0 == null || e0 == null || s0 === e0) return null;
+    const walk = (from, to) => {
+      const r = [];
+      for (let m = from; ; m = (m + 1) % out.length) {
+        r.push(Object.assign({}, out[m]));
+        if (m === to) break;
+      }
+      return r;
+    };
+    const A = walk(s0, e0);
+    A[A.length - 1].b = 0;
+    cut.inner.slice().reverse().forEach((p) => A.push(Object.assign({}, p)));
+    const B = walk(e0, s0);
+    B[B.length - 1].b = 0;
+    cut.inner.forEach((p) => B.push(Object.assign({}, p)));
+    return [A, B];
+  }
+
+  // outer: [{x,y,b}] lawn ring; fences: [[{x,y}]]. Returns the lawn rings left after every fence
+  // that crosses the lawn has split it. A fence that stops inside the lawn doesn't split it.
+  function splitByFences(outer, fences) {
+    let pieces = [outer];
+    for (let guard = 0; guard < 40; guard++) {
+      let changed = false;
+      const next = [];
+      for (const ring of pieces) {
+        let done = false;
+        for (const f of fences) {
+          const cut = fenceCut(ring, f);
+          if (!cut) continue;
+          const two = cutRing(ring, cut);
+          if (!two) continue;
+          two.forEach((r) => {
+            if (r.length >= 3 && polygonArea(ringPolygon(r)) >= 4) next.push(r);
+          });
+          done = changed = true;
+          break;
+        }
+        if (!done) next.push(ring);
+      }
+      pieces = next;
+      if (!changed) break;
+    }
+    return pieces;
+  }
+
   /* ---------------- whole job ---------------- */
 
   // job: {areas:[{outer, holes, mode:'auto'|'spray'|'rotor'}], psi, cap, popupsOnly, dripZones}
@@ -1862,6 +2062,7 @@
     zoneHeads,
     parts,
     dripPlan,
+    splitByFences,
     dripRolls,
     swingRolls,
     FIXED,

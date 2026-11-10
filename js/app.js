@@ -15,7 +15,6 @@
     tree: { letter: "T", color: "#7bc96f", name: "Tree" },
     meter: { letter: "M", color: "#5bc8e6", name: "Meter" },
     valve: { letter: "V", color: "#c9a7f5", name: "Valve box" },
-    gate: { letter: "G", color: "#f5a3c7", name: "Gate" },
     note: { letter: "!", color: "#ffd166", name: "Note" },
   };
 
@@ -80,6 +79,10 @@
     }
   }
   let jobs = loadJobs();
+  // gate markers were removed 2026-11-09 (fences replaced them)
+  jobs.forEach((j) => {
+    if (Array.isArray(j.markers)) j.markers = j.markers.filter((m) => m.tag !== "gate");
+  });
   const deletedIds = new Set();
   function saveJobs() {
     try {
@@ -240,6 +243,8 @@
       shape("bed", [[35, -8], [62, -8], [62, -4], [35, -4]]),
       // a little bed by the porch, close enough to join the porch beds
       shape("bed", [[65, -8], [68, -8], [68, -5], [65, -5]]),
+      // a side-yard fence across the strip: heads on each side stay on their own side
+      shape("fence", [[93, 75], [109, 75]]),
       // a raised garden bed out past the side yard: its own drip zone
       shape("bed", [[112, 60], [118, 60], [118, 92], [112, 92]]),
     ];
@@ -261,7 +266,7 @@
       popupsOnly: false,
       water: "secondary",
       shapes,
-      markers: [marker("meter", -8, -52), marker("valve", -4, 34), marker("tree", 60, 70), marker("gate", 93, 75)],
+      markers: [marker("meter", -8, -52), marker("valve", -4, 34), marker("tree", 60, 70)],
       layout: null,
     };
   }
@@ -522,21 +527,48 @@
     const beds = job.shapes.filter(
       (s) => s.type === "bed" && s.closed && s.pts.length >= 3,
     );
-    const areas = lawns.map((s) => {
-      const outer = shapeLocal(s, P);
-      const ring = densify(outer, true);
-      const holes = beds
-        .map((b) => shapeLocal(b, P))
-        .filter((h) => {
-          const c = {
-            x: h.reduce((a, p) => a + p.x, 0) / h.length,
-            y: h.reduce((a, p) => a + p.y, 0) / h.length,
-          };
-          return pointInRing(c, ring);
-        });
-      return { outer, holes, mode: s.mode || "auto", shapeId: s.id };
+    // a fence across a lawn splits it: sprinklers can't throw through a fence
+    const fences = fenceLines(job, P);
+    const areas = [];
+    lawns.forEach((s) => {
+      E.splitByFences(shapeLocal(s, P), fences).forEach((outer) => {
+        const ring = densify(outer, true);
+        const holes = beds
+          .map((b) => shapeLocal(b, P))
+          .filter((h) => {
+            const c = {
+              x: h.reduce((a, p) => a + p.x, 0) / h.length,
+              y: h.reduce((a, p) => a + p.y, 0) / h.length,
+            };
+            return pointInRing(c, ring);
+          });
+        areas.push({ outer, holes, mode: s.mode || "auto", shapeId: s.id });
+      });
     });
     return areas;
+  }
+
+  // A fence that pokes into a lawn without crossing it doesn't split it, so heads can still throw
+  // around its end (a gate opening works the same way). Say so instead of guessing.
+  function partFences(job) {
+    const P = proj(job);
+    const lawns = job.shapes.filter((s) => s.type === "lawn" && s.closed && s.pts.length >= 3);
+    for (const f of fenceLines(job, P))
+      for (const l of lawns) {
+        const outer = shapeLocal(l, P);
+        const ring = densify(outer, true);
+        const inside = f.some((p) => pointInRing(p, ring));
+        if (inside && E.splitByFences(outer, [f]).length < 2)
+          return "A fence stops partway into a lawn, so heads can spray around its end. Run it past the lawn edge at both ends if it goes all the way across.";
+      }
+    return null;
+  }
+
+  // Finished fences as open lines in local feet.
+  function fenceLines(job, P) {
+    return job.shapes
+      .filter((s) => s.type === "fence" && s.closed && s.pts.length >= 2)
+      .map((s) => s.pts.map((p) => P.toXY(p)));
   }
 
   // Drip, per Zach 2026-11-08: every bed on the map is drip, zoned by the engine's rules.
@@ -574,7 +606,7 @@
   // Shapes the engine can't trust: crossed traces, slivers, and beds hanging over a lawn edge.
   function shapeProblems(job) {
     const P = proj(job);
-    const closed = job.shapes.filter((s) => s.closed && s.pts.length >= 3);
+    const closed = job.shapes.filter((s) => s.closed && s.type !== "fence" && s.pts.length >= 3);
     const rings = closed.map((s) => ({
       s,
       ring: densify(shapeLocal(s, P), true),
@@ -821,7 +853,7 @@
   /* ---------------- map drawing ---------------- */
   function shapeLatLngs(shape, P) {
     const local = shapeLocal(shape, P);
-    return densify(local, shape.closed).map((p) => P.toLL(p.x, p.y));
+    return densify(local, shape.closed && shape.type !== "fence").map((p) => P.toLL(p.x, p.y));
   }
 
   function renderShapes() {
@@ -833,6 +865,22 @@
       const lls = shapeLatLngs(s, P);
       const sel = J.selShape === s.id || (J.drawing && J.drawing === s.id);
       const lawn = s.type === "lawn";
+      if (s.type === "fence") {
+        // a dark line with a light core shows on grass, concrete and the plain example background
+        const casing = L.polyline(lls, { color: "#2b2118", weight: sel ? 8 : 6, opacity: 0.85 });
+        const core = L.polyline(lls, { color: sel ? "#f5b700" : "#f3ead7", weight: sel ? 4 : 2.5, dashArray: "1 7", lineCap: "round" });
+        [casing, core].forEach((ly) => {
+          ly.on("click", (e) => {
+            if (J.mode !== "draw" || J.drawing || J.tool === "marker") return;
+            L.DomEvent.stopPropagation(e);
+            J.selShape = s.id;
+            J.selVertex = null;
+            redraw();
+          });
+          lay.addLayer(ly);
+        });
+        return;
+      }
       const style = {
         color: sel ? "#f5b700" : lawn ? "#ffffff" : "#ffd8a8",
         weight: sel ? 4 : 2.5,
@@ -888,7 +936,10 @@
       });
       m.on("click", (e) => {
         L.DomEvent.stopPropagation(e);
-        if (J.drawing && i === 0 && s.pts.length >= 3)
+        if (J.drawing && i === 0 && s.pts.length >= 3 && s.type !== "fence")
+          return finishDrawing(true);
+        // a fence is open: tapping its last dot finishes it
+        if (J.drawing && s.type === "fence" && i === s.pts.length - 1 && s.pts.length >= 2)
           return finishDrawing(true);
         if (!J.drawing) {
           J.selVertex = i;
@@ -898,7 +949,7 @@
       });
       lay.addLayer(m);
     });
-    if (!s.closed || J.drawing) return;
+    if (!s.closed || J.drawing || s.type === "fence") return;
     // midpoint handles: drag to bend the edge into a smooth arc, tap to add a corner
     const local = shapeLocal(s, P);
     local.forEach((a, i) => {
@@ -958,7 +1009,7 @@
     J.job.shapes.forEach((s) => {
       if (s.pts.length < 2) return;
       const local = shapeLocal(s, P);
-      const n = s.closed ? local.length : local.length - 1;
+      const n = s.closed && s.type !== "fence" ? local.length : local.length - 1;
       for (let i = 0; i < n; i++) {
         const e = edgeInfo(local[i], local[(i + 1) % local.length]);
         if (e.len < 2) continue;
@@ -1095,7 +1146,13 @@
     if (close) pushUndo();
     J.drawing = null;
     J.tool = null;
-    if (s) {
+    if (s && s.type === "fence") {
+      // a fence is a line, so two points are enough; closed here just means finished
+      if (s.pts.length >= 2) {
+        s.closed = true;
+        if (close) toast("Fence saved. Heads won't spray across it.");
+      } else J.job.shapes = J.job.shapes.filter((x) => x !== s);
+    } else if (s) {
       if (s.pts.length >= 3) {
         s.closed = true;
         if (close && selfCrosses(densify(shapeLocal(s, proj(J.job)), true))) {
@@ -1309,6 +1366,8 @@
     J.problems = null;
     const areas = buildAreas(J.job);
     if (!areas.length) return toast("Trace and close at least one lawn first.");
+    const stub = partFences(J.job);
+    if (stub) toast(stub);
     // a lawn traced while zoomed out to the neighborhood froze the page on the first live test;
     // 40,000 sq ft is about a full acre of turf, far past any residential lawn
     const big = areas.find(
@@ -1566,6 +1625,24 @@
     const job = J.job;
     if (J.drawing) {
       const s = job.shapes.find((x) => x.id === J.drawing);
+      if (s.type === "fence") {
+        el.innerHTML =
+          '<p class="hint"><b>Fence:</b> tap where it starts, each corner, and where it ends. Run it past the lawn edge where it meets the lawn. ' +
+          s.pts.length +
+          " point" +
+          (s.pts.length === 1 ? "" : "s") +
+          " so far.</p>" +
+          '<div class="row"><button class="btn grow" id="u">' +
+          icon("undo") +
+          'Undo</button><button class="btn primary grow" id="d"' +
+          (s.pts.length < 2 ? " disabled" : "") +
+          ">" +
+          icon("check") +
+          "Done</button></div>";
+        el.querySelector("#u").onclick = doUndo;
+        el.querySelector("#d").onclick = () => finishDrawing(true);
+        return;
+      }
       el.innerHTML =
         '<p class="hint">' +
         (s.type === "lawn"
@@ -1621,6 +1698,39 @@
       return;
     }
     const s = J.selShape && job.shapes.find((x) => x.id === J.selShape);
+    if (s && s.type === "fence") {
+      el.innerHTML =
+        '<p class="hint"><b>Fence selected.</b> Drag the dots to move it. Heads on each side stay on their own side.</p>' +
+        '<div class="row">' +
+        (J.selVertex != null && s.pts.length > 2 ? '<button class="btn grow" id="rv">Remove point</button>' : "") +
+        '<button class="btn danger grow" id="del">' +
+        icon("trash") +
+        'Delete</button><button class="btn grow" id="ok">' +
+        icon("check") +
+        "Done</button></div>";
+      const rv = el.querySelector("#rv");
+      if (rv)
+        rv.onclick = () => {
+          pushUndo();
+          s.pts.splice(J.selVertex, 1);
+          J.selVertex = null;
+          touch(job);
+          redraw();
+        };
+      el.querySelector("#del").onclick = () => {
+        pushUndo();
+        job.shapes = job.shapes.filter((x) => x !== s);
+        J.selShape = null;
+        touch(job);
+        redraw();
+      };
+      el.querySelector("#ok").onclick = () => {
+        J.selShape = null;
+        J.selVertex = null;
+        redraw();
+      };
+      return;
+    }
     if (s) {
       const lawn = s.type === "lawn";
       let h =
@@ -1703,7 +1813,9 @@
       icon("plus") +
       'Lawn</button><button class="btn grow" id="ab">' +
       icon("plus") +
-      'Bed</button><button class="btn grow" id="am">' +
+      'Bed</button></div><div class="row"><button class="btn grow" id="af">' +
+      icon("plus") +
+      'Fence</button><button class="btn grow" id="am">' +
       icon("pin") +
       "Marker</button></div>" +
       (J.undo.length
@@ -1713,6 +1825,7 @@
         : "");
     el.querySelector("#al").onclick = () => startShape("lawn");
     el.querySelector("#ab").onclick = () => startShape("bed");
+    el.querySelector("#af").onclick = () => startShape("fence");
     el.querySelector("#am").onclick = () => {
       J.tool = "marker";
       J.selShape = null;
@@ -2130,7 +2243,7 @@
     const job = J.job;
     const P = proj(job);
     const shapes = job.shapes
-      .filter((s) => s.closed && s.pts.length >= 3)
+      .filter((s) => s.closed && s.type !== "fence" && s.pts.length >= 3)
       .map((s) => {
         const local = shapeLocal(s, P);
         const edges = local.map((a, i) =>
@@ -2140,6 +2253,7 @@
       });
     const L0 = job.layout;
     return {
+      fences: fenceLines(job, P),
       copy,
       title: job.name,
       address: job.address,

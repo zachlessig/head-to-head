@@ -35,6 +35,11 @@ irrigation rules come from him. Every rule below has a test in `test/engine.test
 - Rotor rule both ways: a mostly pop-up area with under 3 rotors goes all pop-ups, and a rotor
   lawn drops a lone pop-up or two that can't share a valve, if nothing goes dry and no more than
   10 sq ft loses double coverage.
+- Fences (Zach 2026-11-09): a lawn can be traced through a fence, but heads can't spray through
+  one. A fence is an open line with no width. When it crosses a lawn the engine splits the lawn
+  along it (`splitByFences`, curved edges stay curved), and each side is laid out with the fence as
+  a straight, zero-overspray edge. A fence that stops partway into a lawn doesn't split it, and
+  the app warns. Gate markers were removed; old ones are dropped when jobs load.
 - Example yard: "Try an example yard" on the home screen builds a made-up yard with every
   feature, on a plain background (no satellite photo of a real place), and lays it out.
   When a feature is added, add it to `exampleJob()` in `js/app.js` too.

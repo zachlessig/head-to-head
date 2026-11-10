@@ -415,5 +415,42 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(far.zones.length >= 2, true, "lawns 105 ft apart never share a zone");
 }
 
+
+// Zach 2026-11-09: a fence is a boundary with no width. A fence across a lawn splits it, and no
+// head sprays across the fence line.
+{
+  const dens = (r) => { const o = []; r.forEach((v, i) => { o.push(v); E.arcPoints(v, r[(i + 1) % r.length], v.b, 0.25).forEach((q) => o.push(q)); }); return o; };
+  const area = (r) => { r = dens(r); let s = 0; for (let i = 0, j = r.length - 1; i < r.length; j = i++) s += (r[j].x + r[i].x) * (r[j].y - r[i].y); return Math.abs(s) / 2; };
+  const rect = P([[0, 0], [60, 0], [60, 40], [0, 40]]);
+  const across = [[{ x: 30, y: -2 }, { x: 30, y: 42 }]];
+  eq(E.splitByFences(rect, across).length, 2, "a fence across a lawn splits it in two");
+  eq(E.splitByFences(rect, [[{ x: 30, y: 0.5 }, { x: 30, y: 39.5 }]]).length, 2, "a fence stopped just short of the edge still splits");
+  eq(E.splitByFences(rect, [[{ x: 30, y: -2 }, { x: 30, y: 20 }]]).length, 1, "a fence that stops inside the lawn doesn't split it");
+  eq(E.splitByFences(rect, [[{ x: -2, y: 20 }, { x: 30, y: 20 }, { x: 30, y: 42 }]]).length, 2, "an L-shaped fence splits");
+  eq(E.splitByFences(rect, [[{ x: 20, y: -2 }, { x: 20, y: 42 }], [{ x: 40, y: -2 }, { x: 40, y: 42 }]]).length, 3, "two fences make three lawns");
+  const curved = P([[0, 0], [60, 0], [60, 40, 8], [0, 40]]);
+  const halves = E.splitByFences(curved, [[{ x: 30, y: -2 }, { x: 30, y: 60 }]]);
+  eq(Math.round(halves.reduce((a, r) => a + area(r), 0)), Math.round(area(curved)), "split pieces add up to the whole curved lawn");
+  eq(halves.every((r) => r.some((v) => Math.abs(v.b) > 1)), true, "each half keeps its piece of the curve");
+  for (const mode of ["auto", "spray"]) {
+    const pieces = E.splitByFences(P([[0, 0], [90, 0], [90, 60], [0, 60]]), [[{ x: 45, y: -2 }, { x: 45, y: 62 }]]);
+    const leftArea = pieces.map((r) => r.reduce((a, v) => a + v.x, 0) / r.length).map((cx) => cx < 45);
+    const o = E.layoutJob({ areas: pieces.map((outer) => ({ outer, mode })), psi: 50, cap: 12 });
+    let worst = 0;
+    for (const h of o.heads) {
+      const onLeft = leftArea[h.area];
+      const full = h.arc >= 359.5, a0 = full ? 0 : h.dir - h.arc / 2, span = full ? 360 : h.arc;
+      for (let i = 0; i <= Math.ceil(span); i++) {
+        const a = ((a0 + (span * i) / Math.ceil(span)) * Math.PI) / 180;
+        const x = h.x + h.r * Math.cos(a);
+        const side = onLeft ? x - 45 : 45 - x; // how far past the fence on the far side
+        worst = Math.max(worst, side);
+      }
+    }
+    if (worst > 0.35) { fail++; console.log("FAIL", mode, "a head sprays", worst.toFixed(2), "ft across the fence"); }
+    eq(o.areas[0].check.overspray + o.areas[1].check.overspray, 0, mode + ": no overspray with a fence across the yard");
+  }
+}
+
 console.log(fail ? fail + " failing" : "all passing");
 process.exit(fail ? 1 : 0);

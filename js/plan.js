@@ -110,6 +110,17 @@
         ctx.fillText("Drip", X(c.x), Y(c.y) + 7);
       });
 
+    // fences: a heavy dark line, no width
+    (d.fences || []).forEach((f) => {
+      if (f.length < 2) return;
+      ctx.beginPath();
+      f.forEach((p, i) => (i ? ctx.lineTo(X(p.x), Y(p.y)) : ctx.moveTo(X(p.x), Y(p.y))));
+      ctx.strokeStyle = "#2b2118";
+      ctx.lineWidth = 5;
+      ctx.lineCap = "round";
+      ctx.stroke();
+    });
+
     // edge lengths
     ctx.font = "600 18px Inter, sans-serif";
     ctx.textAlign = "center";
