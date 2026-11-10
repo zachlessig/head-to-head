@@ -452,5 +452,26 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   }
 }
 
+
+// a bed that runs across a fence is cut out of the lawn on both sides (2026-11-09: a bed strip
+// crossing a fence only cut into one side and the other side put pop-ups in the bed)
+{
+  const lawn = P([[0, 0], [80, 0], [80, 60], [0, 60]]);
+  const bed = P([[10, 40], [70, 40], [70, 46], [10, 46]]);
+  const fence = [[{ x: 40, y: -2 }, { x: 40, y: 62 }]];
+  const lawns = E.splitByFences(lawn, fence);
+  const split = E.splitByFences(bed, fence);
+  eq(split.length, 2, "the bed splits along the fence too");
+  // same 0.3 ft pull-back from the fence as offFence() in js/app.js
+  const beds = split.map((r) => { const cx = r.reduce((a, p) => a + p.x, 0) / r.length, cy = r.reduce((a, p) => a + p.y, 0) / r.length;
+    return r.map((p) => Math.abs(p.x - 40) < 0.05 ? Object.assign({}, p, { x: p.x + ((cx - p.x) / Math.hypot(cx - p.x, cy - p.y)) * 0.3, y: p.y + ((cy - p.y) / Math.hypot(cx - p.x, cy - p.y)) * 0.3 }) : p); });
+  const inside = (r, p) => { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const a = r[i], b = r[j]; if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) c = !c; } return c; };
+  const areas = lawns.map((outer) => ({ outer, mode: "spray", holes: beds.filter((h) => inside(outer, { x: h.reduce((a, p) => a + p.x, 0) / h.length, y: h.reduce((a, p) => a + p.y, 0) / h.length })) }));
+  eq(areas.every((a) => a.holes.length === 1), true, "each side of the fence gets its piece of the bed");
+  const o = E.layoutJob({ areas, psi: 50, cap: 12 });
+  const inBed = o.heads.filter((h) => h.x > 10.5 && h.x < 69.5 && h.y > 40.5 && h.y < 45.5).length;
+  eq(inBed, 0, "no heads inside a bed that crosses a fence");
+}
+
 console.log(fail ? fail + " failing" : "all passing");
 process.exit(fail ? 1 : 0);

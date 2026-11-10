@@ -110,15 +110,56 @@
         ctx.fillText("Drip", X(c.x), Y(c.y) + 7);
       });
 
-    // fences: a heavy dark line, no width
+    // fences: the map symbol, a line with x's on it, plus a "Fence" tag
     (d.fences || []).forEach((f) => {
       if (f.length < 2) return;
-      ctx.beginPath();
-      f.forEach((p, i) => (i ? ctx.lineTo(X(p.x), Y(p.y)) : ctx.moveTo(X(p.x), Y(p.y))));
-      ctx.strokeStyle = "#2b2118";
-      ctx.lineWidth = 5;
-      ctx.lineCap = "round";
-      ctx.stroke();
+      const line = (w, col) => {
+        ctx.beginPath();
+        f.forEach((p, i) => (i ? ctx.lineTo(X(p.x), Y(p.y)) : ctx.moveTo(X(p.x), Y(p.y))));
+        ctx.strokeStyle = col;
+        ctx.lineWidth = w;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.stroke();
+      };
+      line(9, "#ffffff");
+      line(4, "#16130f");
+      const xs = [];
+      let carry = 18;
+      for (let i = 0; i + 1 < f.length; i++) {
+        const ax = X(f[i].x), ay = Y(f[i].y), bx = X(f[i + 1].x), by = Y(f[i + 1].y);
+        const L = Math.hypot(bx - ax, by - ay);
+        let dd = carry;
+        for (; dd < L; dd += 36) xs.push([ax + ((bx - ax) * dd) / L, ay + ((by - ay) * dd) / L]);
+        carry = dd - L;
+      }
+      xs.forEach(([x, y]) => {
+        [[9, "#ffffff"], [4, "#16130f"]].forEach(([w, col]) => {
+          ctx.beginPath();
+          ctx.moveTo(x - 7, y - 7);
+          ctx.lineTo(x + 7, y + 7);
+          ctx.moveTo(x + 7, y - 7);
+          ctx.lineTo(x - 7, y + 7);
+          ctx.strokeStyle = col;
+          ctx.lineWidth = w;
+          ctx.lineCap = "round";
+          ctx.stroke();
+        });
+      });
+      // tag near the middle of the fence
+      let best = 0, mi = 0;
+      for (let i = 0; i + 1 < f.length; i++) {
+        const L = Math.hypot(f[i + 1].x - f[i].x, f[i + 1].y - f[i].y);
+        if (L > best) { best = L; mi = i; }
+      }
+      const mx = X((f[mi].x + f[mi + 1].x) / 2), my = Y((f[mi].y + f[mi + 1].y) / 2);
+      ctx.font = "800 18px Inter, sans-serif";
+      const w = ctx.measureText("Fence").width + 14;
+      ctx.fillStyle = "#16130f";
+      ctx.fillRect(mx - w / 2, my - 30, w, 22);
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.fillText("Fence", mx, my - 13);
     });
 
     // edge lengths

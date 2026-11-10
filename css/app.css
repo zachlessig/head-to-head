@@ -724,3 +724,10 @@ table.parts td.q {
 .parts th.g .gn {
   font-weight: 600;
 }
+.fx {
+  width: 14px !important;
+  height: 14px !important;
+  margin: -7px 0 0 -7px !important;
+  background: none;
+  border: 0;
+}

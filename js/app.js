@@ -533,8 +533,11 @@
     lawns.forEach((s) => {
       E.splitByFences(shapeLocal(s, P), fences).forEach((outer) => {
         const ring = densify(outer, true);
+        // beds are split by fences too, so a bed running across a fence is a hole on both sides
+        // (whole, it only cut into one side and the other side put pop-ups in the bed)
         const holes = beds
-          .map((b) => shapeLocal(b, P))
+          .flatMap((b) => E.splitByFences(shapeLocal(b, P), fences))
+          .map((h) => offFence(h, fences))
           .filter((h) => {
             const c = {
               x: h.reduce((a, p) => a + p.x, 0) / h.length,
@@ -562,6 +565,32 @@
           return "A fence stops partway into a lawn, so heads can spray around its end. Run it past the lawn edge at both ends if it goes all the way across.";
       }
     return null;
+  }
+
+  // A bed piece cut by a fence sits flush on the fence, which is now the lawn's edge, and the
+  // engine read that stretch of edge as lawn: two heads landed in the bed. Pulling the bed's fence
+  // corners BED_OFF_FENCE ft back toward the bed makes it a proper hole; the gap is too thin for a
+  // head and under the 0.4 ft the coverage check skips at an edge.
+  const BED_OFF_FENCE = 0.3;
+  function offFence(ring, fences) {
+    const near = (p) =>
+      fences.some((f) =>
+        f.some((a, i) => {
+          const b = f[i + 1];
+          if (!b) return false;
+          const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy || 1;
+          const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L2));
+          return Math.hypot(a.x + t * dx - p.x, a.y + t * dy - p.y) < 0.05;
+        }),
+      );
+    if (!ring.some(near)) return ring;
+    const cx = ring.reduce((a, p) => a + p.x, 0) / ring.length,
+      cy = ring.reduce((a, p) => a + p.y, 0) / ring.length;
+    return ring.map((p) => {
+      if (!near(p)) return p;
+      const d = Math.hypot(cx - p.x, cy - p.y) || 1;
+      return Object.assign({}, p, { x: p.x + ((cx - p.x) / d) * BED_OFF_FENCE, y: p.y + ((cy - p.y) / d) * BED_OFF_FENCE });
+    });
   }
 
   // Finished fences as open lines in local feet.
@@ -783,7 +812,9 @@
     );
     map.on("click", onMapClick);
     map.on("zoomend", () => {
-      if (J && J.mode === "heads") renderHeads();
+      if (!J) return;
+      if (J.mode === "heads") renderHeads();
+      if (J.job.shapes.some((x) => x.type === "fence")) renderShapes();
     });
     map.on("moveend", () => {
       const c = map.getCenter();
@@ -869,18 +900,34 @@
       const sel = J.selShape === s.id || (J.drawing && J.drawing === s.id);
       const lawn = s.type === "lawn";
       if (s.type === "fence") {
-        // a dark line with a light core shows on grass, concrete and the plain example background
-        const casing = L.polyline(lls, { color: "#2b2118", weight: sel ? 8 : 6, opacity: 0.85 });
-        const core = L.polyline(lls, { color: sel ? "#f5b700" : "#f3ead7", weight: sel ? 4 : 2.5, dashArray: "1 7", lineCap: "round" });
-        [casing, core].forEach((ly) => {
-          ly.on("click", (e) => {
-            if (J.mode !== "draw" || J.drawing || J.tool === "marker") return;
-            L.DomEvent.stopPropagation(e);
-            J.selShape = s.id;
-            J.selVertex = null;
-            redraw();
-          });
+        // The map symbol for a fence: a line with x's on it (Zach 2026-11-09 wanted it to read as a
+        // fence, not a random line). Near-black with a white edge, since the zone colors already
+        // use nearly every bright color. The x's sit every FENCE_X_PX on screen at any zoom.
+        const pick = (e) => {
+          if (J.mode !== "draw" || J.drawing || J.tool === "marker") return;
+          L.DomEvent.stopPropagation(e);
+          J.selShape = s.id;
+          J.selVertex = null;
+          redraw();
+        };
+        const ink = sel ? "#f5b700" : "#16130f";
+        const casing = L.polyline(lls, { color: "#ffffff", weight: 7, opacity: 0.9 });
+        const line = L.polyline(lls, { color: ink, weight: 3 });
+        [casing, line].forEach((ly) => {
+          ly.on("click", pick);
           lay.addLayer(ly);
+        });
+        fenceXs(lls).forEach((ll) => {
+          const x = L.marker(ll, {
+            icon: L.divIcon({
+              className: "fx",
+              iconSize: [14, 14],
+              html: '<svg viewBox="0 0 14 14" width="14" height="14"><path d="M3 3l8 8M11 3l-8 8" stroke="#fff" stroke-width="5" stroke-linecap="round"/><path d="M3 3l8 8M11 3l-8 8" stroke="' + ink + '" stroke-width="2.4" stroke-linecap="round"/></svg>',
+            }),
+            keyboard: false,
+          });
+          x.on("click", pick);
+          lay.addLayer(x);
         });
         return;
       }
@@ -902,6 +949,27 @@
       lay.addLayer(layer);
     });
   }
+
+  // Spots for the x's along a fence, every FENCE_X_PX on screen, skipping the very ends.
+  const FENCE_X_PX = 26;
+  function fenceXs(lls) {
+    const pts = lls.map((ll) => J.map.latLngToContainerPoint(ll));
+    const out = [];
+    let carry = FENCE_X_PX / 2;
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const a = pts[i], b = pts[i + 1];
+      const L = a.distanceTo(b);
+      let d = carry;
+      while (d < L) {
+        const t = d / L;
+        out.push(J.map.containerPointToLatLng(L_point(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)));
+        d += FENCE_X_PX;
+      }
+      carry = d - L;
+    }
+    return out;
+  }
+  const L_point = (x, y) => L.point(x, y);
 
   function vertexIcon(cls) {
     return L.divIcon({ className: cls, iconSize: [22, 22] });
@@ -1016,11 +1084,12 @@
       for (let i = 0; i < n; i++) {
         const e = edgeInfo(local[i], local[(i + 1) % local.length]);
         if (e.len < 2) continue;
+        const what = s.type === "fence" ? "Fence · " : "";
         lay.addLayer(
           L.marker(P.toLL(e.mx, e.my), {
             icon: L.divIcon({
               className: "elabel",
-              html: Math.round(e.len) + " ft",
+              html: what + Math.round(e.len) + " ft",
               iconSize: null,
             }),
             interactive: false,
