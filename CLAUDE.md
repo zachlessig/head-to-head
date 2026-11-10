@@ -43,6 +43,7 @@ irrigation rules come from him. Every rule below has a test in `test/engine.test
   Fences draw as the map symbol for a fence, a near-black line with x's along it and a
   "Fence" tag (zone colors take nearly every bright color, so color alone can't mark it). Beds
   are split by fences too and pulled 0.3 ft off the fence, or the far side treats the bed as lawn.
+  Drip ignores fences: the pipe runs under them, so drip zones never split at a fence.
   Two heads on the same spot (one each side of a fence) are drawn a few pixels apart, square to
   the fence, on the map and the plan (`nudges` in `js/plan.js`). Drawing only: real positions
   and coverage don't move.

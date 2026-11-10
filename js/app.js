@@ -601,6 +601,8 @@
   }
 
   // Drip, per Zach 2026-11-08: every bed on the map is drip, zoned by the engine's rules.
+  // Fences are left out on purpose: drip pipe runs under a fence (Zach 2026-11-09), so a bed that
+  // crosses a fence stays one bed, and beds on either side still share a zone. Only heads split.
   function dripFor(job) {
     const P = proj(job);
     const beds = job.shapes
