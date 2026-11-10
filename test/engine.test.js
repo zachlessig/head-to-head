@@ -503,5 +503,21 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(o.totals.overspray, 0, "no overspray from a head on a bed corner at the bend of an L fence");
 }
 
+
+// random yards seed 3, yard 44, 2026-11-09: a bed 2.4 ft from an L fence leaves a passage the 1 ft
+// layout grid sees as one row of samples, which came out double covered, while the 0.5 ft check
+// found single coverage on both sides of it: 98.2% on a small odd lawn. Slivers are now recounted
+// on a 0.5 ft grid and filled with tiny edge heads.
+{
+  const inside = (r, p) => { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const a = r[i], b = r[j]; if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) c = !c; } return c; };
+  const lawn = P([[37.59, 8.86], [24.44, 21.62], [6.5, 17.23], [6.76, 0.65], [24.77, -4.78]]);
+  const fence = [[{ x: 4.5, y: 11.04 }, { x: 22.04, y: 11.04 }, { x: 22.04, y: 23.62 }]];
+  const bed = P([[14.02, 4.6], [25.74, 4.6], [25.74, 8.63], [14.02, 8.63]]);
+  const areas = E.splitByFences(lawn, fence).map((outer) => ({ outer, mode: "auto", holes: inside(outer, E.pointInside(bed)) ? [bed] : [] }));
+  const o = E.layoutJob({ areas, psi: 60, cap: 9 });
+  eq(o.totals.coverage >= 0.99, true, "a 2.4 ft passage between a bed and a fence is double covered (" + (o.totals.coverage * 100).toFixed(2) + "%)");
+  eq(o.totals.overspray, 0, "filling the passage adds no overspray");
+}
+
 console.log(fail ? fail + " failing" : "all passing");
 process.exit(fail ? 1 : 0);
