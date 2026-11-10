@@ -335,6 +335,9 @@
     const a2 = Math.atan2(next.y - p.y, next.x - p.x);
     let d = (a1 - a2) % TAU;
     if (d < 0) d += TAU;
+    // the tip of a fence that stops inside a lawn: the ring goes out along the fence and straight
+    // back, and the lawn wraps all the way around the tip
+    if (d < 1e-9 && Math.hypot(prev.x - next.x, prev.y - next.y) < 1e-6) return 360;
     return d / DEG;
   }
 
@@ -1261,20 +1264,34 @@
       if (zones.every((z) => z.reduce((s, h) => s + h.gpm, 0) <= cap + 1e-9))
         return zones;
     }
-    // fallback: chop in order, still under cap
+    // Fallback: grow each zone outward from the head farthest from the rest, always taking the
+    // nearest head that still fits, until the cap. Chopping the list in order (the old fallback)
+    // paired heads 50 ft apart with nothing between them (random yards, 2026-11-09).
     const out = [];
-    let cur = [],
-      sum = 0;
-    comp.forEach((h) => {
-      if (sum + h.gpm > cap && cur.length) {
-        out.push(cur);
-        cur = [];
-        sum = 0;
+    const left = new Set(comp);
+    while (left.size) {
+      const arr = [...left];
+      const cx = arr.reduce((a, h) => a + h.x, 0) / arr.length, cy = arr.reduce((a, h) => a + h.y, 0) / arr.length;
+      let seed = arr[0], far = -1;
+      arr.forEach((h) => { const d = Math.hypot(h.x - cx, h.y - cy); if (d > far) { far = d; seed = h; } });
+      const zone = [seed];
+      left.delete(seed);
+      let sum = seed.gpm;
+      for (;;) {
+        let best = null, bd = Infinity;
+        for (const v of left) {
+          if (sum + v.gpm > cap + 1e-9) continue;
+          const d = Math.min(...zone.map((u) => Math.hypot(u.x - v.x, u.y - v.y)));
+          if (d < bd) { bd = d; best = v; }
+        }
+        // stay a patch: the next head has to be within reach of one already in the zone
+        if (!best || bd > Math.max(best.r, ...zone.map((u) => u.r)) + 3) break;
+        zone.push(best);
+        left.delete(best);
+        sum += best.gpm;
       }
-      cur.push(h);
-      sum += h.gpm;
-    });
-    if (cur.length) out.push(cur);
+      out.push(zone);
+    }
     return out;
   }
 
@@ -1911,6 +1928,125 @@
     return [A, B];
   }
 
+  // Zach 2026-11-09: a fence that stops partway into a lawn is still a wall; heads spray around its
+  // open end, never through it. The lawn ring is routed in along the fence from where it crosses
+  // the edge to its end and back out the other side (a slit with no width), so both faces of the
+  // fence become lawn edge. A fence piece with both ends inside the lawn becomes a slit hole.
+  // Call after splitByFences, which has already used every fence that crosses all the way.
+  function fenceSlits(outer, fences) {
+    let ring = outer.map((v) => Object.assign({}, v));
+    const holes = [];
+    for (const f of fences) {
+      if (f.length < 2) continue;
+      const poly = ringPolygon(ring);
+      const pts = f.map((p) => ({ x: p.x, y: p.y }));
+      const cum = [0];
+      for (let k = 1; k < pts.length; k++) cum.push(cum[k - 1] + Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y));
+      const total = cum[cum.length - 1];
+      const at = (sv) => {
+        let k = 0;
+        while (k + 2 < cum.length && cum[k + 1] < sv) k++;
+        const t = (sv - cum[k]) / (cum[k + 1] - cum[k] || 1);
+        return { x: pts[k].x + t * (pts[k + 1].x - pts[k].x), y: pts[k].y + t * (pts[k + 1].y - pts[k].y) };
+      };
+      const hits = [];
+      for (let k = 0; k + 1 < pts.length; k++)
+        ring.forEach((a, i) =>
+          edgeHits(pts[k], pts[k + 1], a, ring[(i + 1) % ring.length]).forEach((h) =>
+            hits.push(Object.assign(h, { i, s: cum[k] + h.t * (cum[k + 1] - cum[k]) })),
+          ),
+        );
+      hits.sort((a, b) => a.s - b.s);
+      // inside the lawn and not lying on its edge: after a fence splits a lawn it runs along the new
+      // edge of each piece, and reading that as inside cut slits down the edge itself (first run
+      // of the random yards: 20 crashes and 16 ft overspray)
+      const inside = (sv) => {
+        const q = at(sv);
+        if (!insidePolygon(poly, q.x, q.y)) return false;
+        for (let k = 0; k < poly.length; k++) {
+          const a = poly[k], b = poly[(k + 1) % poly.length];
+          if (segDist({ ax: a.x, ay: a.y, bx: b.x, by: b.y }, q.x, q.y) < 0.05) return false;
+        }
+        return true;
+      };
+      // fence points strictly between two distances, in order
+      const between = (s0, s1) => {
+        const out = [];
+        for (let m = 1; m + 1 < pts.length; m++) if (cum[m] > s0 + 1e-6 && cum[m] < s1 - 1e-6) out.push({ x: pts[m].x, y: pts[m].y });
+        return out;
+      };
+      const stubs = [];
+      if (!hits.length) {
+        if (inside(total / 2) && total > 0.5) holes.push(slitHole(pts));
+        continue;
+      }
+      // the end before the first crossing, and the end after the last, if they're in the lawn; a
+      // stub under FENCE_SNAP is a fence drawn just short of the edge, which counts as reaching it
+      if (hits[0].s > FENCE_SNAP && inside(hits[0].s / 2))
+        stubs.push({ h: hits[0], path: between(0, hits[0].s).reverse().concat([at(0)]) });
+      const last = hits[hits.length - 1];
+      if (total - last.s > FENCE_SNAP && inside((last.s + total) / 2)) stubs.push({ h: last, path: between(last.s, total).concat([at(total)]) });
+      // apply one stub at a time; the ring changes, so the rest are found again next pass
+      if (stubs.length) {
+        ring = insertSlit(ring, stubs[0].h, stubs[0].path);
+        if (stubs.length > 1) {
+          const again = fenceSlits(ring, [f]);
+          ring = again.outer;
+          again.holes.forEach((h) => holes.push(h));
+        }
+      }
+    }
+    return { outer: ring, holes };
+  }
+
+  // A point inside the shape, for deciding which side of a fence a bed piece is on. The average
+  // of the corners can sit outside an L-shaped piece (a bed on the bend of an L fence got
+  // attached to the lawn on the wrong side, random yards 2026-11-09), so fall back to the middle
+  // of a small triangle at a corner that is inside.
+  function pointInside(ring) {
+    const poly = ringPolygon(ring);
+    const c = { x: poly.reduce((a, p) => a + p.x, 0) / poly.length, y: poly.reduce((a, p) => a + p.y, 0) / poly.length };
+    if (insidePolygon(poly, c.x, c.y)) return c;
+    const n = poly.length;
+    for (let i = 0; i < n; i++) {
+      const a = poly[(i - 1 + n) % n], b = poly[i], d = poly[(i + 1) % n];
+      const q = { x: (a.x + b.x + d.x) / 3, y: (a.y + b.y + d.y) / 3 };
+      if (insidePolygon(poly, q.x, q.y)) return q;
+    }
+    return c;
+  }
+
+  // out along the path and back: a hole with no area, for a fence floating inside a lawn
+  function slitHole(pts) {
+    const back = pts.slice(1, -1).reverse();
+    return pts.concat(back).map((p) => ({ x: p.x, y: p.y, b: 0 }));
+  }
+
+  // Put a slit into the ring where the fence crosses edge h.i, running along path (from the edge
+  // inward, ending at the fence's end) and straight back.
+  function insertSlit(ring, h, path) {
+    const n = ring.length;
+    const a = ring[h.i], b = ring[(h.i + 1) % n];
+    const arc = arcOf(a, b);
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const v = Object.assign({}, ring[i]);
+      if (i !== h.i) {
+        out.push(v);
+        continue;
+      }
+      const bBefore = arc ? subBulge(arc, 0, h.u) : 0;
+      const bAfter = arc ? subBulge(arc, h.u, 1) : 0;
+      v.b = bBefore;
+      out.push(v);
+      out.push({ x: h.x, y: h.y, b: 0 });
+      path.forEach((p) => out.push({ x: p.x, y: p.y, b: 0 }));
+      path.slice(0, -1).reverse().forEach((p) => out.push({ x: p.x, y: p.y, b: 0 }));
+      out.push({ x: h.x, y: h.y, b: bAfter });
+    }
+    return out;
+  }
+
   // outer: [{x,y,b}] lawn ring; fences: [[{x,y}]]. Returns the lawn rings left after every fence
   // that crosses the lawn has split it. A fence that stops inside the lawn doesn't split it.
   function splitByFences(outer, fences) {
@@ -2071,6 +2207,8 @@
     parts,
     dripPlan,
     splitByFences,
+    fenceSlits,
+    pointInside,
     dripRolls,
     swingRolls,
     FIXED,

@@ -531,66 +531,21 @@
     const fences = fenceLines(job, P);
     const areas = [];
     lawns.forEach((s) => {
-      E.splitByFences(shapeLocal(s, P), fences).forEach((outer) => {
+      E.splitByFences(shapeLocal(s, P), fences).forEach((piece) => {
+        // a fence that stops partway in is still a wall: the lawn wraps around it as a slit
+        const slit = E.fenceSlits(piece, fences);
+        const outer = slit.outer;
         const ring = densify(outer, true);
         // beds are split by fences too, so a bed running across a fence is a hole on both sides
         // (whole, it only cut into one side and the other side put pop-ups in the bed)
         const holes = beds
           .flatMap((b) => E.splitByFences(shapeLocal(b, P), fences))
           .map((h) => offFence(h, fences))
-          .filter((h) => {
-            const c = {
-              x: h.reduce((a, p) => a + p.x, 0) / h.length,
-              y: h.reduce((a, p) => a + p.y, 0) / h.length,
-            };
-            return pointInRing(c, ring);
-          });
-        areas.push({ outer, holes, mode: s.mode || "auto", shapeId: s.id });
+          .filter((h) => pointInRing(E.pointInside(h), ring));
+        areas.push({ outer, holes: holes.concat(slit.holes), mode: s.mode || "auto", shapeId: s.id });
       });
     });
     return areas;
-  }
-
-  // A fence that pokes into a lawn without crossing it doesn't split it, so heads can still throw
-  // around its end (a gate opening works the same way). Say so instead of guessing.
-  function partFences(job) {
-    const P = proj(job);
-    const lawns = job.shapes.filter((s) => s.type === "lawn" && s.closed && s.pts.length >= 3);
-    for (const f of fenceLines(job, P))
-      for (const l of lawns) {
-        const outer = shapeLocal(l, P);
-        const ring = densify(outer, true);
-        const inside = f.some((p) => pointInRing(p, ring));
-        if (inside && E.splitByFences(outer, [f]).length < 2)
-          return "A fence stops partway into a lawn, so heads can spray around its end. Run it past the lawn edge at both ends if it goes all the way across.";
-      }
-    return null;
-  }
-
-  // A bed piece cut by a fence sits flush on the fence, which is now the lawn's edge, and the
-  // engine read that stretch of edge as lawn: two heads landed in the bed. Pulling the bed's fence
-  // corners BED_OFF_FENCE ft back toward the bed makes it a proper hole; the gap is too thin for a
-  // head and under the 0.4 ft the coverage check skips at an edge.
-  const BED_OFF_FENCE = 0.3;
-  function offFence(ring, fences) {
-    const near = (p) =>
-      fences.some((f) =>
-        f.some((a, i) => {
-          const b = f[i + 1];
-          if (!b) return false;
-          const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy || 1;
-          const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L2));
-          return Math.hypot(a.x + t * dx - p.x, a.y + t * dy - p.y) < 0.05;
-        }),
-      );
-    if (!ring.some(near)) return ring;
-    const cx = ring.reduce((a, p) => a + p.x, 0) / ring.length,
-      cy = ring.reduce((a, p) => a + p.y, 0) / ring.length;
-    return ring.map((p) => {
-      if (!near(p)) return p;
-      const d = Math.hypot(cx - p.x, cy - p.y) || 1;
-      return Object.assign({}, p, { x: p.x + ((cx - p.x) / d) * BED_OFF_FENCE, y: p.y + ((cy - p.y) / d) * BED_OFF_FENCE });
-    });
   }
 
   // Finished fences as open lines in local feet.
@@ -1442,8 +1397,6 @@
     J.problems = null;
     const areas = buildAreas(J.job);
     if (!areas.length) return toast("Trace and close at least one lawn first.");
-    const stub = partFences(J.job);
-    if (stub) toast(stub);
     // a lawn traced while zoomed out to the neighborhood froze the page on the first live test;
     // 40,000 sq ft is about a full acre of turf, far past any residential lawn
     const big = areas.find(

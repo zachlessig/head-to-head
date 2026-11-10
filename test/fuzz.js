@@ -242,7 +242,28 @@ function makeYard(i) {
           { x, y: bb.y0 + H * 0.4 },
         ],
       });
-    } else if (f < 0.65) {
+    } else if (f < 0.68) {
+      // a fence piece with both ends inside the lawn
+      const y0 = bb.y0 + H * 0.5;
+      fences.push({
+        kind: "floating",
+        pts: [
+          { x: bb.x0 + W * 0.3, y: y0 },
+          { x: bb.x0 + W * 0.7, y: y0 + between(-4, 4) },
+        ],
+      });
+    } else if (f < 0.75) {
+      // in from the edge, then a turn, ending inside
+      const x = bb.x0 + W * 0.45;
+      fences.push({
+        kind: "bent partway",
+        pts: [
+          { x, y: bb.y0 - 2 },
+          { x, y: bb.y0 + H * 0.45 },
+          { x: x + W * 0.2, y: bb.y0 + H * 0.45 },
+        ],
+      });
+    } else if (f < 0.8) {
       fences.push({
         kind: "outside",
         pts: [
@@ -387,21 +408,15 @@ function buildAreas(y) {
   const fences = y.fences.map((f) => f.pts);
   const areas = [];
   y.lawns.forEach((l) => {
-    E.splitByFences(l.ring, fences).forEach((outer) => {
+    E.splitByFences(l.ring, fences).forEach((piece) => {
+      const slit = E.fenceSlits(piece, fences);
+      const outer = slit.outer;
       const ring = dens(outer);
       const holes = y.beds
         .flatMap((b) => E.splitByFences(b.ring, fences))
         .map((h) => offFence(h, fences))
-        .filter((h) =>
-          ptInRing(
-            {
-              x: h.reduce((a, p) => a + p.x, 0) / h.length,
-              y: h.reduce((a, p) => a + p.y, 0) / h.length,
-            },
-            ring,
-          ),
-        );
-      areas.push({ outer, holes, mode: l.mode });
+        .filter((h) => ptInRing(E.pointInside(h), ring));
+      areas.push({ outer, holes: holes.concat(slit.holes), mode: l.mode });
     });
   });
   return areas;
@@ -568,7 +583,7 @@ function check(y) {
         }
       });
       if (worst > 0.4) {
-        if (f.kind === "partway") partway.n++;
+        if (false) partway.n++;
         else
           bug(
             "head " +
