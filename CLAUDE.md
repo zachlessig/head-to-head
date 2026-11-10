@@ -4,8 +4,8 @@ Zach's phone app for laying out sprinkler systems. He ran a sprinkler supply cou
 irrigation rules come from him. Every rule below has a test in `test/engine.test.js`; run
 `node test/engine.test.js` after any engine change. `node test/fuzz.js 50 <seed>` builds 50 random
 yards with every feature, runs them the way the app does, and checks the rules independently; run
-seeds 1 to 3 after engine changes (147 of 150 clean on 2026-11-09; the 3 are fences running
-lengthwise down a 10 ft strip, which leave slivers at 98.5% coverage). Timing on a loaded Mac
+seeds 1 to 3 after engine changes (146 of 150 clean on 2026-11-10; the 4 are fences running
+lengthwise down a 6 to 14 ft strip, which leave slivers at 95.8% to 98.7% coverage). Timing on a loaded Mac
 swings 10x, so compare old and new engines back to back before calling anything slow.
 
 ## Never
@@ -42,11 +42,14 @@ swings 10x, so compare old and new engines back to back before calling anything 
 - Fences (Zach 2026-11-09): a lawn can be traced through a fence, but heads can't spray through
   one. A fence is an open line with no width. When it crosses a lawn the engine splits the lawn
   along it (`splitByFences`, curved edges stay curved), and each side is laid out with the fence as
-  a straight, zero-overspray edge. A fence that stops partway into a lawn doesn't split it, and
-  the app warns. Gate markers were removed; old ones are dropped when jobs load.
+  a straight, zero-overspray edge. A fence that stops partway into a lawn is still a wall
+  (`fenceSlits`): the lawn edge runs in along both faces of the fence and back out, and a fence
+  piece floating inside a lawn becomes a hole with no width. Gate markers were removed; old ones
+  are dropped when jobs load.
   Fences draw as the map symbol for a fence, a near-black line with x's along it and a
   "Fence" tag (zone colors take nearly every bright color, so color alone can't mark it). Beds
-  are split by fences too and pulled 0.3 ft off the fence, or the far side treats the bed as lawn.
+  are split by fences too and pulled 0.3 ft off the fence (`offFence` in `js/engine.js`, square to
+  the fence), or the far side treats the bed as lawn.
   Drip ignores fences: the pipe runs under them, so drip zones never split at a fence.
   Two heads on the same spot (one each side of a fence) are drawn a few pixels apart, square to
   the fence, on the map and the plan (`nudges` in `js/plan.js`). Drawing only: real positions
