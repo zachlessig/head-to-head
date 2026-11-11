@@ -39,18 +39,25 @@ create table public.folders (
   created_at timestamptz not null default now()
 );
 create index folders_company_id_idx on public.folders (company_id);
+-- lets a job's folder be checked against the job's own company
+alter table public.folders add constraint folders_id_company_key unique (id, company_id);
 
 -- A job is the same object the app already keeps on the phone, stored whole as JSON.
--- id is the app's own job id, so a job made offline keeps its id when it reaches the server.
+-- id is the app's own job id, so a job made offline keeps its id when it reaches the server. It's
+-- unique within a company, not across all of them: a global id let one company claim another's id
+-- first and block it from syncing (security review 2026-11-10).
 create table public.jobs (
   -- the app's ids are short letters and digits; anything else is refused (a job id reaches the page)
-  id text primary key check (id ~ '^[A-Za-z0-9_-]{4,40}$'),
+  id text not null check (id ~ '^[A-Za-z0-9_-]{4,40}$'),
   company_id uuid not null references public.companies (id) on delete cascade,
-  folder_id uuid references public.folders (id) on delete set null,
+  folder_id uuid,
+  -- the folder must belong to the same company; deleting it clears just folder_id
+  foreign key (folder_id, company_id) references public.folders (id, company_id) on delete set null (folder_id),
   data jsonb not null,
   deleted boolean not null default false,
   updated_at timestamptz not null default now(),
-  updated_by uuid references auth.users (id) on delete set null
+  updated_by uuid references auth.users (id) on delete set null,
+  primary key (company_id, id)
 );
 create index jobs_company_updated_idx on public.jobs (company_id, updated_at);
 
@@ -172,6 +179,10 @@ grant execute on function public.is_owner(uuid) to authenticated;
 create function public.stamp_job() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
+  -- a job never moves to another company (security review 2026-11-10)
+  if tg_op = 'UPDATE' and new.company_id <> old.company_id then
+    raise exception 'a job cannot move to another company';
+  end if;
   new.updated_at := now();
   new.updated_by := auth.uid();
   return new;

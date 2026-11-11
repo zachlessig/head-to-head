@@ -301,7 +301,7 @@
     }));
     const all = rows.concat(gone);
     if (!all.length) return;
-    const { error } = await sb.from("jobs").upsert(all, { onConflict: "id" });
+    const { error } = await sb.from("jobs").upsert(all, { onConflict: "company_id,id" });
     if (error) {
       // no signal or a hiccup: keep them queued and try again on the next change or pull
       console.warn("Jobs not sent yet", error);
