@@ -179,3 +179,13 @@ end;
 $$;
 create trigger jobs_stamp before insert or update on public.jobs
   for each row execute function public.stamp_job();
+
+-- The project was created with "Automatically expose new tables" off, so the app's signed-in role
+-- gets exactly these privileges and nothing more; row level security above still decides which rows.
+-- Signed-out visitors (anon) get nothing.
+grant usage on schema public to authenticated;
+grant select on public.companies to authenticated;
+grant select, delete on public.members to authenticated;
+grant select, insert, delete on public.invites to authenticated;
+grant select, insert, update, delete on public.folders to authenticated;
+grant select, insert, update on public.jobs to authenticated;
