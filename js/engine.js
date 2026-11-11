@@ -1670,9 +1670,11 @@
 
   // Water source parts, per Zach 2026-11-07: culinary needs a backflow preventer, secondary
   // needs a filter. Zach is writing the full fixed list for each; it goes here when it comes.
+  // Zach 2026-11-10: brands and builds vary too much to list, so one line for the setup, plus a
+  // stainless steel ball valve so all the water can be shut off.
   const WATER_SOURCE_PARTS = {
-    culinary: [{ item: "Backflow preventer", qty: 1 }],
-    secondary: [{ item: "Filter", qty: 1 }],
+    culinary: [{ item: "Backflow setup", qty: 1 }, { item: "Stainless steel ball valve", qty: 1 }],
+    secondary: [{ item: "Filter setup", qty: 1 }, { item: "Stainless steel ball valve", qty: 1 }],
   };
   const WATER_SOURCE_GROUP = {
     culinary: "Culinary water connection",
@@ -1732,6 +1734,20 @@
     const elbows12 = heads.length - elbows34;
     if (elbows12) lines.push({ group: "Fittings", item: '1/2" swing elbow', qty: elbows12 });
     if (elbows34) lines.push({ group: "Fittings", item: '3/4" swing elbow', qty: elbows34 });
+
+    // Lateral and mainline fittings, per Zach 2026-11-10 (pipe lengths come later): for each
+    // sprinkler zone 1 coupling, 2 tees and 1 swing adapter; for the yard 2 elbows and 30 mainline
+    // pinch clamps; 1 bag of LD pinch clamps for every 10 zones, rounded up. Drip zones have
+    // their own fittings in the Drip section.
+    const zn = zones.length;
+    if (zn) {
+      lines.push({ group: "Fittings", item: "Coupling", qty: zn });
+      lines.push({ group: "Fittings", item: "Tee", qty: 2 * zn });
+      lines.push({ group: "Fittings", item: "Swing adapter", qty: zn });
+      lines.push({ group: "Fittings", item: "Elbow", qty: 2 });
+      lines.push({ group: "Fittings", item: "LD pinch clamps, bag", qty: Math.ceil(zn / 10) });
+      lines.push({ group: "Fittings", item: "Mainline pinch clamp", qty: 30 });
+    }
 
     // Drip, per Zach 2026-11-08: total feet, the rolls, 3 drip tees and 1 coupling for every
     // 100 ft (no elbows), and a figure 8 end cap for each separate drip area.

@@ -304,7 +304,7 @@
             '<button type="button" data-w="' + k + '" aria-pressed="' + (cur === k) + '">' + t + "</button>",
         )
         .join("") +
-      '</div><p class="note" id="wn">Culinary adds a backflow preventer. Secondary adds a filter.</p></div>'
+      '</div><p class="note" id="wn">Culinary adds a backflow setup. Secondary adds a filter setup.</p></div>'
     );
   }
   function wireWaterSeg(el, onPick) {
@@ -2447,7 +2447,7 @@
       if (isStale())
         body += '<div class="badge warn">The yard or settings changed since the last Generate. Generate again before using this.</div>';
       if (L0 && !job.water)
-        body += '<div class="badge warn">Water source isn\'t set, so the backflow preventer or filter is missing. Pick culinary or secondary in Job settings.</div>';
+        body += '<div class="badge warn">Water source isn\'t set, so the backflow or filter setup is missing. Pick culinary or secondary in Job settings.</div>';
       if (!L0) body += '<p class="note">Generate a layout first.</p>';
       else if (editing) {
         body +=

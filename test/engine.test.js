@@ -250,10 +250,10 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   const none = E.parts(fake, zones3, 0);
   eq(cul.lines.find((l) => l.item === "Zone valve").qty, 3, "a zone valve for each of 3 zones");
   eq(cul.lines.find((l) => l.item === "Zone valve").group, "Manifold", "zone valves sit in the manifold section");
-  eq(!!cul.lines.find((l) => l.item === "Backflow preventer"), true, "culinary gets a backflow preventer");
-  eq(!!cul.lines.find((l) => l.item === "Filter"), false, "culinary gets no filter");
-  eq(!!sec.lines.find((l) => l.item === "Filter"), true, "secondary gets a filter");
-  eq(!!sec.lines.find((l) => l.item === "Backflow preventer"), false, "secondary gets no backflow preventer");
+  eq(!!cul.lines.find((l) => l.item === "Backflow setup"), true, "culinary gets a backflow setup");
+  eq(!!cul.lines.find((l) => l.item === "Filter setup"), false, "culinary gets no filter");
+  eq(!!sec.lines.find((l) => l.item === "Filter setup"), true, "secondary gets a filter setup");
+  eq(!!sec.lines.find((l) => l.item === "Backflow setup"), false, "secondary gets no backflow");
   eq(none.waterSet, false, "no water source flagged as unset");
   eq(groups(cul).join(" > "), "Spray heads > Spray nozzles > Rotors > Pipe > Fittings > Manifold > Controller > Culinary water connection", "section order");
 }
@@ -516,6 +516,28 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   const o = E.layoutJob({ areas, psi: 60, cap: 9 });
   eq(o.totals.overspray, 0, "no overspray around a thin strip between a bed and a fence");
   eq(o.heads.length, 28, "no extra sliver heads in the thin strip");
+}
+
+
+// Zach 2026-11-10: per sprinkler zone 1 coupling, 2 tees, 1 swing adapter; per yard 2 elbows and
+// 30 mainline pinch clamps; 1 bag of LD pinch clamps per 10 zones; both water setups get a
+// stainless steel ball valve
+{
+  const zones = (n) => Array.from({ length: n }, () => ({}));
+  const q = (p, item) => (p.lines.find((l) => l.item === item) || { qty: 0 }).qty;
+  const p7 = E.parts([{ kind: "S", label: "15H" }], zones(7), 0, "secondary");
+  eq(q(p7, "Coupling"), 7, "a coupling per zone");
+  eq(q(p7, "Tee"), 14, "2 tees per zone");
+  eq(q(p7, "Swing adapter"), 7, "a swing adapter per zone");
+  eq(q(p7, "Elbow"), 2, "2 elbows per yard");
+  eq(q(p7, "Mainline pinch clamp"), 30, "30 mainline pinch clamps per yard");
+  eq(q(p7, "LD pinch clamps, bag"), 1, "7 zones, 1 bag of LD clamps");
+  eq(q(E.parts([], zones(10), 0, "secondary"), "LD pinch clamps, bag"), 1, "10 zones, 1 bag");
+  eq(q(E.parts([], zones(11), 0, "secondary"), "LD pinch clamps, bag"), 2, "11 zones, 2 bags");
+  eq(q(p7, "Filter setup"), 1, "secondary: filter setup");
+  eq(q(p7, "Stainless steel ball valve"), 1, "secondary: a ball valve");
+  eq(q(E.parts([], zones(3), 0, "culinary"), "Stainless steel ball valve"), 1, "culinary: a ball valve");
+  eq(q(E.parts([], [], 0, "culinary"), "Coupling"), 0, "no zones, no lateral fittings");
 }
 
 console.log(fail ? fail + " failing" : "all passing");

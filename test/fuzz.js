@@ -672,7 +672,7 @@ function check(y) {
   if (
     !parts.lines.some(
       (l) =>
-        l.item === (y.water === "culinary" ? "Backflow preventer" : "Filter"),
+        l.item === (y.water === "culinary" ? "Backflow setup" : "Filter setup"),
     )
   )
     bug("water connection part missing");
