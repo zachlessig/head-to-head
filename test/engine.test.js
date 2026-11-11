@@ -526,18 +526,30 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   const zones = (n) => Array.from({ length: n }, () => ({}));
   const q = (p, item) => (p.lines.find((l) => l.item === item) || { qty: 0 }).qty;
   const p7 = E.parts([{ kind: "S", label: "15H" }], zones(7), 0, "secondary");
-  eq(q(p7, "Coupling"), 7, "a coupling per zone");
-  eq(q(p7, "Tee"), 14, "2 tees per zone");
+  eq(q(p7, "coupling"), 7, "a coupling per zone");
+  eq(q(p7, "tee"), 14, "2 tees per zone");
   eq(q(p7, "Swing adapter"), 7, "a swing adapter per zone");
-  eq(q(p7, "Elbow"), 2, "2 elbows per yard");
-  eq(q(p7, "Mainline pinch clamp"), 30, "30 mainline pinch clamps per yard");
+  eq(q(p7, "elbow"), 2, "2 elbows per yard");
+  eq(q(p7, "mainline pinch clamp"), 30, "30 mainline pinch clamps per yard");
   eq(q(p7, "LD pinch clamps, bag"), 1, "7 zones, 1 bag of LD clamps");
   eq(q(E.parts([], zones(10), 0, "secondary"), "LD pinch clamps, bag"), 1, "10 zones, 1 bag");
   eq(q(E.parts([], zones(11), 0, "secondary"), "LD pinch clamps, bag"), 2, "11 zones, 2 bags");
   eq(q(p7, "Filter setup"), 1, "secondary: filter setup");
   eq(q(p7, "Stainless steel ball valve"), 1, "secondary: a ball valve");
   eq(q(E.parts([], zones(3), 0, "culinary"), "Stainless steel ball valve"), 1, "culinary: a ball valve");
-  eq(q(E.parts([], [], 0, "culinary"), "Coupling"), 0, "no zones, no lateral fittings");
+  eq(q(E.parts([], [], 0, "culinary"), "coupling"), 0, "no zones, no lateral fittings");
+  // Zach 2026-11-10: a saddle per head; lateral fittings carry the lateral size, mainline clamps
+  // the supply size, swing elbows and swing adapters no size
+  const heads3 = [{ kind: "S", label: "15H" }, { kind: "S", label: "12Q" }, { kind: "R", model: "5004", gpmBase: 2 }];
+  const sized = E.parts(heads3, zones(2), 0, "culinary", null, { lateral: '1"', main: '3/4"' });
+  eq(q(sized, '1" saddle'), 3, "a saddle per head, lateral size");
+  eq(q(sized, '1" coupling'), 2, "couplings sized to the lateral");
+  eq(q(sized, '1" tee'), 4, "tees sized to the lateral");
+  eq(q(sized, '1" elbow'), 2, "elbows sized to the lateral");
+  eq(q(sized, '1" LD pinch clamps, bag'), 1, "LD clamps sized to the lateral");
+  eq(q(sized, '3/4" mainline pinch clamp'), 30, "mainline clamps sized to the supply");
+  eq(q(sized, "Swing adapter"), 2, "swing adapters have no size");
+  eq(q(sized, '1/2" swing elbow') + q(sized, '3/4" swing elbow'), 3, "swing elbows keep their own sizes");
 }
 
 

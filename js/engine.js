@@ -1687,7 +1687,11 @@
   // setups: a company's own parts for the water connection, {culinary: [{item, qty}], secondary: [...]}.
   // Zach 2026-11-10: every contractor builds a backflow or filter differently, so each company can
   // save its breakdown once and every job uses it in place of the one generic line.
-  function parts(heads, zones, drip, water, setups) {
+  // sizes: {lateral: '3/4"' | '1"', main: '3/4"' | '1"' | null}. Zach 2026-11-10: lateral fittings
+  // carry the lateral size, so the list says which to buy; swing elbows and swing adapters don't.
+  function parts(heads, zones, drip, water, setups, sizes) {
+    const lat = sizes && sizes.lateral ? sizes.lateral + " " : "";
+    const main = sizes && sizes.main ? sizes.main + " " : "";
     const notes = {};
     const dz = typeof drip === "number" ? drip : drip ? drip.zones.length : 0;
     const dripFt = drip && typeof drip === "object" ? drip.ft : 0;
@@ -1742,14 +1746,17 @@
     // sprinkler zone 1 coupling, 2 tees and 1 swing adapter; for the yard 2 elbows and 30 mainline
     // pinch clamps; 1 bag of LD pinch clamps for every 10 zones, rounded up. Drip zones have
     // their own fittings in the Drip section.
+    // and a saddle for every head where its swing pipe comes off the lateral (2026-11-10)
     const zn = zones.length;
+    if (heads.length) lines.push({ group: "Fittings", item: lat + "saddle", qty: heads.length });
     if (zn) {
-      lines.push({ group: "Fittings", item: "Coupling", qty: zn });
-      lines.push({ group: "Fittings", item: "Tee", qty: 2 * zn });
+      lines.push({ group: "Fittings", item: lat + "coupling", qty: zn });
+      lines.push({ group: "Fittings", item: lat + "tee", qty: 2 * zn });
       lines.push({ group: "Fittings", item: "Swing adapter", qty: zn });
-      lines.push({ group: "Fittings", item: "Elbow", qty: 2 });
-      lines.push({ group: "Fittings", item: "LD pinch clamps, bag", qty: Math.ceil(zn / 10) });
-      lines.push({ group: "Fittings", item: "Mainline pinch clamp", qty: 30 });
+      lines.push({ group: "Fittings", item: lat + "elbow", qty: 2 });
+      lines.push({ group: "Fittings", item: lat + "LD pinch clamps, bag", qty: Math.ceil(zn / 10) });
+      // these go on the mainline, so they take the supply size
+      lines.push({ group: "Fittings", item: main + "mainline pinch clamp", qty: 30 });
     }
 
     // Drip, per Zach 2026-11-08: total feet, the rolls, 3 drip tees and 1 coupling for every

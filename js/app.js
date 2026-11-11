@@ -481,12 +481,24 @@
     J = null;
   }
 
+  // Lateral line (past the valves): 3/4" or 1", starting at the supply size. Zach 2026-11-10: a
+  // 3/4" lateral on a 1" supply cuts pressure, so the job is designed as if the supply were 3/4".
+  function lateralOf(job) {
+    return job.lateral || (job.line === "34" ? "34" : "1");
+  }
   function capOf(job) {
-    return job.line === "34"
-      ? 12
-      : job.line === "1"
-        ? 18
-        : +job.customCap || 12;
+    const supply = job.line === "34" ? 12 : job.line === "1" ? 18 : +job.customCap || 12;
+    return lateralOf(job) === "34" ? Math.min(supply, 12) : supply;
+  }
+  // '3/4" line', or '1" supply, 3/4" lateral' when they differ
+  function lineText(job) {
+    const sup = job.line === "c" ? "custom" : sizeName(job.line);
+    const lat = sizeName(lateralOf(job));
+    return sup === lat ? sup + " line" : sup + " supply, " + lat + " lateral";
+  }
+  const sizeName = (k) => (k === "34" ? '3/4"' : k === "1" ? '1"' : null);
+  function pipeSizes(job) {
+    return { lateral: sizeName(lateralOf(job)), main: sizeName(job.line) };
   }
 
   function proj(job) {
@@ -823,8 +835,7 @@
     const bits = [
       J.job.address || "No address",
       J.job.psi + " PSI",
-      (J.job.line === "34" ? '3/4"' : J.job.line === "1" ? '1"' : "custom") +
-        " line",
+      lineText(J.job),
     ];
     app.querySelector("#js").textContent = bits.join(" · ");
   }
@@ -1514,7 +1525,7 @@
       gpm: z.gpm,
       count: z.count,
     }));
-    L0.parts = E.parts(L0.heads, zones, dripFor(job), job.water, prefs.setups);
+    L0.parts = E.parts(L0.heads, zones, dripFor(job), job.water, prefs.setups, pipeSizes(job));
     L0.totals = {
       points: totals.points,
       gaps: totals.gaps,
@@ -2006,8 +2017,8 @@
     const job = J.job;
     const L0 = job.layout;
     const lineTxt =
-      (job.line === "34" ? '3/4"' : job.line === "1" ? '1"' : "custom") +
-      " line, " +
+      lineText(job) +
+      ", " +
       capOf(job) +
       " GPM per zone";
     let h = "";
@@ -2220,6 +2231,14 @@
         '><label class="f" for="cv">Max GPM per zone</label><input class="t" id="cv" inputmode="decimal" value="' +
         job.customCap +
         '"></div></div>' +
+        '<div><label class="f">Lateral line (past the valves)</label><div class="seg" id="lt">' +
+        [
+          ["34", '3/4"'],
+          ["1", '1"'],
+        ]
+          .map(([k, t]) => '<button type="button" data-t="' + k + '" aria-pressed="' + (lateralOf(job) === k) + '">' + t + "</button>")
+          .join("") +
+        '</div><p class="note" id="lw"></p></div>' +
         waterSeg(job.water) +
         '<label class="toggle"><span><b>Pop-ups only</b><br><span class="note" style="margin:0">Skip rotors on every lawn</span></span><input type="checkbox" id="po"' +
         (job.popupsOnly ? " checked" : "") +
@@ -2233,6 +2252,7 @@
       (el, close) => {
         let psi = job.psi,
           line = job.line,
+          lat = lateralOf(job),
           water = job.water || null;
         wireWaterSeg(el, (w) => (water = w));
         const pn = el.querySelector("#pn");
@@ -2255,6 +2275,29 @@
           el.querySelector("#pv").textContent = psi;
           note();
         };
+        // warn when a 3/4" lateral sits on a bigger supply
+        const latNote = () => {
+          const lw = el.querySelector("#lw");
+          const cv = parseFloat(el.querySelector("#cv").value) || 12;
+          const bigger = line === "1" || (line === "c" && cv > 12);
+          if (lat === "34" && bigger) {
+            lw.textContent = 'A 3/4" lateral on a bigger supply line cuts pressure. Zones will be designed as if the supply were 3/4": 12 GPM each.';
+            lw.style.color = "var(--bad)";
+          } else {
+            lw.textContent = "Fittings on the parts list are sized to match.";
+            lw.style.color = "";
+          }
+        };
+        latNote();
+        el.querySelector("#cv").addEventListener("input", latNote);
+        el.querySelectorAll("[data-t]").forEach(
+          (b) =>
+            (b.onclick = () => {
+              lat = b.dataset.t;
+              el.querySelectorAll("[data-t]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+              latNote();
+            }),
+        );
         el.querySelectorAll("[data-l]").forEach(
           (b) =>
             (b.onclick = () => {
@@ -2263,6 +2306,7 @@
                 x.setAttribute("aria-pressed", String(x === b)),
               );
               el.querySelector("#cc").hidden = line !== "c";
+              latNote();
             }),
         );
         el.querySelector("#sv").onclick = () => {
@@ -2270,6 +2314,7 @@
           job.address = el.querySelector("#sa").value.trim();
           job.psi = psi;
           job.line = line;
+          job.lateral = lat;
           const cv = parseFloat(el.querySelector("#cv").value);
           // below 5 GPM a single rotor or 15F at 50 PSI can't fit on a zone at all
           if (cv >= 5) job.customCap = cv;
@@ -2383,7 +2428,7 @@
 
   // Rebuilt on every open so jobs saved before a parts rule changed still get the current list.
   function freshParts(L0) {
-    return E.parts(L0.heads, L0.zones || [], dripFor(J.job), J.job.water, prefs.setups);
+    return E.parts(L0.heads, L0.zones || [], dripFor(J.job), J.job.water, prefs.setups, pipeSizes(J.job));
   }
   // The list the crew sees: the company's edited copy if there is one, else the app's.
   function shownParts(L0) {
