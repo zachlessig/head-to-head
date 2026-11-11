@@ -3073,7 +3073,7 @@
     const L = j.layout;
     if (L && typeof L === "object" && Array.isArray(L.heads)) {
       out.layout = {
-        heads: L.heads.map((h) => ({
+        heads: L.heads.filter((h) => h && typeof h === "object").map((h) => ({
           x: num(h.x, 0), y: num(h.y, 0), r: num(h.r, 0), dir: num(h.dir, 0), arc: num(h.arc, 360),
           role: word(h.role), kind: pick(h.kind, ["R", "Q", "H", "F", "VAN"], "F"),
           model: pick(h.model, ["1804", "3504", "5004"], "1804"), series: h.series == null ? null : num(h.series, null),
@@ -3108,7 +3108,13 @@
     if (!changed.length && !removed.length) return;
     let open = J && J.job ? J.job.id : null;
     changed.forEach((raw) => {
-      const rj = cleanRemote(raw);
+      let rj = null;
+      try {
+        rj = cleanRemote(raw);
+      } catch (e) {
+        // one malformed job is skipped; it doesn't stop the rest of the sync
+        console.warn("Skipped a job that couldn't be read", e);
+      }
       if (!rj) return console.warn("Skipped a job with a bad id from the server");
       const i = jobs.findIndex((j) => j.id === rj.id);
       if (i < 0) jobs.push(rj);
