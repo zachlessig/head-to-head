@@ -587,7 +587,9 @@ function check(y) {
 
   // coverage
   const cov = o.totals.coverage;
-  if (cov < 0.99) bug("coverage " + (cov * 100).toFixed(2) + "%");
+  // Zach accepts single coverage in strips a couple of feet wide (2026-11-10), which can pull a small
+  // yard to about 98%, so flag below 98
+  if (cov < 0.98) bug("coverage " + (cov * 100).toFixed(2) + "%");
   if (o.totals.overspray)
     bug("engine's own check flags " + o.totals.overspray + " overspray heads");
 

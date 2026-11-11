@@ -4,8 +4,9 @@ Zach's phone app for laying out sprinkler systems. He ran a sprinkler supply cou
 irrigation rules come from him. Every rule below has a test in `test/engine.test.js`; run
 `node test/engine.test.js` after any engine change. `node test/fuzz.js 50 <seed>` builds 50 random
 yards with every feature, runs them the way the app does, and checks the rules independently; run
-seeds 1 to 3 after engine changes (146 of 150 clean on 2026-11-10; the 4 are fences running
-lengthwise down a 6 to 14 ft strip, which leave slivers at 95.8% to 98.7% coverage). Timing on a loaded Mac
+seeds 1 to 3 after engine changes. Coverage under 98% is flagged: Zach accepts single coverage
+in strips a couple of feet wide (a bed 2.4 ft from a fence) rather than adding 4VANs there
+(2026-11-10). The one known flag is a fence running lengthwise down a narrow strip lawn (95.6%). Timing on a loaded Mac
 swings 10x, so compare old and new engines back to back before calling anything slow.
 
 ## Never

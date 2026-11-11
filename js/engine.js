@@ -829,7 +829,6 @@
 
   // ctx (optional) shares one sample grid between a rotor pass and a pop-up pass on the same lawn:
   // {S, cov, heads, target}. target marks the samples this pass is responsible for.
-  const FINE_GAIN = 4; // samples on the 0.5 ft grid a sliver-filling head must double cover
   function layoutArea(G, family, ctx) {
     const spray = family === "spray";
     const maxR = spray ? 16 : ROTOR.max;
@@ -1003,28 +1002,9 @@
       greedy(smallCands, S, cov, all, minGain, heads, 600);
     }
 
-    // 6. slivers too thin for the 1 ft grid. The grid skips the 0.4 ft at each edge, so a passage
-    // under about 3 ft wide (a bed 2.4 ft from a fence, random yards seed 3 yard 44, 2026-11-09)
-    // keeps a single row of samples, that row came out double covered, and the 0.5 ft check found
-    // single coverage on both sides of it: 98.2% on a small lawn. Recount on a 0.5 ft grid and let
-    // only the tiny edge heads already fitted here (3 ft or less, which only fit in tight spots)
-    // fill what's thin. FINE_GAIN is a guess, not Zach's: 4 samples is 1 sq ft. Across 150 random
-    // yards it added 60 heads (about one 4VAN a yard) and left run time the same.
-    if (spray) {
-      const tiny = edgeCands.filter((c) => c.head.r <= 3).map((c) => ({ head: c.head }));
-      if (tiny.length) {
-        const S2 = sampleGrid(G, 0.5);
-        const cov2 = new Int32Array(S2.n);
-        heads.forEach((h) =>
-          S2.near(h.x, h.y, h.r, (k) => {
-            if (covers(h, S2.x[k], S2.y[k])) cov2[k]++;
-          }),
-        );
-        const before = heads.length;
-        greedy(tiny, S2, cov2, new Uint8Array(S2.n).fill(1), FINE_GAIN, heads, 600);
-        heads.slice(before).forEach(mark);
-      }
-    }
+    // No sliver-filling pass. A strip a couple of feet wide (a bed 2.4 ft from a fence) can end up
+    // single covered; extra 4VANs would fix it, and Zach said 2026-11-10 "just leave it. its
+    // probably fine without those heads" after seeing the 3 extra heads it cost on a test yard.
 
     let gaps = 0;
     const gapPts = [];
