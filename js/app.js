@@ -3,6 +3,7 @@
   "use strict";
 
   const E = window.SprinklerEngine;
+  const Cloud = window.H2HCloud || { enabled: false, queueJob() {}, queueDelete() {} };
   const Plan = window.SprinklerPlan;
   const app = document.getElementById("app");
   const FT_PER_DEG = 365221; // feet per degree of latitude
@@ -122,6 +123,7 @@
   function touch(job) {
     job.updated = Date.now();
     saveJobs();
+    Cloud.queueJob(job.id);
   }
 
   /* ---------------- small UI helpers ---------------- */
@@ -170,6 +172,8 @@
     renderHome();
   });
   function route() {
+    if (Cloud.enabled && !Cloud.session) return renderSignIn();
+    if (Cloud.enabled && !Cloud.company) return renderMakeCompany();
     const m = location.hash.match(/^#\/job\/(\w+)/);
     teardownJob();
     if (m) {
@@ -181,10 +185,28 @@
 
   /* ---------------- home ---------------- */
   function renderHome() {
-    const list = jobs.slice().sort((a, b) => b.updated - a.updated);
+    const fid = currentFolder();
+    const list = jobs
+      .filter((j) => !fid || j.folderId === fid)
+      .sort((a, b) => b.updated - a.updated);
     let h = '<main class="home">';
     h +=
-      '<div class="brand"><svg class="mark" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="9" fill="#1f6b45"/><path d="M9 25a11 11 0 0 1 16 0M12 21a7 7 0 0 1 10 0" stroke="#fffdf8" stroke-width="2.6" fill="none" stroke-linecap="round"/><circle cx="17" cy="25" r="2.6" fill="#fffdf8"/></svg><h1>Head to Head</h1></div>';
+      '<div class="brand"><svg class="mark" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="9" fill="#1f6b45"/><path d="M9 25a11 11 0 0 1 16 0M12 21a7 7 0 0 1 10 0" stroke="#fffdf8" stroke-width="2.6" fill="none" stroke-linecap="round"/><circle cx="17" cy="25" r="2.6" fill="#fffdf8"/></svg><h1>Head to Head</h1>' +
+      (Cloud.enabled && Cloud.company
+        ? '<button class="iconbtn" id="co" aria-label="Company and account" style="margin-left:auto">' + icon("sliders") + "</button>"
+        : "") +
+      "</div>";
+    if (Cloud.enabled && Cloud.company) {
+      h += '<p class="note" style="margin:-10px 0 12px">' + esc(Cloud.company.name) + "</p>";
+      // crew folders: All, each folder, and + Folder
+      h +=
+        '<div class="chips" style="flex-wrap:wrap;margin-bottom:14px">' +
+        '<button class="chip" data-f="" aria-pressed="' + !fid + '">All jobs</button>' +
+        folderList
+          .map((f) => '<button class="chip" data-f="' + esc(f.id) + '" aria-pressed="' + (fid === f.id) + '">' + esc(f.name) + "</button>")
+          .join("") +
+        '<button class="chip" id="nf">' + icon("plus") + "Folder</button></div>";
+    }
     h +=
       '<p class="lede">Trace the yard, tap Generate, and get heads, zones and a parts list.</p>';
     h +=
@@ -218,10 +240,25 @@
       icon("plan") +
       "Try an example yard</button>";
     h +=
-      '<p class="note" style="margin-top:22px">Jobs save on this phone. Address search and satellite photos come from Mapbox.</p>';
+      '<p class="note" style="margin-top:22px">' +
+      (Cloud.enabled && Cloud.company
+        ? "Jobs save online to " + esc(Cloud.company.name) + " and on this phone, so they work with no signal."
+        : "Jobs save on this phone.") +
+      " Address search and satellite photos come from Mapbox.</p>";
     h += "</main>";
     app.innerHTML = h;
     app.querySelector("#new").onclick = newJobSheet;
+    const co = app.querySelector("#co");
+    if (co) co.onclick = companySheet;
+    app.querySelectorAll("[data-f]").forEach(
+      (b) =>
+        (b.onclick = () => {
+          setFolder(b.dataset.f || null);
+          renderHome();
+        }),
+    );
+    const nf = app.querySelector("#nf");
+    if (nf) nf.onclick = newFolder;
     app.querySelector("#example").onclick = openExample;
     app
       .querySelectorAll(".job")
@@ -295,8 +332,10 @@
 
   function openExample() {
     const job = exampleJob();
+    job.folderId = currentFolder();
     jobs.push(job);
     saveJobs();
+    Cloud.queueJob(job.id);
     location.hash = "#/job/" + job.id;
     // lay it out right away so the heads, zones and parts list are there to look at
     setTimeout(() => {
@@ -483,8 +522,10 @@
             markers: [],
             layout: null,
           };
+          job.folderId = currentFolder();
           jobs.push(job);
           saveJobs();
+          Cloud.queueJob(job.id);
           close();
           location.hash = "#/job/" + job.id;
         };
@@ -2262,6 +2303,11 @@
           .join("") +
         '</div><p class="note" id="lw"></p></div>' +
         waterSeg(job.water) +
+        (Cloud.enabled && Cloud.company && folderList.length
+          ? '<div><label class="f" for="sf">Folder</label><select class="t" id="sf"><option value="">No folder</option>' +
+            folderList.map((f) => '<option value="' + esc(f.id) + '"' + (job.folderId === f.id ? " selected" : "") + ">" + esc(f.name) + "</option>").join("") +
+            "</select></div>"
+          : "") +
         '<label class="toggle"><span><b>Pop-ups only</b><br><span class="note" style="margin:0">Skip rotors on every lawn</span></span><input type="checkbox" id="po"' +
         (job.popupsOnly ? " checked" : "") +
         "></label>" +
@@ -2337,6 +2383,8 @@
           job.psi = psi;
           job.line = line;
           job.lateral = lat;
+          const sf = el.querySelector("#sf");
+          if (sf) job.folderId = sf.value || null;
           const cv = parseFloat(el.querySelector("#cv").value);
           // below 5 GPM a single rotor or 15F at 50 PSI can't fit on a zone at all
           if (cv >= 5) job.customCap = cv;
@@ -2357,6 +2405,7 @@
           deletedIds.add(job.id);
           jobs = jobs.filter((x) => x !== job);
           saveJobs();
+          Cloud.queueDelete(job.id);
           close();
           location.hash = "#/";
         };
@@ -2509,7 +2558,7 @@
       const draw = () => {
         el.querySelector("#su").innerHTML =
           "<h2>Our " + name + " setup</h2>" +
-          '<p class="note">List the parts your company uses for a ' + name + ". Every job on this phone with " +
+          '<p class="note">List the parts your company uses for a ' + name + ". Every job in your company with " +
           (water === "culinary" ? "culinary" : "secondary") + " water will use this list.</p>" +
           rows
             .map(
@@ -2554,6 +2603,7 @@
           if (clean.length) prefs.setups[water] = clean;
           else delete prefs.setups[water];
           if (!savePrefs()) return;
+          shareSetups();
           close();
           toast("Saved. Every " + (water === "culinary" ? "culinary" : "secondary") + " job uses it now.");
           if (after) after();
@@ -2563,6 +2613,7 @@
           rs.onclick = () => {
             if (prefs.setups) delete prefs.setups[water];
             if (!savePrefs()) return;
+            shareSetups();
             close();
             toast("Back to the app's default.");
             if (after) after();
@@ -2743,5 +2794,362 @@
     render();
   }
 
-  route();
+  /* ---------------- accounts, company, folders, sync ---------------- */
+
+  let folderList = [];
+  const FOLDER_KEY = "headtohead.folder.v1";
+  function currentFolder() {
+    try {
+      const f = localStorage.getItem(FOLDER_KEY);
+      return f && folderList.some((x) => x.id === f) ? f : null;
+    } catch (e) {
+      return null;
+    }
+  }
+  function setFolder(id) {
+    try {
+      if (id) localStorage.setItem(FOLDER_KEY, id);
+      else localStorage.removeItem(FOLDER_KEY);
+    } catch (e) {
+      console.warn("Folder choice not saved", e);
+    }
+  }
+
+  // the company's backflow and filter setups follow the company, not the phone
+  function shareSetups() {
+    if (!Cloud.enabled || !Cloud.company) return;
+    const settings = Object.assign({}, Cloud.company.settings || {}, { setups: prefs.setups || {} });
+    Cloud.saveSettings(settings).catch((e) => {
+      console.warn("Setup not shared", e);
+      toast("Saved on this phone. It'll reach the rest of the company when there's signal.");
+    });
+  }
+
+  function brandBlock() {
+    return '<div class="brand"><svg class="mark" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="9" fill="#1f6b45"/><path d="M9 25a11 11 0 0 1 16 0M12 21a7 7 0 0 1 10 0" stroke="#fffdf8" stroke-width="2.6" fill="none" stroke-linecap="round"/><circle cx="17" cy="25" r="2.6" fill="#fffdf8"/></svg><h1>Head to Head</h1></div>';
+  }
+
+  function renderSignIn() {
+    teardownJob();
+    const providers = (window.H2H_CLOUD && window.H2H_CLOUD.providers) || [];
+    let email = "";
+    const draw = (step, msg) => {
+      app.innerHTML =
+        '<main class="home">' +
+        brandBlock() +
+        (step === "email"
+          ? '<p class="lede">Sign in to save jobs online and share them with your crew. You stay signed in until you sign out.</p>' +
+            providers
+              .map((p) => '<button class="btn" style="width:100%;margin-bottom:10px" data-p="' + p + '">Continue with ' + (p === "google" ? "Google" : p === "apple" ? "Apple" : esc(p)) + "</button>")
+              .join("") +
+            '<label class="f" for="em">Email</label><input class="t" id="em" type="email" inputmode="email" autocomplete="email" placeholder="you@company.com">' +
+            '<button class="btn primary" style="width:100%;margin-top:12px" id="go">Email me a code</button>'
+          : '<p class="lede">We sent a 6-digit code to <b>' + esc(email) + "</b>.</p>" +
+            '<label class="f" for="cd">Code</label><input class="t" id="cd" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456">' +
+            '<button class="btn primary" style="width:100%;margin-top:12px" id="vf">Sign in</button>' +
+            '<button class="btn small ghost" style="width:100%;margin-top:8px" id="back">Use a different email</button>') +
+        (msg ? '<p class="note" style="color:var(--bad);margin-top:12px">' + esc(msg) + "</p>" : "") +
+        "</main>";
+      app.querySelectorAll("[data-p]").forEach(
+        (b) =>
+          (b.onclick = () =>
+            Cloud.signInWith(b.dataset.p).catch((e) => {
+              console.warn("Provider sign-in failed", e);
+              draw("email", "That sign-in didn't work. Try email instead.");
+            })),
+      );
+      const go = app.querySelector("#go");
+      if (go) {
+        const em = app.querySelector("#em");
+        em.focus();
+        const send = async () => {
+          email = em.value.trim();
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return draw("email", "That doesn't look like an email address.");
+          go.disabled = true;
+          go.textContent = "Sending...";
+          try {
+            await Cloud.sendCode(email);
+            draw("code");
+          } catch (e) {
+            console.warn("Code not sent", e);
+            draw("email", "Couldn't send the code. Check the address and your signal, then try again.");
+          }
+        };
+        go.onclick = send;
+        em.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") send();
+        });
+      }
+      const vf = app.querySelector("#vf");
+      if (vf) {
+        const cd = app.querySelector("#cd");
+        cd.focus();
+        const verify = async () => {
+          vf.disabled = true;
+          vf.textContent = "Checking...";
+          try {
+            await Cloud.verifyCode(email, cd.value);
+            await afterSignIn();
+          } catch (e) {
+            console.warn("Code rejected", e);
+            draw("code", "That code didn't work. Codes expire after an hour; ask for a new one if it's old.");
+          }
+        };
+        vf.onclick = verify;
+        cd.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") verify();
+        });
+        app.querySelector("#back").onclick = () => draw("email");
+      }
+    };
+    draw("email");
+  }
+
+  function renderMakeCompany() {
+    teardownJob();
+    app.innerHTML =
+      '<main class="home">' +
+      brandBlock() +
+      '<p class="lede">Signed in as <b>' + esc(Cloud.email || "") + "</b>. Name your company to get started. " +
+      "If your company already uses Head to Head, ask the owner to invite this email, then tap Check again.</p>" +
+      '<label class="f" for="cn">Company name</label><input class="t" id="cn" placeholder="Sundown Outdoor Construction">' +
+      '<button class="btn primary" style="width:100%;margin-top:12px" id="mk">Create company</button>' +
+      '<button class="btn" style="width:100%;margin-top:8px" id="ck">Check again for an invite</button>' +
+      '<button class="btn small ghost" style="width:100%;margin-top:8px" id="so">Sign out</button>' +
+      '<p class="note" id="mm"></p></main>';
+    const mm = app.querySelector("#mm");
+    app.querySelector("#mk").onclick = async () => {
+      const name = app.querySelector("#cn").value.trim();
+      if (!name) return (mm.textContent = "Type your company's name first.");
+      try {
+        await Cloud.createCompany(name);
+        await afterSignIn();
+      } catch (e) {
+        console.warn("Company not created", e);
+        mm.textContent = "Couldn't create it. Check your signal and try again.";
+      }
+    };
+    app.querySelector("#ck").onclick = async () => {
+      await afterSignIn(true);
+      if (!Cloud.company) mm.textContent = "No invite for " + (Cloud.email || "this email") + " yet.";
+    };
+    app.querySelector("#so").onclick = async () => {
+      await Cloud.signOut();
+      route();
+    };
+  }
+
+  // After signing in: join invites, load folders, offer this phone's jobs, sync, then show the app.
+  async function afterSignIn(recheck) {
+    if (recheck) await Cloud.start();
+    if (!Cloud.company) return route();
+    if (Cloud.company.settings && Cloud.company.settings.setups) {
+      prefs.setups = Cloud.company.settings.setups;
+      savePrefs();
+    }
+    await refreshFolders();
+    if (!Cloud.hasSynced && jobs.length && !jobs.every((j) => j.example)) {
+      const n = jobs.length;
+      if (confirm("Add the " + n + " job" + (n > 1 ? "s" : "") + " on this phone to " + Cloud.company.name + "?")) jobs.forEach((j) => Cloud.queueJob(j.id));
+    }
+    await syncNow();
+    route();
+  }
+
+  async function refreshFolders() {
+    try {
+      folderList = await Cloud.folders();
+    } catch (e) {
+      console.warn("Folders not loaded", e);
+    }
+  }
+
+  // pull other phones' changes into the jobs on this phone
+  async function syncNow() {
+    if (!Cloud.enabled || !Cloud.company) return;
+    const { changed, removed } = await Cloud.pull();
+    if (!changed.length && !removed.length) return;
+    let open = J && J.job ? J.job.id : null;
+    changed.forEach((rj) => {
+      const i = jobs.findIndex((j) => j.id === rj.id);
+      if (i < 0) jobs.push(rj);
+      else if (rj.id !== open) jobs[i] = rj; // never swap a job out from under someone editing it
+    });
+    if (removed.length) {
+      removed.forEach((id) => deletedIds.add(id));
+      jobs = jobs.filter((j) => !removed.includes(j.id) || j.id === open);
+    }
+    saveJobs();
+    if (!J) renderHome();
+  }
+
+  async function newFolder() {
+    const name = prompt("Folder name, like a crew or a season");
+    if (!name || !name.trim()) return;
+    try {
+      const f = await Cloud.addFolder(name);
+      await refreshFolders();
+      setFolder(f.id);
+      renderHome();
+    } catch (e) {
+      console.warn("Folder not made", e);
+      toast("Couldn't make the folder. Check your signal.");
+    }
+  }
+
+  async function companySheet() {
+    const c = Cloud.company;
+    const owner = c.role === "owner";
+    let people = [], pending = [];
+    try {
+      people = await Cloud.members();
+      if (owner) pending = await Cloud.invites();
+    } catch (e) {
+      console.warn("Company not loaded", e);
+    }
+    const link = location.origin + location.pathname;
+    sheet(
+      "<h2>" + esc(c.name) + "</h2>" +
+        '<p class="note">Signed in as ' + esc(Cloud.email || "") + "</p>" +
+        '<label class="f">People</label><div class="stack" style="gap:6px">' +
+        people
+          .map(
+            (m) =>
+              '<div class="row" style="align-items:center"><span class="grow">' + esc(m.email) + (m.role === "owner" ? " (owner)" : "") + "</span>" +
+              (owner && m.role !== "owner" ? '<button class="btn small ghost" data-rm="' + esc(m.user_id) + '">Remove</button>' : "") +
+              "</div>",
+          )
+          .join("") +
+        pending
+          .map((iv) => '<div class="row" style="align-items:center"><span class="grow">' + esc(iv.email) + ' <span class="note" style="margin:0">invited</span></span><button class="btn small ghost" data-ci="' + esc(iv.id) + '">Cancel</button></div>')
+          .join("") +
+        "</div>" +
+        (owner
+          ? '<label class="f" for="ie" style="margin-top:12px">Invite by email</label><div class="row"><input class="t" id="ie" type="email" inputmode="email" placeholder="crew@company.com"><button class="btn primary" id="ib">Invite</button></div>' +
+            '<p class="note" id="in">They sign in with that email and land in your company.</p>'
+          : "") +
+        (folderList.length
+          ? '<label class="f" style="margin-top:12px">Folders</label><div class="stack" style="gap:6px">' +
+            folderList.map((f) => '<div class="row" style="align-items:center"><span class="grow">' + esc(f.name) + '</span><button class="btn small ghost" data-rf="' + esc(f.id) + '">Rename</button><button class="btn small ghost" data-df="' + esc(f.id) + '">Delete</button></div>').join("") +
+            "</div>"
+          : "") +
+        '<p class="note" style="margin-top:12px">On iPhone, add this app to your home screen (Share, then Add to Home Screen) so Safari doesn\'t sign you out after a week away.</p>' +
+        '<button class="btn" style="width:100%" id="so">Sign out</button>',
+      (el, close) => {
+        const reopen = () => {
+          close();
+          companySheet();
+        };
+        el.querySelectorAll("[data-rm]").forEach(
+          (b) =>
+            (b.onclick = async () => {
+              if (!confirm("Remove this person from " + c.name + "?")) return;
+              try {
+                await Cloud.removeMember(b.dataset.rm);
+              } catch (e) {
+                console.warn(e);
+                toast("Couldn't remove them. Check your signal.");
+              }
+              reopen();
+            }),
+        );
+        el.querySelectorAll("[data-ci]").forEach(
+          (b) =>
+            (b.onclick = async () => {
+              try {
+                await Cloud.cancelInvite(b.dataset.ci);
+              } catch (e) {
+                console.warn(e);
+              }
+              reopen();
+            }),
+        );
+        const ib = el.querySelector("#ib");
+        if (ib)
+          ib.onclick = async () => {
+            const ie = el.querySelector("#ie");
+            const note = el.querySelector("#in");
+            try {
+              await Cloud.invite(ie.value);
+              const to = ie.value.trim().toLowerCase();
+              const msg = "You're invited to " + c.name + " on Head to Head. Open " + link + " and sign in with " + to + ".";
+              // hand the invite to the phone's own share sheet or mail app
+              if (navigator.share) navigator.share({ text: msg }).catch(() => {});
+              else location.href = "mailto:" + encodeURIComponent(to) + "?subject=" + encodeURIComponent("Join " + c.name + " on Head to Head") + "&body=" + encodeURIComponent(msg);
+              reopen();
+            } catch (e) {
+              console.warn("Invite failed", e);
+              note.textContent = e.message || "Couldn't send the invite.";
+              note.style.color = "var(--bad)";
+            }
+          };
+        el.querySelectorAll("[data-rf]").forEach(
+          (b) =>
+            (b.onclick = async () => {
+              const f = folderList.find((x) => x.id === b.dataset.rf);
+              const name = prompt("New name", f ? f.name : "");
+              if (!name || !name.trim()) return;
+              try {
+                await Cloud.renameFolder(b.dataset.rf, name);
+                await refreshFolders();
+              } catch (e) {
+                console.warn(e);
+              }
+              renderHome();
+              reopen();
+            }),
+        );
+        el.querySelectorAll("[data-df]").forEach(
+          (b) =>
+            (b.onclick = async () => {
+              if (!confirm("Delete this folder? Its jobs stay, under All jobs.")) return;
+              try {
+                await Cloud.deleteFolder(b.dataset.df);
+                jobs.forEach((j) => {
+                  if (j.folderId === b.dataset.df) j.folderId = null;
+                });
+                saveJobs();
+                await refreshFolders();
+              } catch (e) {
+                console.warn(e);
+              }
+              renderHome();
+              reopen();
+            }),
+        );
+        el.querySelector("#so").onclick = async () => {
+          close();
+          await Cloud.signOut();
+          route();
+        };
+      },
+    );
+  }
+
+  async function boot() {
+    if (!Cloud.enabled) return route();
+    Cloud.setLocalJobs(() => jobs);
+    Cloud.on((what) => {
+      if (what === "signedOut") route();
+    });
+    try {
+      await Cloud.start();
+    } catch (e) {
+      // no signal on launch: run on what's saved on the phone and sync later
+      console.warn("Couldn't reach the server", e);
+      return route();
+    }
+    if (Cloud.session && Cloud.company) await afterSignIn();
+    else route();
+    // keep up with the rest of the crew while the app is open
+    setInterval(() => {
+      if (document.visibilityState === "visible") syncNow();
+    }, 30000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") syncNow();
+      else Cloud.pushNow();
+    });
+  }
+
+  boot();
 })();
