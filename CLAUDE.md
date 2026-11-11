@@ -80,9 +80,12 @@ swings 10x, so compare old and new engines back to back before calling anything 
     stay in the Manifold section.
   - Editing: a company can edit any job's list and reset it back to the app's list. The edited
     list is what gets copied and printed.
-  - Water: every job is culinary or secondary, picked on the new job screen. Culinary needs a
-    backflow preventer and secondary needs a filter. Zach is writing a fixed list for each, and it
-    goes in `WATER_SOURCE_PARTS` in `js/engine.js`.
+  - Lateral and mainline fittings (2026-11-10): per sprinkler zone 1 coupling, 2 tees, 1 swing
+    adapter; per yard 2 elbows and 30 mainline pinch clamps; 1 bag of LD pinch clamps per 10 zones,
+    rounded up. Pipe lengths aren't counted yet: Zach is working out his rules for them.
+  - Water: every job is culinary or secondary, picked on the new job screen. Culinary gets "Backflow setup"
+    and secondary "Filter setup" (brands vary too much to list), each with a stainless steel ball
+    valve. These live in `WATER_SOURCE_PARTS` in `js/engine.js`.
 
 ## Shipping
 
