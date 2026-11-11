@@ -342,6 +342,7 @@
   function newJobSheet() {
     let picked = null;
     let water = null;
+    let supply = null; // the line from the street, picked here (Zach 2026-11-10)
     sheet(
       '<h2>New job</h2><div class="stack">' +
         '<div><label class="f" for="jn">Customer or job name</label><input class="t" id="jn" placeholder="Smith backyard" autocomplete="off"></div>' +
@@ -352,6 +353,14 @@
         icon("pin") +
         "Use where I am now</button>" +
         waterSeg(null) +
+        '<div><label class="f">Supply line from the street</label><div class="seg" id="sl">' +
+        [
+          ["34", '3/4"'],
+          ["1", '1"'],
+        ]
+          .map(([k, t]) => '<button type="button" data-s="' + k + '" aria-pressed="false">' + t + "</button>")
+          .join("") +
+        '</div><p class="note" id="sln">Sets how much water each zone gets: 12 GPM on 3/4", 18 GPM on 1".</p></div>' +
         '<div class="row"><button class="btn grow" id="jc">Cancel</button><button class="btn primary grow" id="jo">Start mapping</button></div></div>',
       (el, close) => {
         const name = el.querySelector("#jn"),
@@ -434,12 +443,25 @@
           );
         };
         wireWaterSeg(el, (w) => (water = w));
+        el.querySelectorAll("[data-s]").forEach(
+          (b) =>
+            (b.onclick = () => {
+              supply = b.dataset.s;
+              el.querySelectorAll("[data-s]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+            }),
+        );
         el.querySelector("#jc").onclick = close;
         el.querySelector("#jo").onclick = () => {
           if (!water) {
             const wn = el.querySelector("#wn");
             wn.textContent = "Pick culinary or secondary first.";
             wn.style.color = "var(--bad)";
+            return;
+          }
+          if (!supply) {
+            const sn = el.querySelector("#sln");
+            sn.textContent = 'Pick 3/4" or 1" first.';
+            sn.style.color = "var(--bad)";
             return;
           }
           const center = picked || DEFAULT_CENTER;
@@ -453,7 +475,7 @@
             view: { lat: center.lat, lng: center.lng, zoom: picked ? 20 : 15 },
             scale: 1,
             psi: 50,
-            line: "34",
+            line: supply,
             customCap: 12,
             popupsOnly: false,
             water,

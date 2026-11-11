@@ -84,7 +84,8 @@ swings 10x, so compare old and new engines back to back before calling anything 
     adapter; per yard 2 elbows and 30 mainline pinch clamps; 1 bag of LD pinch clamps per 10 zones,
     rounded up, and a saddle for every head. Pipe lengths aren't counted yet: Zach is working out
     his rules for them.
-  - Sizes (2026-11-10): Job settings has a lateral line size (3/4" or 1", past the valves),
+  - Sizes (2026-11-10): the new job screen asks for the supply line from the street (3/4" or 1",
+    required). Job settings has a lateral line size (3/4" or 1", past the valves),
     starting at the supply size. Saddles, couplings, tees, elbows and LD clamps carry the lateral
     size; mainline pinch clamps the supply size; swing elbows and swing adapters no size. A 3/4"
     lateral on a bigger supply shows a warning and caps zones at 12 GPM, as if the supply were 3/4".
