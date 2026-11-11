@@ -2107,7 +2107,7 @@
         "°</dd><dt>Flow</dt><dd>" +
         hd.gpm.toFixed(2) +
         " GPM</dd><dt>Zone</dt><dd>" +
-        hd.zone +
+        esc(String(hd.zone)) +
         "</dd></dl>";
       h +=
         '<div class="row"><button class="btn grow" id="mv">' +
@@ -2161,7 +2161,7 @@
         h +=
           '<div class="badge bad">' +
           (t.overspray
-            ? t.overspray +
+            ? esc(String(t.overspray)) +
               " head" +
               (t.overspray > 1 ? "s spray" : " sprays") +
               " past the edge. "
@@ -2175,15 +2175,15 @@
           .map(
             (z) =>
               '<button class="chip" data-z="' +
-              z.n +
+              esc(String(z.n)) +
               '" aria-pressed="' +
               (J.selZone === z.n) +
               '"><span class="dot" style="background:' +
               Plan.zoneColor(z.n) +
               '"></span>Zone ' +
-              z.n +
+              esc(String(z.n)) +
               ": " +
-              z.count +
+              esc(String(z.count)) +
               ", " +
               z.gpm.toFixed(1) +
               " GPM</button>",
@@ -2211,7 +2211,7 @@
       if (parts.overLimit)
         h +=
           '<div class="badge warn">' +
-          parts.stations +
+          esc(String(parts.stations)) +
           " stations. Most common timers top out at 16.</div>";
       const notes = L0.areas.filter((a) => a.note).map((a) => a.note);
       if (notes.length)
@@ -3031,26 +3031,73 @@
   // sane id and coerce the fields the screens print, so a booby-trapped job can't run code here
   // (security review 2026-11-10). Names, addresses and labels are escaped wherever they're shown.
   const num = (v, d) => (Number.isFinite(+v) ? +v : d);
+  // Rebuilt from an allowlist: only the fields the app uses, each forced to its type, everything else
+  // dropped. Copying the job and fixing a few fields left the rest (zone numbers, labels) able to
+  // carry code onto the page (security review 2026-11-10).
   function cleanRemote(j) {
     if (!j || typeof j !== "object" || !/^[A-Za-z0-9_-]{4,40}$/.test(String(j.id))) return null;
-    const str = (v) => (typeof v === "string" ? v.slice(0, 300) : "");
-    const out = Object.assign({}, j, {
+    const str = (v, max) => (typeof v === "string" ? v.slice(0, max || 300) : "");
+    const pick = (v, list, d) => (list.includes(v) ? v : d);
+    const word = (v) => (/^[A-Za-z0-9_.-]{1,40}$/.test(String(v)) ? String(v) : "");
+    const arr = (v) => (Array.isArray(v) ? v : []);
+    const pt = (p) => ({ lat: num(p && p.lat, 0), lng: num(p && p.lng, 0), bf: num(p && p.bf, 0) });
+    const out = {
+      id: String(j.id),
       name: str(j.name) || "Untitled yard",
       address: str(j.address),
-      psi: num(j.psi, 50),
-      customCap: num(j.customCap, 12),
-      scale: num(j.scale, 1),
       created: num(j.created, Date.now()),
       updated: num(j.updated, Date.now()),
-      line: ["34", "1", "c"].includes(j.line) ? j.line : "34",
-      lateral: ["34", "1"].includes(j.lateral) ? j.lateral : undefined,
-      water: ["culinary", "secondary"].includes(j.water) ? j.water : null,
-      shapes: Array.isArray(j.shapes) ? j.shapes : [],
-      markers: Array.isArray(j.markers) ? j.markers : [],
-    });
-    if (out.partsEdit && Array.isArray(out.partsEdit.lines))
-      out.partsEdit.lines = out.partsEdit.lines.map((l) => ({ group: str(l.group), item: str(l.item), qty: num(l.qty, 0) }));
-    else delete out.partsEdit;
+      origin: { lat: num(j.origin && j.origin.lat, DEFAULT_CENTER.lat), lng: num(j.origin && j.origin.lng, DEFAULT_CENTER.lng) },
+      view: { lat: num(j.view && j.view.lat, DEFAULT_CENTER.lat), lng: num(j.view && j.view.lng, DEFAULT_CENTER.lng), zoom: num(j.view && j.view.zoom, 18) },
+      scale: num(j.scale, 1),
+      psi: num(j.psi, 50),
+      line: pick(j.line, ["34", "1", "c"], "34"),
+      lateral: pick(j.lateral, ["34", "1"], undefined),
+      customCap: num(j.customCap, 12),
+      popupsOnly: j.popupsOnly === true,
+      water: pick(j.water, ["culinary", "secondary"], null),
+      example: j.example === true,
+      folderId: /^[0-9a-f-]{36}$/.test(String(j.folderId)) ? j.folderId : null,
+      shapes: arr(j.shapes).map((sh) => ({
+        id: word(sh && sh.id) || uid(),
+        type: pick(sh && sh.type, ["lawn", "bed", "fence"], "lawn"),
+        closed: !!(sh && sh.closed),
+        mode: pick(sh && sh.mode, ["auto", "spray"], "auto"),
+        pts: arr(sh && sh.pts).map(pt),
+      })),
+      markers: arr(j.markers)
+        .filter((m) => m && MARKERS[m.tag])
+        .map((m) => ({ id: word(m.id) || uid(), tag: m.tag, lat: num(m.lat, 0), lng: num(m.lng, 0) })),
+      layout: null,
+    };
+    const L = j.layout;
+    if (L && typeof L === "object" && Array.isArray(L.heads)) {
+      out.layout = {
+        heads: L.heads.map((h) => ({
+          x: num(h.x, 0), y: num(h.y, 0), r: num(h.r, 0), dir: num(h.dir, 0), arc: num(h.arc, 360),
+          role: word(h.role), kind: pick(h.kind, ["R", "Q", "H", "F", "VAN"], "F"),
+          model: pick(h.model, ["1804", "3504", "5004"], "1804"), series: h.series == null ? null : num(h.series, null),
+          label: /^[A-Za-z0-9.]{1,12}$/.test(String(h.label)) ? String(h.label) : "?",
+          gpmBase: num(h.gpmBase, 0), scales: h.scales === true, gpm: num(h.gpm, 0), area: num(h.area, 0), zone: num(h.zone, 1),
+        })),
+        areas: arr(L.areas).map((a) => ({ family: pick(a && a.family, ["spray", "rotor", "mixed"], "spray"), note: str(a && a.note), issues: num(a && a.issues, 0) })),
+        zones: arr(L.zones).map((z) => ({ n: num(z && z.n, 0), family: pick(z && z.family, ["spray", "rotor"], "spray"), gpm: num(z && z.gpm, 0), count: num(z && z.count, 0) })),
+        totals: {
+          points: num(L.totals && L.totals.points, 0),
+          gaps: num(L.totals && L.totals.gaps, 0),
+          overspray: num(L.totals && L.totals.overspray, 0),
+          coverage: num(L.totals && L.totals.coverage, 1),
+        },
+        gapPts: arr(L.gapPts).slice(0, 400).map((g) => ({ x: num(g && g.x, 0), y: num(g && g.y, 0) })),
+        sig: str(L.sig, 200000),
+        parts: { lines: [], stations: num(L.parts && L.parts.stations, 0), overLimit: !!(L.parts && L.parts.overLimit) },
+      };
+    }
+    if (j.partsEdit && Array.isArray(j.partsEdit.lines))
+      out.partsEdit = {
+        lines: j.partsEdit.lines.map((l) => ({ group: str(l && l.group, 80), item: str(l && l.item, 200), qty: num(l && l.qty, 0) })),
+        base: str(j.partsEdit.base, 200000),
+      };
     return out;
   }
 
