@@ -96,14 +96,55 @@
     await sb.auth.signOut();
     session = null;
     company = null;
+    state.companyId = null;
+    state.lastPull = null;
+    state.dirty = [];
+    state.gone = [];
+    saveState();
   }
 
   /* ---------- company ---------- */
 
+  // Invites wait for a yes: the person sees each one and taps Join (security review 2026-11-10).
+  async function myInvites() {
+    const { data, error } = await sb.rpc("my_invites");
+    if (error) throw error;
+    return data || [];
+  }
+  async function acceptInvite(id) {
+    const { data, error } = await sb.rpc("accept_invite", { invite_id: id });
+    if (error) throw error;
+    await loadCompany();
+    if (data) await switchCompany(data);
+  }
+  async function declineInvite(id) {
+    const { error } = await sb.rpc("decline_invite", { invite_id: id });
+    if (error) throw error;
+  }
+  async function leaveCompany() {
+    const { error } = await sb
+      .from("members")
+      .delete()
+      .eq("company_id", company.id)
+      .eq("user_id", session.user.id);
+    if (error) throw error;
+    state.companyId = null;
+    state.lastPull = null;
+    saveState();
+    await loadCompany();
+  }
+  // Jobs on the phone belong to the company it last synced with; switching starts a fresh pull.
+  async function switchCompany(id) {
+    await pushNow();
+    state.companyId = id;
+    state.lastPull = null;
+    state.dirty = [];
+    state.gone = [];
+    saveState();
+    company = companies.find((c) => c.id === id) || company;
+  }
+
   async function loadCompany() {
-    // joining any company that invited this email happens on every sign-in
-    const acc = await sb.rpc("accept_invites");
-    if (acc.error) console.warn("Couldn't check invites", acc.error);
     const { data, error } = await sb
       .from("members")
       .select("role, company:companies(id, name, settings)")
@@ -156,13 +197,11 @@
     const e = email.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))
       throw new Error("That doesn't look like an email address.");
-    const { error } = await sb
-      .from("invites")
-      .insert({
-        company_id: company.id,
-        email: e,
-        invited_by: session.user.id,
-      });
+    const { error } = await sb.from("invites").insert({
+      company_id: company.id,
+      email: e,
+      invited_by: session.user.id,
+    });
     if (error && error.code === "23505")
       throw new Error("That email is already invited.");
     if (error) throw error;
@@ -304,8 +343,12 @@
         if (state.dirty.includes(r.id)) return;
         if (r.deleted) removed.push(r.id);
         else
+          // the row's own id, not whatever id the stored data claims
           changed.push(
-            Object.assign({}, r.data, { folderId: r.folder_id || null }),
+            Object.assign({}, r.data, {
+              id: r.id,
+              folderId: r.folder_id || null,
+            }),
           );
       });
       if (data && data.length) {
@@ -337,6 +380,14 @@
     signInWith,
     signOut,
     createCompany,
+    myInvites,
+    acceptInvite,
+    declineInvite,
+    leaveCompany,
+    switchCompany,
+    get companies() {
+      return companies;
+    },
     members,
     invites,
     invite,

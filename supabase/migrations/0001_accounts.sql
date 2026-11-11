@@ -43,7 +43,8 @@ create index folders_company_id_idx on public.folders (company_id);
 -- A job is the same object the app already keeps on the phone, stored whole as JSON.
 -- id is the app's own job id, so a job made offline keeps its id when it reaches the server.
 create table public.jobs (
-  id text primary key check (char_length(id) between 4 and 40),
+  -- the app's ids are short letters and digits; anything else is refused (a job id reaches the page)
+  id text primary key check (id ~ '^[A-Za-z0-9_-]{4,40}$'),
   company_id uuid not null references public.companies (id) on delete cascade,
   folder_id uuid references public.folders (id) on delete set null,
   data jsonb not null,
@@ -78,9 +79,11 @@ create policy companies_owner_update on public.companies for update using (publi
 revoke update on public.companies from authenticated;
 grant update (name) on public.companies to authenticated;
 
--- members: everyone in the company sees who's on it; the owner removes people (not themselves).
+-- members: everyone in the company sees who's on it; the owner removes people (not themselves);
+-- anyone but the owner can leave on their own.
 create policy members_read on public.members for select using (public.is_member(company_id));
 create policy members_owner_delete on public.members for delete using (public.is_owner(company_id) and role <> 'owner');
+create policy members_leave on public.members for delete using (user_id = auth.uid() and role <> 'owner');
 
 -- invites: the owner sees, sends and cancels them; the person invited sees their own.
 create policy invites_owner_read on public.invites for select using (public.is_owner(company_id) or email = lower(coalesce(auth.jwt() ->> 'email', '')));
@@ -104,22 +107,39 @@ begin
 end;
 $$;
 
--- Join every company that has invited the signed-in user's email. Returns how many were joined.
-create function public.accept_invites() returns integer
+-- Invites wait for the person to say yes. Joining automatically on sign-in would let anyone who
+-- knows your email pull you into their company, where your saved jobs would go to them (security
+-- review 2026-11-10).
+create function public.my_invites() returns table (id uuid, company_name text, invited_by_email text, created_at timestamptz)
+language sql stable security definer set search_path = public as $$
+  select i.id, c.name, coalesce(m.email, ''), i.created_at
+  from public.invites i
+  join public.companies c on c.id = i.company_id
+  left join public.members m on m.company_id = i.company_id and m.user_id = i.invited_by
+  where i.email = lower(coalesce(auth.jwt() ->> 'email', '')) and i.accepted_at is null
+  order by i.created_at;
+$$;
+
+create function public.accept_invite(invite_id uuid) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare me text := lower(coalesce(auth.jwt() ->> 'email', ''));
-declare n integer := 0;
 declare r record;
 begin
-  if auth.uid() is null or me = '' then return 0; end if;
-  for r in select * from public.invites where email = me and accepted_at is null loop
-    insert into public.members (company_id, user_id, role, email)
-      values (r.company_id, auth.uid(), 'member', me)
-      on conflict (company_id, user_id) do nothing;
-    update public.invites set accepted_at = now() where id = r.id;
-    n := n + 1;
-  end loop;
-  return n;
+  if auth.uid() is null or me = '' then raise exception 'not signed in'; end if;
+  select * into r from public.invites where id = invite_id and email = me and accepted_at is null;
+  if not found then raise exception 'no such invite'; end if;
+  insert into public.members (company_id, user_id, role, email)
+    values (r.company_id, auth.uid(), 'member', me)
+    on conflict (company_id, user_id) do nothing;
+  update public.invites set accepted_at = now() where id = r.id;
+  return r.company_id;
+end;
+$$;
+
+create function public.decline_invite(invite_id uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  delete from public.invites where id = invite_id and email = lower(coalesce(auth.jwt() ->> 'email', '')) and accepted_at is null;
 end;
 $$;
 
@@ -137,9 +157,13 @@ $$;
 revoke all on function public.save_company_settings(uuid, jsonb) from public, anon;
 grant execute on function public.save_company_settings(uuid, jsonb) to authenticated;
 revoke all on function public.create_company(text) from public, anon;
-revoke all on function public.accept_invites() from public, anon;
+revoke all on function public.my_invites() from public, anon;
+revoke all on function public.accept_invite(uuid) from public, anon;
+revoke all on function public.decline_invite(uuid) from public, anon;
 grant execute on function public.create_company(text) to authenticated;
-grant execute on function public.accept_invites() to authenticated;
+grant execute on function public.my_invites() to authenticated;
+grant execute on function public.accept_invite(uuid) to authenticated;
+grant execute on function public.decline_invite(uuid) to authenticated;
 grant execute on function public.is_member(uuid) to authenticated;
 grant execute on function public.is_owner(uuid) to authenticated;
 

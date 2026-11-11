@@ -223,7 +223,7 @@
           : "not laid out";
         h +=
           '<button class="job" data-id="' +
-          j.id +
+          esc(j.id) +
           '"><div class="grow"><b>' +
           esc(j.name) +
           "</b><span>" +
@@ -2270,7 +2270,7 @@
         esc(job.address) +
         '"></div>' +
         '<div><label class="f">Working pressure (PSI)</label><div class="stepper"><button id="pm" aria-label="Lower pressure">-</button><output id="pv">' +
-        job.psi +
+        esc(String(job.psi)) +
         '</output><button id="pp" aria-label="Raise pressure">+</button></div><p class="note" id="pn"></p></div>' +
         '<div><label class="f">Supply line</label><div class="seg" id="ln">' +
         [
@@ -2292,7 +2292,7 @@
         '</div><div id="cc" style="margin-top:8px"' +
         (job.line === "c" ? "" : " hidden") +
         '><label class="f" for="cv">Max GPM per zone</label><input class="t" id="cv" inputmode="decimal" value="' +
-        job.customCap +
+        esc(String(job.customCap)) +
         '"></div></div>' +
         '<div><label class="f">Lateral line (past the valves)</label><div class="seg" id="lt">' +
         [
@@ -2516,7 +2516,7 @@
         h += '<tr><th class="g" colspan="2">' + esc(group) + (note ? ' <span class="gn">· ' + esc(note) + "</span>" : "") + "</th></tr>";
       }
       h +=
-        "<tr><td>" + esc(l.item) + '</td><td class="q">' + l.qty + "</td></tr>";
+        "<tr><td>" + esc(l.item) + '</td><td class="q">' + esc(String(l.qty)) + "</td></tr>";
     });
     return h + "</table>";
   }
@@ -2905,6 +2905,65 @@
     draw("email");
   }
 
+  // Jobs on this phone belong to the company it syncs with; joining or switching starts clean and
+  // pulls that company's jobs (everything here was already sent up by switchCompany).
+  function resetLocalJobs() {
+    jobs = [];
+    try {
+      localStorage.setItem(STORE_KEY, "[]");
+    } catch (e) {
+      console.warn("Couldn't clear jobs on this phone", e);
+    }
+  }
+
+  // Invites for the signed-in email, each waiting for Join or No thanks
+  async function invitesBlock(container, after) {
+    let list = [];
+    try {
+      list = await Cloud.myInvites();
+    } catch (e) {
+      console.warn("Invites not loaded", e);
+    }
+    if (!list.length) return 0;
+    container.innerHTML =
+      '<label class="f">Invites for you</label>' +
+      list
+        .map(
+          (iv) =>
+            '<div class="row" style="align-items:center;margin-bottom:6px"><span class="grow"><b>' + esc(iv.company_name) + "</b>" +
+            (iv.invited_by_email ? '<br><span class="note" style="margin:0">from ' + esc(iv.invited_by_email) + "</span>" : "") +
+            '</span><button class="btn small ghost" data-no="' + esc(iv.id) + '">No thanks</button><button class="btn small primary" data-yes="' + esc(iv.id) + '">Join</button></div>',
+        )
+        .join("");
+    container.querySelectorAll("[data-yes]").forEach(
+      (b) =>
+        (b.onclick = async () => {
+          try {
+            await Cloud.acceptInvite(b.dataset.yes);
+            resetLocalJobs();
+            await afterSignIn();
+            if (after) after();
+          } catch (e) {
+            console.warn("Join failed", e);
+            toast("Couldn't join. Check your signal and try again.");
+          }
+        }),
+    );
+    container.querySelectorAll("[data-no]").forEach(
+      (b) =>
+        (b.onclick = async () => {
+          try {
+            await Cloud.declineInvite(b.dataset.no);
+          } catch (e) {
+            console.warn(e);
+          }
+          invitesBlock(container, after);
+          if (!container.querySelector("[data-yes]")) container.innerHTML = "";
+        }),
+    );
+    return list.length;
+  }
+
   function renderMakeCompany() {
     teardownJob();
     app.innerHTML =
@@ -2912,6 +2971,7 @@
       brandBlock() +
       '<p class="lede">Signed in as <b>' + esc(Cloud.email || "") + "</b>. Name your company to get started. " +
       "If your company already uses Head to Head, ask the owner to invite this email, then tap Check again.</p>" +
+      '<div id="iv"></div>' +
       '<label class="f" for="cn">Company name</label><input class="t" id="cn" placeholder="Sundown Outdoor Construction">' +
       '<button class="btn primary" style="width:100%;margin-top:12px" id="mk">Create company</button>' +
       '<button class="btn" style="width:100%;margin-top:8px" id="ck">Check again for an invite</button>' +
@@ -2929,12 +2989,15 @@
         mm.textContent = "Couldn't create it. Check your signal and try again.";
       }
     };
+    const ivBox = app.querySelector("#iv");
+    invitesBlock(ivBox);
     app.querySelector("#ck").onclick = async () => {
-      await afterSignIn(true);
-      if (!Cloud.company) mm.textContent = "No invite for " + (Cloud.email || "this email") + " yet.";
+      const n = await invitesBlock(ivBox);
+      if (!n) mm.textContent = "No invite for " + (Cloud.email || "this email") + " yet.";
     };
     app.querySelector("#so").onclick = async () => {
       await Cloud.signOut();
+      resetLocalJobs();
       route();
     };
   }
@@ -2964,13 +3027,42 @@
     }
   }
 
+  // A job from the server was written by someone else's phone, so it's untrusted: keep only a
+  // sane id and coerce the fields the screens print, so a booby-trapped job can't run code here
+  // (security review 2026-11-10). Names, addresses and labels are escaped wherever they're shown.
+  const num = (v, d) => (Number.isFinite(+v) ? +v : d);
+  function cleanRemote(j) {
+    if (!j || typeof j !== "object" || !/^[A-Za-z0-9_-]{4,40}$/.test(String(j.id))) return null;
+    const str = (v) => (typeof v === "string" ? v.slice(0, 300) : "");
+    const out = Object.assign({}, j, {
+      name: str(j.name) || "Untitled yard",
+      address: str(j.address),
+      psi: num(j.psi, 50),
+      customCap: num(j.customCap, 12),
+      scale: num(j.scale, 1),
+      created: num(j.created, Date.now()),
+      updated: num(j.updated, Date.now()),
+      line: ["34", "1", "c"].includes(j.line) ? j.line : "34",
+      lateral: ["34", "1"].includes(j.lateral) ? j.lateral : undefined,
+      water: ["culinary", "secondary"].includes(j.water) ? j.water : null,
+      shapes: Array.isArray(j.shapes) ? j.shapes : [],
+      markers: Array.isArray(j.markers) ? j.markers : [],
+    });
+    if (out.partsEdit && Array.isArray(out.partsEdit.lines))
+      out.partsEdit.lines = out.partsEdit.lines.map((l) => ({ group: str(l.group), item: str(l.item), qty: num(l.qty, 0) }));
+    else delete out.partsEdit;
+    return out;
+  }
+
   // pull other phones' changes into the jobs on this phone
   async function syncNow() {
     if (!Cloud.enabled || !Cloud.company) return;
     const { changed, removed } = await Cloud.pull();
     if (!changed.length && !removed.length) return;
     let open = J && J.job ? J.job.id : null;
-    changed.forEach((rj) => {
+    changed.forEach((raw) => {
+      const rj = cleanRemote(raw);
+      if (!rj) return console.warn("Skipped a job with a bad id from the server");
       const i = jobs.findIndex((j) => j.id === rj.id);
       if (i < 0) jobs.push(rj);
       else if (rj.id !== open) jobs[i] = rj; // never swap a job out from under someone editing it
@@ -3033,7 +3125,14 @@
             folderList.map((f) => '<div class="row" style="align-items:center"><span class="grow">' + esc(f.name) + '</span><button class="btn small ghost" data-rf="' + esc(f.id) + '">Rename</button><button class="btn small ghost" data-df="' + esc(f.id) + '">Delete</button></div>').join("") +
             "</div>"
           : "") +
+        '<div id="myiv" style="margin-top:12px"></div>' +
+        (Cloud.companies.length > 1
+          ? '<label class="f" for="sw" style="margin-top:12px">Company</label><select class="t" id="sw">' +
+            Cloud.companies.map((x) => '<option value="' + esc(x.id) + '"' + (x.id === c.id ? " selected" : "") + ">" + esc(x.name) + "</option>").join("") +
+            "</select>"
+          : "") +
         '<p class="note" style="margin-top:12px">On iPhone, add this app to your home screen (Share, then Add to Home Screen) so Safari doesn\'t sign you out after a week away.</p>' +
+        (owner ? "" : '<button class="btn danger" style="width:100%;margin-bottom:8px" id="lv">Leave ' + esc(c.name) + "</button>") +
         '<button class="btn" style="width:100%" id="so">Sign out</button>',
       (el, close) => {
         const reopen = () => {
@@ -3117,9 +3216,34 @@
               reopen();
             }),
         );
+        invitesBlock(el.querySelector("#myiv"), close);
+        const sw = el.querySelector("#sw");
+        if (sw)
+          sw.onchange = async () => {
+            await Cloud.switchCompany(sw.value);
+            resetLocalJobs();
+            close();
+            await afterSignIn();
+          };
+        const lv = el.querySelector("#lv");
+        if (lv)
+          lv.onclick = async () => {
+            if (!confirm("Leave " + c.name + "? Its jobs stay with the company and come off this phone.")) return;
+            try {
+              await Cloud.pushNow();
+              await Cloud.leaveCompany();
+              resetLocalJobs();
+              close();
+              await afterSignIn();
+            } catch (e) {
+              console.warn("Leave failed", e);
+              toast("Couldn't leave. Check your signal.");
+            }
+          };
         el.querySelector("#so").onclick = async () => {
           close();
           await Cloud.signOut();
+          resetLocalJobs(); // a shared phone shouldn't hand this company's jobs to the next person
           route();
         };
       },
