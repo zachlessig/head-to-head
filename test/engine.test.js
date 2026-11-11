@@ -540,5 +540,19 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(q(E.parts([], [], 0, "culinary"), "Coupling"), 0, "no zones, no lateral fittings");
 }
 
+
+// Zach 2026-11-10: a company can save its own backflow or filter parts once and every job uses them
+{
+  const q = (p, item) => (p.lines.find((l) => l.item === item) || { qty: 0 }).qty;
+  const own = { culinary: [{ item: "Febco 765 1 in", qty: 1 }, { item: "1 in brass union", qty: 2 }] };
+  const c = E.parts([], [{}], 0, "culinary", own);
+  eq(q(c, "Febco 765 1 in"), 1, "the company's backflow part is listed");
+  eq(q(c, "1 in brass union"), 2, "with its count");
+  eq(q(c, "Backflow setup"), 0, "in place of the generic line");
+  eq(c.lines.filter((l) => l.group === "Culinary water connection").length, 2, "only the company's lines in that section");
+  eq(q(E.parts([], [{}], 0, "secondary", own), "Filter setup"), 1, "secondary keeps the default when only culinary is set");
+  eq(q(E.parts([], [{}], 0, "culinary", { culinary: [] }), "Backflow setup"), 1, "an empty company list falls back to the default");
+}
+
 console.log(fail ? fail + " failing" : "all passing");
 process.exit(fail ? 1 : 0);

@@ -1684,7 +1684,10 @@
   // Sections, per Zach 2026-11-07: heads, pipe, fittings, manifold, controller, water source.
   // drip: a dripPlan() result. A bare number (old jobs) is read as that many drip zones with no pipe.
   // notes: text shown in a section's header, like the total drip footage.
-  function parts(heads, zones, drip, water) {
+  // setups: a company's own parts for the water connection, {culinary: [{item, qty}], secondary: [...]}.
+  // Zach 2026-11-10: every contractor builds a backflow or filter differently, so each company can
+  // save its breakdown once and every job uses it in place of the one generic line.
+  function parts(heads, zones, drip, water, setups) {
     const notes = {};
     const dz = typeof drip === "number" ? drip : drip ? drip.zones.length : 0;
     const dripFt = drip && typeof drip === "object" ? drip.ft : 0;
@@ -1770,9 +1773,10 @@
     if (stations)
       lines.push({ group: "Controller", item: "Controller with at least " + stations + " stations", qty: 1 });
 
-    (WATER_SOURCE_PARTS[water] || []).forEach((p) =>
-      lines.push({ group: WATER_SOURCE_GROUP[water], item: p.item, qty: p.qty }),
-    );
+    const own = setups && Array.isArray(setups[water]) && setups[water].length ? setups[water] : null;
+    (WATER_SOURCE_PARTS[water] ? own || WATER_SOURCE_PARTS[water] : []).forEach((p) => {
+      if (p.item && p.qty > 0) lines.push({ group: WATER_SOURCE_GROUP[water], item: p.item, qty: p.qty });
+    });
     return { lines, notes, stations, overLimit: stations > 16, waterSet: !!WATER_SOURCE_PARTS[water] };
   }
 
@@ -2281,6 +2285,7 @@
     pointInside,
     offFence,
     dripRolls,
+    WATER_SOURCE_PARTS,
     swingRolls,
     FIXED,
     VAN,

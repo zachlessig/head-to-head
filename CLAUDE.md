@@ -86,6 +86,8 @@ swings 10x, so compare old and new engines back to back before calling anything 
   - Water: every job is culinary or secondary, picked on the new job screen. Culinary gets "Backflow setup"
     and secondary "Filter setup" (brands vary too much to list), each with a stainless steel ball
     valve. These live in `WATER_SOURCE_PARTS` in `js/engine.js`.
+    A company can replace either with its own parts ("Edit our backflow setup" on the parts list),
+    saved on the phone (`headtohead.prefs.v1`, `setups`) and used on every job with that water.
 
 ## Shipping
 

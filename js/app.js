@@ -97,6 +97,28 @@
       toast("This phone would not save the job. Check storage space.");
     }
   }
+  // Company settings kept on this phone, shared by every job: their own backflow and filter setups.
+  const PREFS_KEY = "headtohead.prefs.v1";
+  function loadPrefs() {
+    try {
+      return JSON.parse(localStorage.getItem(PREFS_KEY)) || {};
+    } catch (e) {
+      console.warn("Company settings unreadable", e);
+      return {};
+    }
+  }
+  const prefs = loadPrefs();
+  function savePrefs() {
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+      return true;
+    } catch (e) {
+      console.warn("Company settings not saved", e);
+      toast("This phone wouldn't save that. Check storage space.");
+      return false;
+    }
+  }
+
   function touch(job) {
     job.updated = Date.now();
     saveJobs();
@@ -1492,7 +1514,7 @@
       gpm: z.gpm,
       count: z.count,
     }));
-    L0.parts = E.parts(L0.heads, zones, dripFor(job), job.water);
+    L0.parts = E.parts(L0.heads, zones, dripFor(job), job.water, prefs.setups);
     L0.totals = {
       points: totals.points,
       gaps: totals.gaps,
@@ -2361,7 +2383,7 @@
 
   // Rebuilt on every open so jobs saved before a parts rule changed still get the current list.
   function freshParts(L0) {
-    return E.parts(L0.heads, L0.zones || [], dripFor(J.job), J.job.water);
+    return E.parts(L0.heads, L0.zones || [], dripFor(J.job), J.job.water, prefs.setups);
   }
   // The list the crew sees: the company's edited copy if there is one, else the app's.
   function shownParts(L0) {
@@ -2407,6 +2429,80 @@
       '">' +
       (copy === "contractor" && L0 ? partsTable(shownParts(L0)) : "");
     setTimeout(() => window.print(), 50);
+  }
+
+  // The company's own backflow (culinary) or filter (secondary) parts. Saved on the phone and used
+  // on every job with that water source until they go back to the app's default.
+  function setupSheet(water, after) {
+    const name = water === "culinary" ? "backflow" : "filter";
+    const base = E.WATER_SOURCE_PARTS[water] || [];
+    const saved = prefs.setups && prefs.setups[water];
+    let rows = (saved && saved.length ? saved : base).map((p) => ({ item: p.item, qty: p.qty }));
+    sheet('<div id="su"></div>', (el, close) => {
+      const draw = () => {
+        el.querySelector("#su").innerHTML =
+          "<h2>Our " + name + " setup</h2>" +
+          '<p class="note">List the parts your company uses for a ' + name + ". Every job on this phone with " +
+          (water === "culinary" ? "culinary" : "secondary") + " water will use this list.</p>" +
+          rows
+            .map(
+              (r, i) =>
+                '<div class="pe"><input class="t" data-i="' + i + '" data-f="item" value="' + esc(r.item) +
+                '" placeholder="Part" aria-label="Part"><input class="t q" data-i="' + i + '" data-f="qty" inputmode="numeric" value="' +
+                esc(String(r.qty)) + '" aria-label="How many"><button class="iconbtn x" data-del="' + i + '" aria-label="Remove">' +
+                icon("trash") + "</button></div>",
+            )
+            .join("") +
+          '<button class="btn small ghost" id="suadd">' + icon("plus") + "Add a part</button>" +
+          '<div class="row" style="margin-top:12px"><button class="btn grow" id="sucancel">Cancel</button><button class="btn primary grow" id="susave">' +
+          icon("check") + "Save</button></div>" +
+          (saved ? '<button class="btn small ghost" id="sureset" style="width:100%">' + icon("undo") + "Go back to the app's default</button>" : "");
+        const pull = () =>
+          el.querySelectorAll("[data-f]").forEach((inp) => {
+            const r = rows[+inp.dataset.i];
+            if (r) r[inp.dataset.f] = inp.value;
+          });
+        el.querySelectorAll("[data-del]").forEach(
+          (b) =>
+            (b.onclick = () => {
+              pull();
+              rows.splice(+b.dataset.del, 1);
+              draw();
+            }),
+        );
+        el.querySelector("#suadd").onclick = () => {
+          pull();
+          rows.push({ item: "", qty: 1 });
+          draw();
+          const last = el.querySelectorAll('[data-f="item"]');
+          if (last.length) last[last.length - 1].focus();
+        };
+        el.querySelector("#sucancel").onclick = close;
+        el.querySelector("#susave").onclick = () => {
+          pull();
+          const clean = rows
+            .map((r) => ({ item: String(r.item).trim(), qty: Math.max(0, Math.round(parseFloat(r.qty) || 0)) }))
+            .filter((r) => r.item && r.qty > 0);
+          prefs.setups = prefs.setups || {};
+          if (clean.length) prefs.setups[water] = clean;
+          else delete prefs.setups[water];
+          if (!savePrefs()) return;
+          close();
+          toast("Saved. Every " + (water === "culinary" ? "culinary" : "secondary") + " job uses it now.");
+          if (after) after();
+        };
+        const rs = el.querySelector("#sureset");
+        if (rs)
+          rs.onclick = () => {
+            if (prefs.setups) delete prefs.setups[water];
+            if (!savePrefs()) return;
+            close();
+            toast("Back to the app's default.");
+            if (after) after();
+          };
+      };
+      draw();
+    });
   }
 
   function openParts() {
@@ -2465,7 +2561,13 @@
             "</div>";
         body +=
           partsTable(shownParts(L0)) +
-          '<p class="note">Drip covers the beds only, not the line from the valve box to each bed. Mainline and lateral pipe, other fittings and wire are not counted yet.</p>' +
+          '<p class="note">Drip covers the beds only, not the line from the valve box to each bed. Mainline pipe, lateral pipe and wire are not counted yet.</p>' +
+          (job.water
+            ? '<div class="row"><button class="btn grow" id="psetup">' +
+              icon("sliders") +
+              (job.water === "culinary" ? "Edit our backflow setup" : "Edit our filter setup") +
+              "</button></div>"
+            : "") +
           '<div class="row"><button class="btn grow" id="pedit">' + icon("pen") + "Edit list</button>" +
           (job.partsEdit ? '<button class="btn grow" id="preset">' + icon("undo") + "Reset to the app's list</button>" : "") +
           "</div>" +
@@ -2506,6 +2608,8 @@
       if (xp) xp.onclick = copy;
       const xcopy = ov.querySelector("#xcopy");
       if (xcopy) xcopy.onclick = copy;
+      const ps2 = ov.querySelector("#psetup");
+      if (ps2) ps2.onclick = () => setupSheet(job.water, render);
       const pe = ov.querySelector("#pedit");
       if (pe)
         pe.onclick = () => {
