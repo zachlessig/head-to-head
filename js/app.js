@@ -3,7 +3,11 @@
   "use strict";
 
   const E = window.SprinklerEngine;
-  const Cloud = window.H2HCloud || { enabled: false, queueJob() {}, queueDelete() {} };
+  const Cloud = window.H2HCloud || {
+    enabled: false,
+    queueJob() {},
+    queueDelete() {},
+  };
   const Plan = window.SprinklerPlan;
   const app = document.getElementById("app");
   const FT_PER_DEG = 365221; // feet per degree of latitude
@@ -82,7 +86,8 @@
   let jobs = loadJobs();
   // gate markers were removed 2026-11-09 (fences replaced them)
   jobs.forEach((j) => {
-    if (Array.isArray(j.markers)) j.markers = j.markers.filter((m) => m.tag !== "gate");
+    if (Array.isArray(j.markers))
+      j.markers = j.markers.filter((m) => m.tag !== "gate");
   });
   const deletedIds = new Set();
   function saveJobs() {
@@ -193,19 +198,37 @@
     h +=
       '<div class="brand"><svg class="mark" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="9" fill="#1f6b45"/><path d="M9 25a11 11 0 0 1 16 0M12 21a7 7 0 0 1 10 0" stroke="#fffdf8" stroke-width="2.6" fill="none" stroke-linecap="round"/><circle cx="17" cy="25" r="2.6" fill="#fffdf8"/></svg><h1>Head to Head</h1>' +
       (Cloud.enabled && Cloud.company
-        ? '<button class="iconbtn" id="co" aria-label="Company and account" style="margin-left:auto">' + icon("sliders") + "</button>"
+        ? '<button class="iconbtn" id="co" aria-label="Company and account" style="margin-left:auto">' +
+          icon("sliders") +
+          "</button>"
         : "") +
       "</div>";
     if (Cloud.enabled && Cloud.company) {
-      h += '<p class="note" style="margin:-10px 0 12px">' + esc(Cloud.company.name) + "</p>";
+      h +=
+        '<p class="note" style="margin:-10px 0 12px">' +
+        esc(Cloud.company.name) +
+        "</p>";
       // crew folders: All, each folder, and + Folder
       h +=
         '<div class="chips" style="flex-wrap:wrap;margin-bottom:14px">' +
-        '<button class="chip" data-f="" aria-pressed="' + !fid + '">All jobs</button>' +
+        '<button class="chip" data-f="" aria-pressed="' +
+        !fid +
+        '">All jobs</button>' +
         folderList
-          .map((f) => '<button class="chip" data-f="' + esc(f.id) + '" aria-pressed="' + (fid === f.id) + '">' + esc(f.name) + "</button>")
+          .map(
+            (f) =>
+              '<button class="chip" data-f="' +
+              esc(f.id) +
+              '" aria-pressed="' +
+              (fid === f.id) +
+              '">' +
+              esc(f.name) +
+              "</button>",
+          )
           .join("") +
-        '<button class="chip" id="nf">' + icon("plus") + "Folder</button></div>";
+        '<button class="chip" id="nf">' +
+        icon("plus") +
+        "Folder</button></div>";
     }
     h +=
       '<p class="lede">Trace the yard, tap Generate, and get heads, zones and a parts list.</p>';
@@ -242,7 +265,9 @@
     h +=
       '<p class="note" style="margin-top:22px">' +
       (Cloud.enabled && Cloud.company
-        ? "Jobs save online to " + esc(Cloud.company.name) + " and on this phone, so they work with no signal."
+        ? "Jobs save online to " +
+          esc(Cloud.company.name) +
+          " and on this phone, so they work with no signal."
         : "Jobs save on this phone.") +
       " Address search and satellite photos come from Mapbox.</p>";
     h += "</main>";
@@ -287,25 +312,73 @@
     });
     const shapes = [
       // backyard, 90 x 70 ft, its back edge curving in along the fence bed
-      shape("lawn", [[0, 40], [90, 40], [90, 110, 8 / 90], [0, 110]]),
+      shape("lawn", [
+        [0, 40],
+        [90, 40],
+        [90, 110, 8 / 90],
+        [0, 110],
+      ]),
       // side yard strip, 10 ft wide: pop-up country
-      shape("lawn", [[96, 40], [106, 40], [106, 110], [96, 110]]),
+      shape("lawn", [
+        [96, 40],
+        [106, 40],
+        [106, 110],
+        [96, 110],
+      ]),
       // front lawn with a curved edge bulging out toward the street corner
-      shape("lawn", [[0, -50], [70, -50], [70, -12], [0, -12, -6 / 38]]),
+      shape("lawn", [
+        [0, -50],
+        [70, -50],
+        [70, -12],
+        [0, -12, -6 / 38],
+      ]),
       // fence bed behind the backyard, 12 to 20 ft deep: two and three rows of drip
-      shape("bed", [[0, 110.5, -8 / 90], [90, 110.5], [90, 122], [0, 122]]),
+      shape("bed", [
+        [0, 110.5, -8 / 90],
+        [90, 110.5],
+        [90, 122],
+        [0, 122],
+      ]),
       // round tree ring inside the backyard
       // (4 points: the app skips shapes under 3 corners, and 0.2071 bends each quarter into a circle)
-      shape("bed", [[55, 70, 0.2071], [60, 75, 0.2071], [65, 70, 0.2071], [60, 65, 0.2071]]),
+      shape("bed", [
+        [55, 70, 0.2071],
+        [60, 75, 0.2071],
+        [65, 70, 0.2071],
+        [60, 65, 0.2071],
+      ]),
       // two beds along the front of the house that touch: one drip area
-      shape("bed", [[8, -8], [35, -8], [35, -4], [8, -4]]),
-      shape("bed", [[35, -8], [62, -8], [62, -4], [35, -4]]),
+      shape("bed", [
+        [8, -8],
+        [35, -8],
+        [35, -4],
+        [8, -4],
+      ]),
+      shape("bed", [
+        [35, -8],
+        [62, -8],
+        [62, -4],
+        [35, -4],
+      ]),
       // a little bed by the porch, close enough to join the porch beds
-      shape("bed", [[65, -8], [68, -8], [68, -5], [65, -5]]),
+      shape("bed", [
+        [65, -8],
+        [68, -8],
+        [68, -5],
+        [65, -5],
+      ]),
       // a side-yard fence across the strip: heads on each side stay on their own side
-      shape("fence", [[93, 75], [109, 75]]),
+      shape("fence", [
+        [93, 75],
+        [109, 75],
+      ]),
       // a raised garden bed out past the side yard: its own drip zone
-      shape("bed", [[112, 60], [118, 60], [118, 92], [112, 92]]),
+      shape("bed", [
+        [112, 60],
+        [118, 60],
+        [118, 92],
+        [112, 92],
+      ]),
     ];
     const marker = (tag, x, y) => Object.assign({ id: uid(), tag }, ll(x, y));
     const view = ll(53, 30);
@@ -325,7 +398,11 @@
       popupsOnly: false,
       water: "secondary",
       shapes,
-      markers: [marker("meter", -8, -52), marker("valve", -4, 34), marker("tree", 60, 70)],
+      markers: [
+        marker("meter", -8, -52),
+        marker("valve", -4, 34),
+        marker("tree", 60, 70),
+      ],
       layout: null,
     };
   }
@@ -346,7 +423,9 @@
       setTimeout(() => {
         if (!J || J.job !== job) return;
         J.map.invalidateSize();
-        const pts = job.shapes.flatMap((sh) => sh.pts.map((p) => [p.lat, p.lng]));
+        const pts = job.shapes.flatMap((sh) =>
+          sh.pts.map((p) => [p.lat, p.lng]),
+        );
         J.map.fitBounds(pts, { padding: [16, 16] });
       }, 900);
     }, 300);
@@ -362,7 +441,13 @@
       ]
         .map(
           ([k, t]) =>
-            '<button type="button" data-w="' + k + '" aria-pressed="' + (cur === k) + '">' + t + "</button>",
+            '<button type="button" data-w="' +
+            k +
+            '" aria-pressed="' +
+            (cur === k) +
+            '">' +
+            t +
+            "</button>",
         )
         .join("") +
       '</div><p class="note" id="wn">Culinary adds a backflow setup. Secondary adds a filter setup.</p></div>'
@@ -372,7 +457,9 @@
     el.querySelectorAll("[data-w]").forEach(
       (b) =>
         (b.onclick = () => {
-          el.querySelectorAll("[data-w]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+          el.querySelectorAll("[data-w]").forEach((x) =>
+            x.setAttribute("aria-pressed", String(x === b)),
+          );
           onPick(b.dataset.w);
         }),
     );
@@ -397,7 +484,14 @@
           ["34", '3/4"'],
           ["1", '1"'],
         ]
-          .map(([k, t]) => '<button type="button" data-s="' + k + '" aria-pressed="false">' + t + "</button>")
+          .map(
+            ([k, t]) =>
+              '<button type="button" data-s="' +
+              k +
+              '" aria-pressed="false">' +
+              t +
+              "</button>",
+          )
           .join("") +
         '</div><p class="note" id="sln">Sets how much water each zone gets: 12 GPM on 3/4", 18 GPM on 1".</p></div>' +
         '<div class="row"><button class="btn grow" id="jc">Cancel</button><button class="btn primary grow" id="jo">Start mapping</button></div></div>',
@@ -409,7 +503,8 @@
         const search = async () => {
           const q = addr.value.trim();
           if (!q) return;
-          if (!res.querySelector("button")) res.innerHTML = '<p class="note">Searching...</p>';
+          if (!res.querySelector("button"))
+            res.innerHTML = '<p class="note">Searching...</p>';
           try {
             const r = await fetch(
               "https://api.mapbox.com/search/geocode/v6/forward?country=us&autocomplete=true&limit=5&proximity=ip&types=address,street,place&q=" +
@@ -463,7 +558,8 @@
         let typeTimer;
         addr.addEventListener("input", () => {
           clearTimeout(typeTimer);
-          if (addr.value.trim().length >= 4) typeTimer = setTimeout(search, 350);
+          if (addr.value.trim().length >= 4)
+            typeTimer = setTimeout(search, 350);
         });
         el.querySelector("#jl").onclick = () => {
           if (!navigator.geolocation)
@@ -486,7 +582,9 @@
           (b) =>
             (b.onclick = () => {
               supply = b.dataset.s;
-              el.querySelectorAll("[data-s]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+              el.querySelectorAll("[data-s]").forEach((x) =>
+                x.setAttribute("aria-pressed", String(x === b)),
+              );
             }),
         );
         el.querySelector("#jc").onclick = close;
@@ -550,7 +648,8 @@
     return job.lateral || (job.line === "34" ? "34" : "1");
   }
   function capOf(job) {
-    const supply = job.line === "34" ? 12 : job.line === "1" ? 18 : +job.customCap || 12;
+    const supply =
+      job.line === "34" ? 12 : job.line === "1" ? 18 : +job.customCap || 12;
     return lateralOf(job) === "34" ? Math.min(supply, 12) : supply;
   }
   // '3/4" line', or '1" supply, 3/4" lateral' when they differ
@@ -639,7 +738,12 @@
           .flatMap((b) => E.splitByFences(shapeLocal(b, P), fences))
           .map((h) => E.offFence(h, fences))
           .filter((h) => pointInRing(E.pointInside(h), ring));
-        areas.push({ outer, holes: holes.concat(slit.holes), mode: s.mode || "auto", shapeId: s.id });
+        areas.push({
+          outer,
+          holes: holes.concat(slit.holes),
+          mode: s.mode || "auto",
+          shapeId: s.id,
+        });
       });
     });
     return areas;
@@ -689,7 +793,9 @@
   // Shapes the engine can't trust: crossed traces, slivers, and beds hanging over a lawn edge.
   function shapeProblems(job) {
     const P = proj(job);
-    const closed = job.shapes.filter((s) => s.closed && s.type !== "fence" && s.pts.length >= 3);
+    const closed = job.shapes.filter(
+      (s) => s.closed && s.type !== "fence" && s.pts.length >= 3,
+    );
     const rings = closed.map((s) => ({
       s,
       ring: densify(shapeLocal(s, P), true),
@@ -837,31 +943,39 @@
     if (job.example) map.getContainer().style.background = "#e9efe2";
     // Mapbox satellite through the Static Tiles API. The v4 raster endpoint answered 429 for this
     // account on 2026-11-07 while this one served z21 imagery, so this is the one wired in.
-    const satellite = job.example ? null : L.tileLayer(
-      "https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/512/{z}/{x}/{y}?access_token=" + MAPBOX_TOKEN,
-      {
-        tileSize: 512,
-        zoomOffset: -1,
-        maxZoom: 22,
-        maxNativeZoom: 22,
-        attribution:
-          '© <a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noopener">Mapbox</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> © Maxar <a href="https://www.mapbox.com/map-feedback/" target="_blank" rel="noopener"><b>Improve this map</b></a>',
-      },
-    );
+    const satellite = job.example
+      ? null
+      : L.tileLayer(
+          "https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/512/{z}/{x}/{y}?access_token=" +
+            MAPBOX_TOKEN,
+          {
+            tileSize: 512,
+            zoomOffset: -1,
+            maxZoom: 22,
+            maxNativeZoom: 22,
+            attribution:
+              '© <a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noopener">Mapbox</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> © Maxar <a href="https://www.mapbox.com/map-feedback/" target="_blank" rel="noopener"><b>Improve this map</b></a>',
+          },
+        );
     if (satellite) satellite.addTo(map);
     // if Mapbox refuses (token, quota, outage), fall back to Esri photos so the job still opens
-    let tileFails = 0, swapped = false;
-    if (satellite) satellite.on("tileerror", () => {
-      if (swapped || ++tileFails < 6) return;
-      swapped = true;
-      map.removeLayer(satellite);
-      L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-        maxZoom: 22,
-        maxNativeZoom: 19,
-        attribution: "Imagery: Esri, Maxar, Earthstar Geographics",
-      }).addTo(map);
-      toast("Mapbox photos didn't load, so these are backup photos.");
-    });
+    let tileFails = 0,
+      swapped = false;
+    if (satellite)
+      satellite.on("tileerror", () => {
+        if (swapped || ++tileFails < 6) return;
+        swapped = true;
+        map.removeLayer(satellite);
+        L.tileLayer(
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+          {
+            maxZoom: 22,
+            maxNativeZoom: 19,
+            attribution: "Imagery: Esri, Maxar, Earthstar Geographics",
+          },
+        ).addTo(map);
+        toast("Mapbox photos didn't load, so these are backup photos.");
+      });
     map.setView([job.view.lat, job.view.lng], job.view.zoom);
     ["shapes", "heads", "labels", "edit", "gps", "measure", "markers"].forEach(
       (k) => (J.layers[k] = L.layerGroup().addTo(map)),
@@ -942,7 +1056,9 @@
   /* ---------------- map drawing ---------------- */
   function shapeLatLngs(shape, P) {
     const local = shapeLocal(shape, P);
-    return densify(local, shape.closed && shape.type !== "fence").map((p) => P.toLL(p.x, p.y));
+    return densify(local, shape.closed && shape.type !== "fence").map((p) =>
+      P.toLL(p.x, p.y),
+    );
   }
 
   function renderShapes() {
@@ -966,7 +1082,11 @@
           redraw();
         };
         const ink = sel ? "#f5b700" : "#16130f";
-        const casing = L.polyline(lls, { color: "#ffffff", weight: 7, opacity: 0.9 });
+        const casing = L.polyline(lls, {
+          color: "#ffffff",
+          weight: 7,
+          opacity: 0.9,
+        });
         const line = L.polyline(lls, { color: ink, weight: 3 });
         [casing, line].forEach((ly) => {
           ly.on("click", pick);
@@ -977,7 +1097,10 @@
             icon: L.divIcon({
               className: "fx",
               iconSize: [14, 14],
-              html: '<svg viewBox="0 0 14 14" width="14" height="14"><path d="M3 3l8 8M11 3l-8 8" stroke="#fff" stroke-width="5" stroke-linecap="round"/><path d="M3 3l8 8M11 3l-8 8" stroke="' + ink + '" stroke-width="2.4" stroke-linecap="round"/></svg>',
+              html:
+                '<svg viewBox="0 0 14 14" width="14" height="14"><path d="M3 3l8 8M11 3l-8 8" stroke="#fff" stroke-width="5" stroke-linecap="round"/><path d="M3 3l8 8M11 3l-8 8" stroke="' +
+                ink +
+                '" stroke-width="2.4" stroke-linecap="round"/></svg>',
             }),
             keyboard: false,
           });
@@ -1012,12 +1135,17 @@
     const out = [];
     let carry = FENCE_X_PX / 2;
     for (let i = 0; i + 1 < pts.length; i++) {
-      const a = pts[i], b = pts[i + 1];
+      const a = pts[i],
+        b = pts[i + 1];
       const L = a.distanceTo(b);
       let d = carry;
       while (d < L) {
         const t = d / L;
-        out.push(J.map.containerPointToLatLng(L_point(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)));
+        out.push(
+          J.map.containerPointToLatLng(
+            L_point(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t),
+          ),
+        );
         d += FENCE_X_PX;
       }
       carry = d - L;
@@ -1065,7 +1193,12 @@
         if (J.drawing && i === 0 && s.pts.length >= 3 && s.type !== "fence")
           return finishDrawing(true);
         // a fence is open: tapping its last dot finishes it
-        if (J.drawing && s.type === "fence" && i === s.pts.length - 1 && s.pts.length >= 2)
+        if (
+          J.drawing &&
+          s.type === "fence" &&
+          i === s.pts.length - 1 &&
+          s.pts.length >= 2
+        )
           return finishDrawing(true);
         if (!J.drawing) {
           J.selVertex = i;
@@ -1135,7 +1268,8 @@
     J.job.shapes.forEach((s) => {
       if (s.pts.length < 2) return;
       const local = shapeLocal(s, P);
-      const n = s.closed && s.type !== "fence" ? local.length : local.length - 1;
+      const n =
+        s.closed && s.type !== "fence" ? local.length : local.length - 1;
       for (let i = 0; i < n; i++) {
         const e = edgeInfo(local[i], local[(i + 1) % local.length]);
         if (e.len < 2) continue;
@@ -1307,7 +1441,20 @@
       if (!J.gps) return toast("Waiting for GPS before anchoring.");
       J.offset = { lat: ll.lat - J.gps.lat, lng: ll.lng - J.gps.lng };
       J.anchoring = false;
-      toast("Anchored. GPS points now line up with that spot.");
+      // mid-walk anchors fix the drift on the stretch walked before them too (see walkPoints)
+      if (J.walk) {
+        J.walk.anchors.push({
+          t: Date.now(),
+          lat: J.offset.lat,
+          lng: J.offset.lng,
+        });
+        saveWalk();
+      }
+      toast(
+        J.walk
+          ? "Anchored. Your trail lines up with that spot now."
+          : "Anchored. GPS points now line up with that spot.",
+      );
       renderGps();
       renderPanel();
       return;
@@ -1386,6 +1533,7 @@
           acc: p.coords.accuracy,
         };
         if (first) J.map.setView(corrected(), Math.max(J.map.getZoom(), 20));
+        recordFix(p);
         renderGps();
         if (J.mode === "walk") renderPanel();
       },
@@ -1402,6 +1550,11 @@
     );
   }
   function stopGps() {
+    if (J && J.walk) {
+      J.walk.paused = true;
+      saveWalk();
+    }
+    releaseWake();
     if (J && J.watch != null) {
       navigator.geolocation.clearWatch(J.watch);
       J.watch = null;
@@ -1415,7 +1568,32 @@
   function renderGps() {
     const lay = J.layers.gps;
     lay.clearLayers();
-    if (!J.gps || J.mode !== "walk") return;
+    if (J.mode !== "walk") return;
+    if (J.walk && J.walk.fixes.length) {
+      const pts = walkPoints();
+      lay.addLayer(
+        L.polyline(pts, {
+          color: "#1f6fe0",
+          weight: 3,
+          dashArray: J.walk.paused ? "4 6" : null,
+          interactive: false,
+        }),
+      );
+      pts.forEach((q) => {
+        if (q.corner)
+          lay.addLayer(
+            L.circleMarker(q, {
+              radius: 6,
+              color: "#fff",
+              weight: 2,
+              fillColor: "#1f6fe0",
+              fillOpacity: 1,
+              interactive: false,
+            }),
+          );
+      });
+    }
+    if (!J.gps) return;
     const c = corrected();
     lay.addLayer(
       L.circle(c, {
@@ -1434,17 +1612,240 @@
       }),
     );
   }
-  function dropGpsPoint() {
+  /* Walk recording (Zach 2026-11-13): walking the edge records your path on its own, about one
+       point a second, so there's no tapping a corner at a time. Corner pins a sharp corner where
+       you stand, averaged over 3 seconds. Finish turns the trail into straight edges and curves
+       (js/trace.js). Fixes are kept raw with their time, and every Anchor tap is kept too, so the
+       drift between two anchors is spread over the stretch walked between them. */
+  const WALK_KEY = "headtohead.walk.v1";
+  // Fixes the phone itself rates worse than this are skipped. Guessed, not measured on a phone:
+  // phones under open sky usually report 5 to 10 m, and under trees 20 m and worse.
+  const WALK_MAX_ACC_M = 20;
+  const WALK_MIN_STEP_FT = 1; // standing still doesn't pile up points
+  const CORNER_HOLD_MS = 3000;
+
+  function saveWalk() {
+    try {
+      if (J && J.walk)
+        sessionStorage.setItem(
+          WALK_KEY,
+          JSON.stringify(
+            Object.assign({ jobId: J.job.id }, J.walk, { holding: null }),
+          ),
+        );
+      else sessionStorage.removeItem(WALK_KEY);
+    } catch (e) {
+      console.warn("Walk not saved for a reload", e);
+    }
+  }
+  function loadWalk() {
+    try {
+      const w = JSON.parse(sessionStorage.getItem(WALK_KEY));
+      if (
+        w &&
+        w.jobId === J.job.id &&
+        Array.isArray(w.fixes) &&
+        Array.isArray(w.anchors)
+      ) {
+        delete w.jobId;
+        w.paused = true;
+        w.holding = null;
+        return w;
+      }
+    } catch (e) {
+      console.warn("Saved walk unreadable", e);
+    }
+    return null;
+  }
+
+  let wake = null;
+  function holdWake() {
+    // a sleeping screen stops GPS in a web page, so keep it on during a walk
+    if (wake || !navigator.wakeLock) return;
+    navigator.wakeLock
+      .request("screen")
+      .then((w) => {
+        wake = w;
+        w.addEventListener("release", () => (wake = null));
+      })
+      .catch((e) => console.warn("Screen may sleep during the walk", e));
+  }
+  function releaseWake() {
+    if (wake)
+      wake.release().catch((e) => console.warn("Screen lock release", e));
+    wake = null;
+  }
+
+  function startWalk() {
+    J.walk = {
+      type: J.walkType || "lawn",
+      fixes: [],
+      // an anchor set before starting counts from the first step
+      anchors:
+        J.offset.lat || J.offset.lng
+          ? [{ t: Date.now(), lat: J.offset.lat, lng: J.offset.lng }]
+          : [],
+      paused: false,
+      holding: null,
+      skipped: 0,
+    };
+    holdWake();
+    saveWalk();
+    renderGps();
+    renderPanel();
+  }
+  function recordFix(p) {
+    const w = J.walk;
+    if (!w || w.paused || J.mode !== "walk") return;
+    const fix = {
+      lat: p.coords.latitude,
+      lng: p.coords.longitude,
+      acc: p.coords.accuracy,
+      t: Date.now(),
+    };
+    if (w.holding) {
+      w.holding.push(fix);
+      return;
+    }
+    if (fix.acc > WALK_MAX_ACC_M) {
+      w.skipped++;
+      return;
+    }
+    const last = w.fixes[w.fixes.length - 1];
+    if (last) {
+      const c = Math.cos((fix.lat * Math.PI) / 180);
+      const ft = Math.hypot(
+        (fix.lat - last.lat) * FT_PER_DEG,
+        (fix.lng - last.lng) * FT_PER_DEG * c,
+      );
+      if (ft < WALK_MIN_STEP_FT) return;
+    }
+    w.fixes.push(fix);
+    if (w.fixes.length % 5 === 0) saveWalk();
+  }
+  function walkCorner() {
+    const w = J.walk;
+    if (!w || w.holding) return;
     if (!J.gps) return toast("Waiting for a GPS fix.");
-    let s = J.drawing && J.job.shapes.find((x) => x.id === J.drawing);
-    if (!s) s = startShape(J.walkType || "lawn");
+    w.holding = [];
+    renderPanel();
+    setTimeout(() => {
+      if (!J || J.walk !== w || !w.holding) return;
+      const got = w.holding.filter((f) => f.acc <= WALK_MAX_ACC_M);
+      const use = got.length
+        ? got
+        : J.gps
+          ? [{ lat: J.gps.lat, lng: J.gps.lng }]
+          : [];
+      w.holding = null;
+      if (use.length) {
+        const avg = (k) => use.reduce((a, f) => a + f[k], 0) / use.length;
+        w.fixes.push({
+          lat: avg("lat"),
+          lng: avg("lng"),
+          acc: 0,
+          t: Date.now(),
+          corner: true,
+        });
+        toast("Corner pinned.");
+      } else toast("No GPS fix, so no corner pinned. Try again.");
+      saveWalk();
+      renderGps();
+      renderPanel();
+    }, CORNER_HOLD_MS);
+  }
+  // Each fix moved by the anchor correction for the moment it was taken, changing in a straight
+  // line over time from one anchor to the next.
+  function offsetAt(t) {
+    const a = J.walk.anchors;
+    if (!a.length) return J.offset;
+    if (t <= a[0].t) return a[0];
+    for (let i = 1; i < a.length; i++) {
+      if (t <= a[i].t) {
+        const u = (t - a[i - 1].t) / (a[i].t - a[i - 1].t || 1);
+        return {
+          lat: a[i - 1].lat + u * (a[i].lat - a[i - 1].lat),
+          lng: a[i - 1].lng + u * (a[i].lng - a[i - 1].lng),
+        };
+      }
+    }
+    return a[a.length - 1];
+  }
+  function walkPoints() {
+    return J.walk.fixes.map((f) => {
+      const o = offsetAt(f.t);
+      const ll = L.latLng(f.lat + o.lat, f.lng + o.lng);
+      ll.corner = !!f.corner;
+      return ll;
+    });
+  }
+  function walkLength() {
+    const pts = walkPoints();
+    let ft = 0;
+    for (let i = 1; i < pts.length; i++)
+      ft += pts[i - 1].distanceTo(pts[i]) * 3.281;
+    return ft;
+  }
+  function finishWalk() {
+    const w = J.walk;
+    const pts = walkPoints();
+    if (pts.length < 8 || walkLength() < 20)
+      return toast("Walk a bit more of the edge first.");
+    maybeRebase(pts[0]);
+    const P = proj(J.job);
+    const verts = window.H2HTrace.fit(
+      pts.map((q) => Object.assign(P.toXY(q), { corner: q.corner })),
+    );
+    if (!verts || verts.length < 3)
+      return toast(
+        "Couldn't make a shape from that walk. Walk the whole edge back to where you started.",
+      );
     pushUndo();
-    const c = corrected();
-    maybeRebase(c);
-    s.pts.push({ lat: c.lat, lng: c.lng, bf: 0 });
+    const shape = {
+      id: uid(),
+      type: w.type,
+      closed: true,
+      mode: "auto",
+      pts: verts.map((v, i) => {
+        const nx = verts[(i + 1) % verts.length];
+        const chord = Math.hypot(nx.x - v.x, nx.y - v.y);
+        const ll = P.toLL(v.x, v.y);
+        return { lat: ll.lat, lng: ll.lng, bf: chord > 1e-6 ? v.b / chord : 0 };
+      }),
+    };
+    J.job.shapes.push(shape);
+    J.walk = null;
+    saveWalk();
+    releaseWake();
     touch(J.job);
-    toast("Corner " + s.pts.length + " dropped.");
     redraw();
+    renderGps();
+    const curves = verts.filter((v) => v.b).length;
+    const straight = verts.length - curves;
+    const what = w.type === "bed" ? "Bed" : "Lawn";
+    const parts =
+      straight +
+      " straight edge" +
+      (straight === 1 ? "" : "s") +
+      (curves ? " and " + curves + " curve" + (curves === 1 ? "" : "s") : "");
+    if (selfCrosses(densify(shapeLocal(shape, P), true)))
+      toast(
+        what +
+          " saved, but two edges cross. Drag a corner so it doesn't fold over itself.",
+      );
+    else
+      toast(
+        what + " saved: " + parts + ". Drag any dot on the map to fix it up.",
+      );
+  }
+  function cancelWalk() {
+    if (J.walk && J.walk.fixes.length > 10 && !confirm("Throw away this walk?"))
+      return;
+    J.walk = null;
+    saveWalk();
+    releaseWake();
+    renderGps();
+    renderPanel();
   }
 
   /* ---------------- measure ---------------- */
@@ -1588,7 +1989,14 @@
       gpm: z.gpm,
       count: z.count,
     }));
-    L0.parts = E.parts(L0.heads, zones, dripFor(job), job.water, prefs.setups, pipeSizes(job));
+    L0.parts = E.parts(
+      L0.heads,
+      zones,
+      dripFor(job),
+      job.water,
+      prefs.setups,
+      pipeSizes(job),
+    );
     L0.totals = {
       points: totals.points,
       gaps: totals.gaps,
@@ -1638,7 +2046,9 @@
     const shift = (ll, i, k) => {
       if (!nd[i].dx && !nd[i].dy) return ll;
       const pt = J.map.latLngToContainerPoint(ll);
-      return J.map.containerPointToLatLng(L.point(pt.x + nd[i].dx * k, pt.y + nd[i].dy * k));
+      return J.map.containerPointToLatLng(
+        L.point(pt.x + nd[i].dx * k, pt.y + nd[i].dy * k),
+      );
     };
     L0.heads.forEach((h, i) => {
       const col = Plan.zoneColor(h.zone || 1);
@@ -1659,17 +2069,29 @@
       const sel = J.selHead === i;
       const dot =
         key === "spray"
-          ? L.circleMarker(ll, { radius: sel ? 9 : 6.5, color: "#fff", weight: sel ? 3.5 : 2, fillColor: col, fillOpacity: dim ? 0.35 : 1 })
+          ? L.circleMarker(ll, {
+              radius: sel ? 9 : 6.5,
+              color: "#fff",
+              weight: sel ? 3.5 : 2,
+              fillColor: col,
+              fillOpacity: dim ? 0.35 : 1,
+            })
           : L.marker(ll, {
               keyboard: false,
               icon: L.divIcon({
                 className: "hshape",
                 iconSize: [sel ? 24 : 18, sel ? 24 : 18],
                 html:
-                  '<svg viewBox="0 0 20 20" width="100%" height="100%" style="opacity:' + (dim ? 0.4 : 1) + '">' +
+                  '<svg viewBox="0 0 20 20" width="100%" height="100%" style="opacity:' +
+                  (dim ? 0.4 : 1) +
+                  '">' +
                   (key === "5004"
-                    ? '<rect x="3" y="3" width="14" height="14" fill="' + col + '" stroke="#fff" stroke-width="2.5"/>'
-                    : '<polygon points="10,2 18.5,17 1.5,17" fill="' + col + '" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/>') +
+                    ? '<rect x="3" y="3" width="14" height="14" fill="' +
+                      col +
+                      '" stroke="#fff" stroke-width="2.5"/>'
+                    : '<polygon points="10,2 18.5,17 1.5,17" fill="' +
+                      col +
+                      '" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/>') +
                   "</svg>",
               }),
             });
@@ -1732,10 +2154,21 @@
       3504: '<polygon points="8,1.5 14.5,13.5 1.5,13.5" fill="#1d2320"/>',
     };
     const names = { spray: "Pop-up", 5004: "5004 rotor", 3504: "3504 rotor" };
-    const have = ["spray", "5004", "3504"].filter((k) => heads.some((h) => Plan.shapeKey(h) === k));
+    const have = ["spray", "5004", "3504"].filter((k) =>
+      heads.some((h) => Plan.shapeKey(h) === k),
+    );
     return (
       '<p class="note" style="display:flex;gap:14px;flex-wrap:wrap">' +
-      have.map((k) => '<span style="display:inline-flex;align-items:center;gap:5px"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">' + sym[k] + "</svg>" + names[k] + "</span>").join("") +
+      have
+        .map(
+          (k) =>
+            '<span style="display:inline-flex;align-items:center;gap:5px"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">' +
+            sym[k] +
+            "</svg>" +
+            names[k] +
+            "</span>",
+        )
+        .join("") +
       "</p>"
     );
   }
@@ -1835,7 +2268,9 @@
       el.innerHTML =
         '<p class="hint"><b>Fence selected.</b> Drag the dots to move it. Heads on each side stay on their own side.</p>' +
         '<div class="row">' +
-        (J.selVertex != null && s.pts.length > 2 ? '<button class="btn grow" id="rv">Remove point</button>' : "") +
+        (J.selVertex != null && s.pts.length > 2
+          ? '<button class="btn grow" id="rv">Remove point</button>'
+          : "") +
         '<button class="btn danger grow" id="del">' +
         icon("trash") +
         'Delete</button><button class="btn grow" id="ok">' +
@@ -1890,7 +2325,9 @@
             .join("") +
           "</div>" +
           '<p class="note" style="margin-top:-4px">' +
-          (s.mode === "spray" ? "Pop-ups everywhere on this lawn." : "Rotors where the lawn opens up, pop-ups in narrow spots and along curves.") +
+          (s.mode === "spray"
+            ? "Pop-ups everywhere on this lawn."
+            : "Rotors where the lawn opens up, pop-ups in narrow spots and along curves.") +
           "</p>";
       }
       h +=
@@ -1969,43 +2406,65 @@
   }
 
   function panelWalk(el) {
-    const s = J.drawing && J.job.shapes.find((x) => x.id === J.drawing);
+    if (!J.walk) J.walk = loadWalk();
+    const w = J.walk;
     let h = "";
     if (J.gpsError)
       h += '<div class="badge warn">' + esc(J.gpsError) + "</div>";
     const accFt = J.gps ? Math.round(J.gps.acc * 3.281) : null;
-    h +=
-      '<p class="hint">Stand on each corner and drop a point. Passing something you can see on the photo, like a house corner? Tap <b>Anchor</b>, then tap that spot.</p>';
-    h +=
-      '<p class="hint"><span class="gps">' +
+    const gpsLine =
+      '<span class="gps">' +
       (J.gps ? "GPS within about " + accFt + " ft" : "Waiting for GPS...") +
       "</span>" +
-      (J.offset.lat || J.offset.lng ? " · anchored" : "") +
-      (s ? " · " + s.pts.length + " corners" : "") +
-      "</p>";
+      (J.offset.lat || J.offset.lng ? " · anchored" : "");
     if (J.anchoring)
       h +=
         '<div class="badge warn">Tap the map where you are standing right now.</div>';
-    h +=
-      '<div class="seg" style="margin-bottom:8px"><button data-w="lawn" aria-pressed="' +
-      ((J.walkType || "lawn") === "lawn") +
-      '">Walking a lawn</button><button data-w="bed" aria-pressed="' +
-      (J.walkType === "bed") +
-      '">Walking a bed</button></div>';
-    h +=
-      '<div class="row"><button class="btn primary grow" id="dp"' +
-      (J.gps ? "" : " disabled") +
-      ">" +
-      icon("pin") +
-      'Drop corner here</button><button class="btn grow" id="an">Anchor</button></div>';
-    h +=
-      '<div class="row"><button class="btn grow" id="u">' +
-      icon("undo") +
-      'Undo</button><button class="btn grow" id="fs"' +
-      (s && s.pts.length >= 3 ? "" : " disabled") +
-      ">" +
-      icon("check") +
-      "Close shape</button></div>";
+    if (!w) {
+      h +=
+        '<p class="hint">Walk right along the edge with your phone out. It records your path as you go. Stop on each sharp corner and tap <b>Corner</b>. Walk all the way back to where you started, then tap <b>Finish</b>.</p>' +
+        '<p class="hint">For the best fit, tap <b>Anchor</b> whenever you stand on something you can see on the photo, like a house corner or the end of a driveway.</p>' +
+        '<p class="hint">' +
+        gpsLine +
+        "</p>" +
+        '<div class="seg" style="margin-bottom:8px"><button data-w="lawn" aria-pressed="' +
+        ((J.walkType || "lawn") === "lawn") +
+        '">Walking a lawn</button><button data-w="bed" aria-pressed="' +
+        (J.walkType === "bed") +
+        '">Walking a bed</button></div>' +
+        '<div class="row"><button class="btn primary grow" id="sw"' +
+        (J.gps ? "" : " disabled") +
+        ">" +
+        icon("walk") +
+        'Start walking</button><button class="btn grow" id="an">Anchor</button></div>';
+    } else {
+      const ft = Math.round(walkLength());
+      const corners = w.fixes.filter((f) => f.corner).length;
+      h +=
+        '<p class="hint"><b>' +
+        (w.holding ? "Hold still..." : w.paused ? "Paused" : "Recording") +
+        "</b> · " +
+        ft +
+        " ft walked" +
+        (corners
+          ? " · " + corners + " corner" + (corners === 1 ? "" : "s")
+          : "") +
+        "</p>" +
+        '<p class="hint">' +
+        gpsLine +
+        (w.skipped ? " · " + w.skipped + " shaky readings skipped" : "") +
+        "</p>" +
+        '<div class="row"><button class="btn primary grow" id="cn"' +
+        (J.gps && !w.holding && !w.paused ? "" : " disabled") +
+        ">" +
+        icon("pin") +
+        'Corner</button><button class="btn grow" id="an">Anchor</button></div>' +
+        '<div class="row"><button class="btn grow" id="pa">' +
+        (w.paused ? "Resume" : "Pause") +
+        '</button><button class="btn grow" id="cx">Start over</button><button class="btn grow" id="fw">' +
+        icon("check") +
+        "Finish</button></div>";
+    }
     el.innerHTML = h;
     el.querySelectorAll("[data-w]").forEach(
       (b) =>
@@ -2014,13 +2473,29 @@
           renderPanel();
         }),
     );
-    el.querySelector("#dp").onclick = dropGpsPoint;
-    el.querySelector("#an").onclick = () => {
+    const on = (id, fn) => {
+      const b = el.querySelector("#" + id);
+      if (b) b.onclick = fn;
+    };
+    on("sw", startWalk);
+    on("cn", walkCorner);
+    on("an", () => {
       J.anchoring = !J.anchoring;
       renderPanel();
-    };
-    el.querySelector("#u").onclick = doUndo;
-    el.querySelector("#fs").onclick = () => finishDrawing(true);
+    });
+    on("pa", () => {
+      w.paused = !w.paused;
+      if (w.paused) releaseWake();
+      else {
+        holdWake();
+        startGps();
+      }
+      saveWalk();
+      renderGps();
+      renderPanel();
+    });
+    on("cx", cancelWalk);
+    on("fw", finishWalk);
   }
 
   function panelMeasure(el) {
@@ -2079,11 +2554,7 @@
   function panelHeads(el) {
     const job = J.job;
     const L0 = job.layout;
-    const lineTxt =
-      lineText(job) +
-      ", " +
-      capOf(job) +
-      " GPM per zone";
+    const lineTxt = lineText(job) + ", " + capOf(job) + " GPM per zone";
     let h = "";
     if (J.selHead != null && L0 && L0.heads[J.selHead]) {
       const hd = L0.heads[J.selHead];
@@ -2101,7 +2572,11 @@
         "</dd><dt>Throw</dt><dd>" +
         hd.r.toFixed(1) +
         " ft" +
-        (hd.kind === "R" ? " (screw set, " + (hd.model === "5004" ? "24 to 30" : "18 to 23") + " ft range)" : "") +
+        (hd.kind === "R"
+          ? " (screw set, " +
+            (hd.model === "5004" ? "24 to 30" : "18 to 23") +
+            " ft range)"
+          : "") +
         ", " +
         Math.round(hd.arc) +
         "°</dd><dt>Flow</dt><dd>" +
@@ -2215,8 +2690,14 @@
           " stations. Most common timers top out at 16.</div>";
       const notes = L0.areas.filter((a) => a.note).map((a) => a.note);
       if (notes.length)
-        h +=
-          notes.map((n) => '<p class="note">' + esc(n.charAt(0).toUpperCase() + n.slice(1)) + ".</p>").join("");
+        h += notes
+          .map(
+            (n) =>
+              '<p class="note">' +
+              esc(n.charAt(0).toUpperCase() + n.slice(1)) +
+              ".</p>",
+          )
+          .join("");
       h +=
         '<p class="note">' +
         L0.heads.length +
@@ -2299,13 +2780,33 @@
           ["34", '3/4"'],
           ["1", '1"'],
         ]
-          .map(([k, t]) => '<button type="button" data-t="' + k + '" aria-pressed="' + (lateralOf(job) === k) + '">' + t + "</button>")
+          .map(
+            ([k, t]) =>
+              '<button type="button" data-t="' +
+              k +
+              '" aria-pressed="' +
+              (lateralOf(job) === k) +
+              '">' +
+              t +
+              "</button>",
+          )
           .join("") +
         '</div><p class="note" id="lw"></p></div>' +
         waterSeg(job.water) +
         (Cloud.enabled && Cloud.company && folderList.length
           ? '<div><label class="f" for="sf">Folder</label><select class="t" id="sf"><option value="">No folder</option>' +
-            folderList.map((f) => '<option value="' + esc(f.id) + '"' + (job.folderId === f.id ? " selected" : "") + ">" + esc(f.name) + "</option>").join("") +
+            folderList
+              .map(
+                (f) =>
+                  '<option value="' +
+                  esc(f.id) +
+                  '"' +
+                  (job.folderId === f.id ? " selected" : "") +
+                  ">" +
+                  esc(f.name) +
+                  "</option>",
+              )
+              .join("") +
             "</select></div>"
           : "") +
         '<label class="toggle"><span><b>Pop-ups only</b><br><span class="note" style="margin:0">Skip rotors on every lawn</span></span><input type="checkbox" id="po"' +
@@ -2349,7 +2850,8 @@
           const cv = parseFloat(el.querySelector("#cv").value) || 12;
           const bigger = line === "1" || (line === "c" && cv > 12);
           if (lat === "34" && bigger) {
-            lw.textContent = 'A 3/4" lateral on a bigger supply line cuts pressure. Zones will be designed as if the supply were 3/4": 12 GPM each.';
+            lw.textContent =
+              'A 3/4" lateral on a bigger supply line cuts pressure. Zones will be designed as if the supply were 3/4": 12 GPM each.';
             lw.style.color = "var(--bad)";
           } else {
             lw.textContent = "Fittings on the parts list are sized to match.";
@@ -2362,7 +2864,9 @@
           (b) =>
             (b.onclick = () => {
               lat = b.dataset.t;
-              el.querySelectorAll("[data-t]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+              el.querySelectorAll("[data-t]").forEach((x) =>
+                x.setAttribute("aria-pressed", String(x === b)),
+              );
               latNote();
             }),
         );
@@ -2499,12 +3003,21 @@
 
   // Rebuilt on every open so jobs saved before a parts rule changed still get the current list.
   function freshParts(L0) {
-    return E.parts(L0.heads, L0.zones || [], dripFor(J.job), J.job.water, prefs.setups, pipeSizes(J.job));
+    return E.parts(
+      L0.heads,
+      L0.zones || [],
+      dripFor(J.job),
+      J.job.water,
+      prefs.setups,
+      pipeSizes(J.job),
+    );
   }
   // The list the crew sees: the company's edited copy if there is one, else the app's.
   function shownParts(L0) {
     const fresh = freshParts(L0);
-    return J.job.partsEdit ? { lines: J.job.partsEdit.lines, notes: fresh.notes } : fresh;
+    return J.job.partsEdit
+      ? { lines: J.job.partsEdit.lines, notes: fresh.notes }
+      : fresh;
   }
   function partsTable(parts) {
     let h = '<table class="parts">';
@@ -2513,10 +3026,18 @@
       if (l.group !== group) {
         group = l.group;
         const note = parts.notes && parts.notes[group];
-        h += '<tr><th class="g" colspan="2">' + esc(group) + (note ? ' <span class="gn">· ' + esc(note) + "</span>" : "") + "</th></tr>";
+        h +=
+          '<tr><th class="g" colspan="2">' +
+          esc(group) +
+          (note ? ' <span class="gn">· ' + esc(note) + "</span>" : "") +
+          "</th></tr>";
       }
       h +=
-        "<tr><td>" + esc(l.item) + '</td><td class="q">' + esc(String(l.qty)) + "</td></tr>";
+        "<tr><td>" +
+        esc(l.item) +
+        '</td><td class="q">' +
+        esc(String(l.qty)) +
+        "</td></tr>";
     });
     return h + "</table>";
   }
@@ -2553,26 +3074,50 @@
     const name = water === "culinary" ? "backflow" : "filter";
     const base = E.WATER_SOURCE_PARTS[water] || [];
     const saved = prefs.setups && prefs.setups[water];
-    let rows = (saved && saved.length ? saved : base).map((p) => ({ item: p.item, qty: p.qty }));
+    let rows = (saved && saved.length ? saved : base).map((p) => ({
+      item: p.item,
+      qty: p.qty,
+    }));
     sheet('<div id="su"></div>', (el, close) => {
       const draw = () => {
         el.querySelector("#su").innerHTML =
-          "<h2>Our " + name + " setup</h2>" +
-          '<p class="note">List the parts your company uses for a ' + name + ". Every job in your company with " +
-          (water === "culinary" ? "culinary" : "secondary") + " water will use this list.</p>" +
+          "<h2>Our " +
+          name +
+          " setup</h2>" +
+          '<p class="note">List the parts your company uses for a ' +
+          name +
+          ". Every job in your company with " +
+          (water === "culinary" ? "culinary" : "secondary") +
+          " water will use this list.</p>" +
           rows
             .map(
               (r, i) =>
-                '<div class="pe"><input class="t" data-i="' + i + '" data-f="item" value="' + esc(r.item) +
-                '" placeholder="Part" aria-label="Part"><input class="t q" data-i="' + i + '" data-f="qty" inputmode="numeric" value="' +
-                esc(String(r.qty)) + '" aria-label="How many"><button class="iconbtn x" data-del="' + i + '" aria-label="Remove">' +
-                icon("trash") + "</button></div>",
+                '<div class="pe"><input class="t" data-i="' +
+                i +
+                '" data-f="item" value="' +
+                esc(r.item) +
+                '" placeholder="Part" aria-label="Part"><input class="t q" data-i="' +
+                i +
+                '" data-f="qty" inputmode="numeric" value="' +
+                esc(String(r.qty)) +
+                '" aria-label="How many"><button class="iconbtn x" data-del="' +
+                i +
+                '" aria-label="Remove">' +
+                icon("trash") +
+                "</button></div>",
             )
             .join("") +
-          '<button class="btn small ghost" id="suadd">' + icon("plus") + "Add a part</button>" +
+          '<button class="btn small ghost" id="suadd">' +
+          icon("plus") +
+          "Add a part</button>" +
           '<div class="row" style="margin-top:12px"><button class="btn grow" id="sucancel">Cancel</button><button class="btn primary grow" id="susave">' +
-          icon("check") + "Save</button></div>" +
-          (saved ? '<button class="btn small ghost" id="sureset" style="width:100%">' + icon("undo") + "Go back to the app's default</button>" : "");
+          icon("check") +
+          "Save</button></div>" +
+          (saved
+            ? '<button class="btn small ghost" id="sureset" style="width:100%">' +
+              icon("undo") +
+              "Go back to the app's default</button>"
+            : "");
         const pull = () =>
           el.querySelectorAll("[data-f]").forEach((inp) => {
             const r = rows[+inp.dataset.i];
@@ -2597,7 +3142,10 @@
         el.querySelector("#susave").onclick = () => {
           pull();
           const clean = rows
-            .map((r) => ({ item: String(r.item).trim(), qty: Math.max(0, Math.round(parseFloat(r.qty) || 0)) }))
+            .map((r) => ({
+              item: String(r.item).trim(),
+              qty: Math.max(0, Math.round(parseFloat(r.qty) || 0)),
+            }))
             .filter((r) => r.item && r.qty > 0);
           prefs.setups = prefs.setups || {};
           if (clean.length) prefs.setups[water] = clean;
@@ -2605,7 +3153,11 @@
           if (!savePrefs()) return;
           shareSetups();
           close();
-          toast("Saved. Every " + (water === "culinary" ? "culinary" : "secondary") + " job uses it now.");
+          toast(
+            "Saved. Every " +
+              (water === "culinary" ? "culinary" : "secondary") +
+              " job uses it now.",
+          );
           if (after) after();
         };
         const rs = el.querySelector("#sureset");
@@ -2641,34 +3193,66 @@
       editing.forEach((l, i) => {
         if (l.group !== group) {
           if (group !== null)
-            h += '<button class="btn small ghost" data-add="' + esc(group) + '">' + icon("plus") + "Add to " + esc(group) + "</button>";
+            h +=
+              '<button class="btn small ghost" data-add="' +
+              esc(group) +
+              '">' +
+              icon("plus") +
+              "Add to " +
+              esc(group) +
+              "</button>";
           group = l.group;
           h += '<div class="pe-g">' + esc(group) + "</div>";
         }
         h +=
-          '<div class="pe"><input class="t" data-i="' + i + '" data-f="item" value="' + esc(l.item) +
-          '" aria-label="Part"><input class="t q" data-i="' + i + '" data-f="qty" inputmode="numeric" value="' + esc(String(l.qty)) +
-          '" aria-label="How many"><button class="iconbtn x" data-del="' + i + '" aria-label="Remove ' + esc(l.item) + '">' + icon("trash") + "</button></div>";
+          '<div class="pe"><input class="t" data-i="' +
+          i +
+          '" data-f="item" value="' +
+          esc(l.item) +
+          '" aria-label="Part"><input class="t q" data-i="' +
+          i +
+          '" data-f="qty" inputmode="numeric" value="' +
+          esc(String(l.qty)) +
+          '" aria-label="How many"><button class="iconbtn x" data-del="' +
+          i +
+          '" aria-label="Remove ' +
+          esc(l.item) +
+          '">' +
+          icon("trash") +
+          "</button></div>";
       });
       if (group !== null)
-        h += '<button class="btn small ghost" data-add="' + esc(group) + '">' + icon("plus") + "Add to " + esc(group) + "</button>";
-      h += '<button class="btn small ghost" data-add="Other parts">' + icon("plus") + "Add a part in its own section</button>";
+        h +=
+          '<button class="btn small ghost" data-add="' +
+          esc(group) +
+          '">' +
+          icon("plus") +
+          "Add to " +
+          esc(group) +
+          "</button>";
+      h +=
+        '<button class="btn small ghost" data-add="Other parts">' +
+        icon("plus") +
+        "Add a part in its own section</button>";
       return h;
     }
 
     function render() {
       let body = "";
       if (isStale())
-        body += '<div class="badge warn">The yard or settings changed since the last Generate. Generate again before using this.</div>';
+        body +=
+          '<div class="badge warn">The yard or settings changed since the last Generate. Generate again before using this.</div>';
       if (L0 && !job.water)
-        body += '<div class="badge warn">Water source isn\'t set, so the backflow or filter setup is missing. Pick culinary or secondary in Job settings.</div>';
+        body +=
+          '<div class="badge warn">Water source isn\'t set, so the backflow or filter setup is missing. Pick culinary or secondary in Job settings.</div>';
       if (!L0) body += '<p class="note">Generate a layout first.</p>';
       else if (editing) {
         body +=
           '<p class="note">Change any part or count, remove lines, or add your own. The app\'s list stays saved, so you can go back to it.</p>' +
           editRows() +
           '<div class="row" style="margin-top:14px"><button class="btn grow" id="pcancel">Cancel</button><button class="btn primary grow" id="psave">' +
-          icon("check") + "Save list</button></div>";
+          icon("check") +
+          "Save list</button></div>";
       } else {
         if (job.partsEdit)
           body +=
@@ -2683,20 +3267,39 @@
           (job.water
             ? '<div class="row"><button class="btn grow" id="psetup">' +
               icon("sliders") +
-              (job.water === "culinary" ? "Edit our backflow setup" : "Edit our filter setup") +
+              (job.water === "culinary"
+                ? "Edit our backflow setup"
+                : "Edit our filter setup") +
               "</button></div>"
             : "") +
-          '<div class="row"><button class="btn grow" id="pedit">' + icon("pen") + "Edit list</button>" +
-          (job.partsEdit ? '<button class="btn grow" id="preset">' + icon("undo") + "Reset to the app's list</button>" : "") +
+          '<div class="row"><button class="btn grow" id="pedit">' +
+          icon("pen") +
+          "Edit list</button>" +
+          (job.partsEdit
+            ? '<button class="btn grow" id="preset">' +
+              icon("undo") +
+              "Reset to the app's list</button>"
+            : "") +
           "</div>" +
-          '<div class="row"><button class="btn primary grow" id="xcopy">' + icon("copy") + "Copy to text or email</button></div>";
+          '<div class="row"><button class="btn primary grow" id="xcopy">' +
+          icon("copy") +
+          "Copy to text or email</button></div>";
       }
       ov.innerHTML =
-        '<header class="topbar"><button class="iconbtn" id="xc" aria-label="Back">' + icon("back") +
-        '</button><div class="title"><b>Parts list</b><span>' + esc(job.name) + "</span></div>" +
-        (editing ? "" : '<button class="iconbtn" id="xp" aria-label="Copy list">' + icon("copy") + "</button>") +
+        '<header class="topbar"><button class="iconbtn" id="xc" aria-label="Back">' +
+        icon("back") +
+        '</button><div class="title"><b>Parts list</b><span>' +
+        esc(job.name) +
+        "</span></div>" +
+        (editing
+          ? ""
+          : '<button class="iconbtn" id="xp" aria-label="Copy list">' +
+            icon("copy") +
+            "</button>") +
         "</header>" +
-        '<div class="body">' + body + "</div>";
+        '<div class="body">' +
+        body +
+        "</div>";
       wire();
     }
 
@@ -2731,13 +3334,22 @@
       const pe = ov.querySelector("#pedit");
       if (pe)
         pe.onclick = () => {
-          editing = shownParts(L0).lines.map((l) => ({ group: l.group, item: l.item, qty: l.qty }));
+          editing = shownParts(L0).lines.map((l) => ({
+            group: l.group,
+            item: l.item,
+            qty: l.qty,
+          }));
           render();
         };
       const pr = ov.querySelector("#preset");
       if (pr)
         pr.onclick = () => {
-          if (!confirm("Throw away your edits and go back to the list the app made?")) return;
+          if (
+            !confirm(
+              "Throw away your edits and go back to the list the app made?",
+            )
+          )
+            return;
           delete job.partsEdit;
           touch(job);
           render();
@@ -2765,7 +3377,9 @@
             else editing.splice(at + 1, 0, row);
             render();
             const inputs = ov.querySelectorAll('[data-f="item"]');
-            const target = [...inputs].find((x) => +x.dataset.i === (at < 0 ? editing.length - 1 : at + 1));
+            const target = [...inputs].find(
+              (x) => +x.dataset.i === (at < 0 ? editing.length - 1 : at + 1),
+            );
             if (target) target.focus();
           }),
       );
@@ -2780,7 +3394,11 @@
         ps.onclick = () => {
           pull();
           const lines = editing
-            .map((l) => ({ group: l.group, item: String(l.item).trim(), qty: Math.max(0, Math.round(parseFloat(l.qty) || 0)) }))
+            .map((l) => ({
+              group: l.group,
+              item: String(l.item).trim(),
+              qty: Math.max(0, Math.round(parseFloat(l.qty) || 0)),
+            }))
             .filter((l) => l.item);
           job.partsEdit = { lines, base: JSON.stringify(appLines()) };
           touch(job);
@@ -2818,10 +3436,14 @@
   // the company's backflow and filter setups follow the company, not the phone
   function shareSetups() {
     if (!Cloud.enabled || !Cloud.company) return;
-    const settings = Object.assign({}, Cloud.company.settings || {}, { setups: prefs.setups || {} });
+    const settings = Object.assign({}, Cloud.company.settings || {}, {
+      setups: prefs.setups || {},
+    });
     Cloud.saveSettings(settings).catch((e) => {
       console.warn("Setup not shared", e);
-      toast("Saved on this phone. It'll reach the rest of the company when there's signal.");
+      toast(
+        "Saved on this phone. It'll reach the rest of the company when there's signal.",
+      );
     });
   }
 
@@ -2840,15 +3462,32 @@
         (step === "email"
           ? '<p class="lede">Sign in to save jobs online and share them with your crew. You stay signed in until you sign out.</p>' +
             providers
-              .map((p) => '<button class="btn" style="width:100%;margin-bottom:10px" data-p="' + p + '">Continue with ' + (p === "google" ? "Google" : p === "apple" ? "Apple" : esc(p)) + "</button>")
+              .map(
+                (p) =>
+                  '<button class="btn" style="width:100%;margin-bottom:10px" data-p="' +
+                  p +
+                  '">Continue with ' +
+                  (p === "google"
+                    ? "Google"
+                    : p === "apple"
+                      ? "Apple"
+                      : esc(p)) +
+                  "</button>",
+              )
               .join("") +
             '<label class="f" for="em">Email</label><input class="t" id="em" type="email" inputmode="email" autocomplete="email" placeholder="you@company.com">' +
             '<button class="btn primary" style="width:100%;margin-top:12px" id="go">Email me a code</button>'
-          : '<p class="lede">We sent a 6-digit code to <b>' + esc(email) + "</b>.</p>" +
+          : '<p class="lede">We sent a 6-digit code to <b>' +
+            esc(email) +
+            "</b>.</p>" +
             '<label class="f" for="cd">Code</label><input class="t" id="cd" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456">' +
             '<button class="btn primary" style="width:100%;margin-top:12px" id="vf">Sign in</button>' +
             '<button class="btn small ghost" style="width:100%;margin-top:8px" id="back">Use a different email</button>') +
-        (msg ? '<p class="note" style="color:var(--bad);margin-top:12px">' + esc(msg) + "</p>" : "") +
+        (msg
+          ? '<p class="note" style="color:var(--bad);margin-top:12px">' +
+            esc(msg) +
+            "</p>"
+          : "") +
         "</main>";
       app.querySelectorAll("[data-p]").forEach(
         (b) =>
@@ -2864,7 +3503,8 @@
         em.focus();
         const send = async () => {
           email = em.value.trim();
-          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return draw("email", "That doesn't look like an email address.");
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+            return draw("email", "That doesn't look like an email address.");
           go.disabled = true;
           go.textContent = "Sending...";
           try {
@@ -2872,7 +3512,10 @@
             draw("code");
           } catch (e) {
             console.warn("Code not sent", e);
-            draw("email", "Couldn't send the code. Check the address and your signal, then try again.");
+            draw(
+              "email",
+              "Couldn't send the code. Check the address and your signal, then try again.",
+            );
           }
         };
         go.onclick = send;
@@ -2892,7 +3535,10 @@
             await afterSignIn();
           } catch (e) {
             console.warn("Code rejected", e);
-            draw("code", "That code didn't work. Codes expire after an hour; ask for a new one if it's old.");
+            draw(
+              "code",
+              "That code didn't work. Codes expire after an hour; ask for a new one if it's old.",
+            );
           }
         };
         vf.onclick = verify;
@@ -2930,9 +3576,19 @@
       list
         .map(
           (iv) =>
-            '<div class="row" style="align-items:center;margin-bottom:6px"><span class="grow"><b>' + esc(iv.company_name) + "</b>" +
-            (iv.invited_by_email ? '<br><span class="note" style="margin:0">from ' + esc(iv.invited_by_email) + "</span>" : "") +
-            '</span><button class="btn small ghost" data-no="' + esc(iv.id) + '">No thanks</button><button class="btn small primary" data-yes="' + esc(iv.id) + '">Join</button></div>',
+            '<div class="row" style="align-items:center;margin-bottom:6px"><span class="grow"><b>' +
+            esc(iv.company_name) +
+            "</b>" +
+            (iv.invited_by_email
+              ? '<br><span class="note" style="margin:0">from ' +
+                esc(iv.invited_by_email) +
+                "</span>"
+              : "") +
+            '</span><button class="btn small ghost" data-no="' +
+            esc(iv.id) +
+            '">No thanks</button><button class="btn small primary" data-yes="' +
+            esc(iv.id) +
+            '">Join</button></div>',
         )
         .join("");
     container.querySelectorAll("[data-yes]").forEach(
@@ -2969,7 +3625,9 @@
     app.innerHTML =
       '<main class="home">' +
       brandBlock() +
-      '<p class="lede">Signed in as <b>' + esc(Cloud.email || "") + "</b>. Name your company to get started. " +
+      '<p class="lede">Signed in as <b>' +
+      esc(Cloud.email || "") +
+      "</b>. Name your company to get started. " +
       "If your company already uses Head to Head, ask the owner to invite this email, then tap Check again.</p>" +
       '<div id="iv"></div>' +
       '<label class="f" for="cn">Company name</label><input class="t" id="cn" placeholder="Sundown Outdoor Construction">' +
@@ -2993,7 +3651,9 @@
     invitesBlock(ivBox);
     app.querySelector("#ck").onclick = async () => {
       const n = await invitesBlock(ivBox);
-      if (!n) mm.textContent = "No invite for " + (Cloud.email || "this email") + " yet.";
+      if (!n)
+        mm.textContent =
+          "No invite for " + (Cloud.email || "this email") + " yet.";
     };
     app.querySelector("#so").onclick = async () => {
       await Cloud.signOut();
@@ -3013,7 +3673,18 @@
     await refreshFolders();
     if (!Cloud.hasSynced && jobs.length && !jobs.every((j) => j.example)) {
       const n = jobs.length;
-      if (confirm("Add the " + n + " job" + (n > 1 ? "s" : "") + " on this phone to " + Cloud.company.name + "?")) jobs.forEach((j) => Cloud.queueJob(j.id));
+      if (
+        confirm(
+          "Add the " +
+            n +
+            " job" +
+            (n > 1 ? "s" : "") +
+            " on this phone to " +
+            Cloud.company.name +
+            "?",
+        )
+      )
+        jobs.forEach((j) => Cloud.queueJob(j.id));
     }
     await syncNow();
     route();
@@ -3035,20 +3706,38 @@
   // dropped. Copying the job and fixing a few fields left the rest (zone numbers, labels) able to
   // carry code onto the page (security review 2026-11-10).
   function cleanRemote(j) {
-    if (!j || typeof j !== "object" || !/^[A-Za-z0-9_-]{4,40}$/.test(String(j.id))) return null;
-    const str = (v, max) => (typeof v === "string" ? v.slice(0, max || 300) : "");
+    if (
+      !j ||
+      typeof j !== "object" ||
+      !/^[A-Za-z0-9_-]{4,40}$/.test(String(j.id))
+    )
+      return null;
+    const str = (v, max) =>
+      typeof v === "string" ? v.slice(0, max || 300) : "";
     const pick = (v, list, d) => (list.includes(v) ? v : d);
-    const word = (v) => (/^[A-Za-z0-9_.-]{1,40}$/.test(String(v)) ? String(v) : "");
+    const word = (v) =>
+      /^[A-Za-z0-9_.-]{1,40}$/.test(String(v)) ? String(v) : "";
     const arr = (v) => (Array.isArray(v) ? v : []);
-    const pt = (p) => ({ lat: num(p && p.lat, 0), lng: num(p && p.lng, 0), bf: num(p && p.bf, 0) });
+    const pt = (p) => ({
+      lat: num(p && p.lat, 0),
+      lng: num(p && p.lng, 0),
+      bf: num(p && p.bf, 0),
+    });
     const out = {
       id: String(j.id),
       name: str(j.name) || "Untitled yard",
       address: str(j.address),
       created: num(j.created, Date.now()),
       updated: num(j.updated, Date.now()),
-      origin: { lat: num(j.origin && j.origin.lat, DEFAULT_CENTER.lat), lng: num(j.origin && j.origin.lng, DEFAULT_CENTER.lng) },
-      view: { lat: num(j.view && j.view.lat, DEFAULT_CENTER.lat), lng: num(j.view && j.view.lng, DEFAULT_CENTER.lng), zoom: num(j.view && j.view.zoom, 18) },
+      origin: {
+        lat: num(j.origin && j.origin.lat, DEFAULT_CENTER.lat),
+        lng: num(j.origin && j.origin.lng, DEFAULT_CENTER.lng),
+      },
+      view: {
+        lat: num(j.view && j.view.lat, DEFAULT_CENTER.lat),
+        lng: num(j.view && j.view.lng, DEFAULT_CENTER.lng),
+        zoom: num(j.view && j.view.zoom, 18),
+      },
       scale: num(j.scale, 1),
       psi: num(j.psi, 50),
       line: pick(j.line, ["34", "1", "c"], "34"),
@@ -3067,35 +3756,73 @@
       })),
       markers: arr(j.markers)
         .filter((m) => m && MARKERS[m.tag])
-        .map((m) => ({ id: word(m.id) || uid(), tag: m.tag, lat: num(m.lat, 0), lng: num(m.lng, 0) })),
+        .map((m) => ({
+          id: word(m.id) || uid(),
+          tag: m.tag,
+          lat: num(m.lat, 0),
+          lng: num(m.lng, 0),
+        })),
       layout: null,
     };
     const L = j.layout;
     if (L && typeof L === "object" && Array.isArray(L.heads)) {
       out.layout = {
-        heads: L.heads.filter((h) => h && typeof h === "object").map((h) => ({
-          x: num(h.x, 0), y: num(h.y, 0), r: num(h.r, 0), dir: num(h.dir, 0), arc: num(h.arc, 360),
-          role: word(h.role), kind: pick(h.kind, ["R", "Q", "H", "F", "VAN"], "F"),
-          model: pick(h.model, ["1804", "3504", "5004"], "1804"), series: h.series == null ? null : num(h.series, null),
-          label: /^[A-Za-z0-9.]{1,12}$/.test(String(h.label)) ? String(h.label) : "?",
-          gpmBase: num(h.gpmBase, 0), scales: h.scales === true, gpm: num(h.gpm, 0), area: num(h.area, 0), zone: num(h.zone, 1),
+        heads: L.heads
+          .filter((h) => h && typeof h === "object")
+          .map((h) => ({
+            x: num(h.x, 0),
+            y: num(h.y, 0),
+            r: num(h.r, 0),
+            dir: num(h.dir, 0),
+            arc: num(h.arc, 360),
+            role: word(h.role),
+            kind: pick(h.kind, ["R", "Q", "H", "F", "VAN"], "F"),
+            model: pick(h.model, ["1804", "3504", "5004"], "1804"),
+            series: h.series == null ? null : num(h.series, null),
+            label: /^[A-Za-z0-9.]{1,12}$/.test(String(h.label))
+              ? String(h.label)
+              : "?",
+            gpmBase: num(h.gpmBase, 0),
+            scales: h.scales === true,
+            gpm: num(h.gpm, 0),
+            area: num(h.area, 0),
+            zone: num(h.zone, 1),
+          })),
+        areas: arr(L.areas).map((a) => ({
+          family: pick(a && a.family, ["spray", "rotor", "mixed"], "spray"),
+          note: str(a && a.note),
+          issues: num(a && a.issues, 0),
         })),
-        areas: arr(L.areas).map((a) => ({ family: pick(a && a.family, ["spray", "rotor", "mixed"], "spray"), note: str(a && a.note), issues: num(a && a.issues, 0) })),
-        zones: arr(L.zones).map((z) => ({ n: num(z && z.n, 0), family: pick(z && z.family, ["spray", "rotor"], "spray"), gpm: num(z && z.gpm, 0), count: num(z && z.count, 0) })),
+        zones: arr(L.zones).map((z) => ({
+          n: num(z && z.n, 0),
+          family: pick(z && z.family, ["spray", "rotor"], "spray"),
+          gpm: num(z && z.gpm, 0),
+          count: num(z && z.count, 0),
+        })),
         totals: {
           points: num(L.totals && L.totals.points, 0),
           gaps: num(L.totals && L.totals.gaps, 0),
           overspray: num(L.totals && L.totals.overspray, 0),
           coverage: num(L.totals && L.totals.coverage, 1),
         },
-        gapPts: arr(L.gapPts).slice(0, 400).map((g) => ({ x: num(g && g.x, 0), y: num(g && g.y, 0) })),
+        gapPts: arr(L.gapPts)
+          .slice(0, 400)
+          .map((g) => ({ x: num(g && g.x, 0), y: num(g && g.y, 0) })),
         sig: str(L.sig, 200000),
-        parts: { lines: [], stations: num(L.parts && L.parts.stations, 0), overLimit: !!(L.parts && L.parts.overLimit) },
+        parts: {
+          lines: [],
+          stations: num(L.parts && L.parts.stations, 0),
+          overLimit: !!(L.parts && L.parts.overLimit),
+        },
       };
     }
     if (j.partsEdit && Array.isArray(j.partsEdit.lines))
       out.partsEdit = {
-        lines: j.partsEdit.lines.map((l) => ({ group: str(l && l.group, 80), item: str(l && l.item, 200), qty: num(l && l.qty, 0) })),
+        lines: j.partsEdit.lines.map((l) => ({
+          group: str(l && l.group, 80),
+          item: str(l && l.item, 200),
+          qty: num(l && l.qty, 0),
+        })),
         base: str(j.partsEdit.base, 200000),
       };
     return out;
@@ -3115,7 +3842,8 @@
         // one malformed job is skipped; it doesn't stop the rest of the sync
         console.warn("Skipped a job that couldn't be read", e);
       }
-      if (!rj) return console.warn("Skipped a job with a bad id from the server");
+      if (!rj)
+        return console.warn("Skipped a job with a bad id from the server");
       const i = jobs.findIndex((j) => j.id === rj.id);
       if (i < 0) jobs.push(rj);
       else if (rj.id !== open) jobs[i] = rj; // never swap a job out from under someone editing it
@@ -3145,7 +3873,8 @@
   async function companySheet() {
     const c = Cloud.company;
     const owner = c.role === "owner";
-    let people = [], pending = [];
+    let people = [],
+      pending = [];
     try {
       people = await Cloud.members();
       if (owner) pending = await Cloud.invites();
@@ -3154,19 +3883,37 @@
     }
     const link = location.origin + location.pathname;
     sheet(
-      "<h2>" + esc(c.name) + "</h2>" +
-        '<p class="note">Signed in as ' + esc(Cloud.email || "") + "</p>" +
+      "<h2>" +
+        esc(c.name) +
+        "</h2>" +
+        '<p class="note">Signed in as ' +
+        esc(Cloud.email || "") +
+        "</p>" +
         '<label class="f">People</label><div class="stack" style="gap:6px">' +
         people
           .map(
             (m) =>
-              '<div class="row" style="align-items:center"><span class="grow">' + esc(m.email) + (m.role === "owner" ? " (owner)" : "") + "</span>" +
-              (owner && m.role !== "owner" ? '<button class="btn small ghost" data-rm="' + esc(m.user_id) + '">Remove</button>' : "") +
+              '<div class="row" style="align-items:center"><span class="grow">' +
+              esc(m.email) +
+              (m.role === "owner" ? " (owner)" : "") +
+              "</span>" +
+              (owner && m.role !== "owner"
+                ? '<button class="btn small ghost" data-rm="' +
+                  esc(m.user_id) +
+                  '">Remove</button>'
+                : "") +
               "</div>",
           )
           .join("") +
         pending
-          .map((iv) => '<div class="row" style="align-items:center"><span class="grow">' + esc(iv.email) + ' <span class="note" style="margin:0">invited</span></span><button class="btn small ghost" data-ci="' + esc(iv.id) + '">Cancel</button></div>')
+          .map(
+            (iv) =>
+              '<div class="row" style="align-items:center"><span class="grow">' +
+              esc(iv.email) +
+              ' <span class="note" style="margin:0">invited</span></span><button class="btn small ghost" data-ci="' +
+              esc(iv.id) +
+              '">Cancel</button></div>',
+          )
           .join("") +
         "</div>" +
         (owner
@@ -3175,17 +3922,43 @@
           : "") +
         (folderList.length
           ? '<label class="f" style="margin-top:12px">Folders</label><div class="stack" style="gap:6px">' +
-            folderList.map((f) => '<div class="row" style="align-items:center"><span class="grow">' + esc(f.name) + '</span><button class="btn small ghost" data-rf="' + esc(f.id) + '">Rename</button><button class="btn small ghost" data-df="' + esc(f.id) + '">Delete</button></div>').join("") +
+            folderList
+              .map(
+                (f) =>
+                  '<div class="row" style="align-items:center"><span class="grow">' +
+                  esc(f.name) +
+                  '</span><button class="btn small ghost" data-rf="' +
+                  esc(f.id) +
+                  '">Rename</button><button class="btn small ghost" data-df="' +
+                  esc(f.id) +
+                  '">Delete</button></div>',
+              )
+              .join("") +
             "</div>"
           : "") +
         '<div id="myiv" style="margin-top:12px"></div>' +
         (Cloud.companies.length > 1
           ? '<label class="f" for="sw" style="margin-top:12px">Company</label><select class="t" id="sw">' +
-            Cloud.companies.map((x) => '<option value="' + esc(x.id) + '"' + (x.id === c.id ? " selected" : "") + ">" + esc(x.name) + "</option>").join("") +
+            Cloud.companies
+              .map(
+                (x) =>
+                  '<option value="' +
+                  esc(x.id) +
+                  '"' +
+                  (x.id === c.id ? " selected" : "") +
+                  ">" +
+                  esc(x.name) +
+                  "</option>",
+              )
+              .join("") +
             "</select>"
           : "") +
         '<p class="note" style="margin-top:12px">On iPhone, add this app to your home screen (Share, then Add to Home Screen) so Safari doesn\'t sign you out after a week away.</p>' +
-        (owner ? "" : '<button class="btn danger" style="width:100%;margin-bottom:8px" id="lv">Leave ' + esc(c.name) + "</button>") +
+        (owner
+          ? ""
+          : '<button class="btn danger" style="width:100%;margin-bottom:8px" id="lv">Leave ' +
+            esc(c.name) +
+            "</button>") +
         '<button class="btn" style="width:100%" id="so">Sign out</button>',
       (el, close) => {
         const reopen = () => {
@@ -3224,10 +3997,25 @@
             try {
               await Cloud.invite(ie.value);
               const to = ie.value.trim().toLowerCase();
-              const msg = "You're invited to " + c.name + " on Head to Head. Open " + link + " and sign in with " + to + ".";
+              const msg =
+                "You're invited to " +
+                c.name +
+                " on Head to Head. Open " +
+                link +
+                " and sign in with " +
+                to +
+                ".";
               // hand the invite to the phone's own share sheet or mail app
-              if (navigator.share) navigator.share({ text: msg }).catch(() => {});
-              else location.href = "mailto:" + encodeURIComponent(to) + "?subject=" + encodeURIComponent("Join " + c.name + " on Head to Head") + "&body=" + encodeURIComponent(msg);
+              if (navigator.share)
+                navigator.share({ text: msg }).catch(() => {});
+              else
+                location.href =
+                  "mailto:" +
+                  encodeURIComponent(to) +
+                  "?subject=" +
+                  encodeURIComponent("Join " + c.name + " on Head to Head") +
+                  "&body=" +
+                  encodeURIComponent(msg);
               reopen();
             } catch (e) {
               console.warn("Invite failed", e);
@@ -3254,7 +4042,10 @@
         el.querySelectorAll("[data-df]").forEach(
           (b) =>
             (b.onclick = async () => {
-              if (!confirm("Delete this folder? Its jobs stay, under All jobs.")) return;
+              if (
+                !confirm("Delete this folder? Its jobs stay, under All jobs.")
+              )
+                return;
               try {
                 await Cloud.deleteFolder(b.dataset.df);
                 jobs.forEach((j) => {
@@ -3281,7 +4072,14 @@
         const lv = el.querySelector("#lv");
         if (lv)
           lv.onclick = async () => {
-            if (!confirm("Leave " + c.name + "? Its jobs stay with the company and come off this phone.")) return;
+            if (
+              !confirm(
+                "Leave " +
+                  c.name +
+                  "? Its jobs stay with the company and come off this phone.",
+              )
+            )
+              return;
             try {
               await Cloud.pushNow();
               await Cloud.leaveCompany();
