@@ -24,6 +24,7 @@
   const KS = 2;
   const KT = 2;
   const CORNER_DEG = 35; // a turn sharper than this over a few feet is a corner (guessed, tested in sim only)
+  const SHARP_DEG = 60; // a turn this sharp at a found corner is a real corner (guessed, sim-tested)
   const MIN_EDGE = 2; // ft, shorter edges get folded into their neighbours
   const SNAP_FT = 8; // a corner moves at most this far to where its two straight edges meet
 
@@ -232,6 +233,16 @@
     );
   }
 
+  // How sharply the trail turns from one edge into the next, in degrees, by their chords.
+  function turnAt(e1, e2) {
+    const a = e1.pts[0],
+      b = e1.pts[e1.pts.length - 1],
+      c = e2.pts[e2.pts.length - 1];
+    let d = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(b.y - a.y, b.x - a.x);
+    d = mod(d + Math.PI) - Math.PI;
+    return (Math.abs(d) * 180) / Math.PI;
+  }
+
   // Least-squares straight line through points: a point on it and its direction.
   function lsLine(pts) {
     let mx = 0,
@@ -337,6 +348,47 @@
     return x;
   }
 
+  // Where the walk ends back at its start. People walk a few steps past where they began, stop
+  // short, or pin the starting corner a second time, and each of those used to leave the shape
+  // folding back on itself or a notch at the seam (review 2026-11-13: walking 10 ft past the start
+  // of a 60x40 rectangle gave an edge doubling back; two pins of the same corner 2.5 ft apart gave
+  // a notch). So cut the trail at the point in its last stretch closest to the start, and treat a
+  // pin there as the same corner as the start.
+  const SEAM_PIN_FT = 5; // two pins this close at the seam are the same corner (guessed)
+  function closeSeam(clean) {
+    const n = clean.length;
+    let tot = 0;
+    const cum = [0];
+    for (let i = 1; i < n; i++) cum.push((tot += dist(clean[i - 1], clean[i])));
+    let best = n - 1,
+      bestD = Infinity;
+    for (let i = 1; i < n; i++) {
+      if (cum[i] < 0.6 * tot) continue;
+      const d = dist(clean[i], clean[0]);
+      if (d < bestD) (bestD = d), (best = i);
+    }
+    // a pin just before or after the closest point is the corner the walk ended on
+    for (let i = Math.max(1, best - 3); i < n; i++) {
+      if (clean[i].corner && dist(clean[i], clean[0]) < SEAM_PIN_FT && cum[i] >= 0.6 * tot) {
+        best = i;
+        break;
+      }
+    }
+    const end = clean[best];
+    clean.splice(best + 1);
+    if (dist(end, clean[0]) < SEAM_PIN_FT && (end.corner || clean[0].corner)) {
+      // one corner: average two pins, or keep whichever one was pinned
+      const a = clean[0];
+      clean[0] =
+        a.corner && end.corner
+          ? { x: (a.x + end.x) / 2, y: (a.y + end.y) / 2, corner: true }
+          : a.corner
+            ? a
+            : end;
+      clean.pop();
+    } else if (dist(end, clean[0]) < 0.5) clean.pop();
+  }
+
   function fit(raw) {
     // drop repeats, since standing still piles up points on one spot
     const clean = [];
@@ -347,12 +399,8 @@
       else if (p.corner)
         clean[clean.length - 1] = { x: p.x, y: p.y, corner: true };
     });
-    if (
-      clean.length > 2 &&
-      dist(clean[0], clean[clean.length - 1]) < 0.5 &&
-      !clean[0].corner
-    )
-      clean.shift();
+    if (clean.length < 3) return null;
+    closeSeam(clean);
     if (clean.length < 3) return null;
 
     // How far apart the fixes are (about 3 ft walking with one fix a second) and how shaky they
@@ -418,6 +466,10 @@
       for (let k = 0; k < edges.length; k++) {
         const nx = edges[(k + 1) % edges.length];
         if (nx.pin) continue;
+        // A real sharp corner never merges into a curve. Without this a walked 10x8 bed came back
+        // as 3 corners and a curve with perfect GPS (review 2026-11-13); refusing every detected
+        // corner instead broke the noisy L shape, so only turns over SHARP_DEG are kept.
+        if (nx.hard && turnAt(edges[k], nx) > SHARP_DEG) continue;
         const pts = edges[k].pts.concat(nx.pts.slice(1));
         const f = fitEdge(pts);
         if (f.dev <= TOL && f.dev < bestDev)

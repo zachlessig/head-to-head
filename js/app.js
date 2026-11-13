@@ -1624,23 +1624,27 @@
   const WALK_MIN_STEP_FT = 1; // standing still doesn't pile up points
   const CORNER_HOLD_MS = 3000;
 
+  // One saved walk per job: a single slot let starting a walk on job B wipe a paused walk on
+  // job A (review 2026-11-13).
+  const walkKey = () => WALK_KEY + "." + J.job.id;
   function saveWalk() {
+    if (!J) return;
     try {
-      if (J && J.walk)
+      if (J.walk)
         sessionStorage.setItem(
-          WALK_KEY,
+          walkKey(),
           JSON.stringify(
             Object.assign({ jobId: J.job.id }, J.walk, { holding: null }),
           ),
         );
-      else sessionStorage.removeItem(WALK_KEY);
+      else sessionStorage.removeItem(walkKey());
     } catch (e) {
       console.warn("Walk not saved for a reload", e);
     }
   }
   function loadWalk() {
     try {
-      const w = JSON.parse(sessionStorage.getItem(WALK_KEY));
+      const w = JSON.parse(sessionStorage.getItem(walkKey()));
       if (
         w &&
         w.jobId === J.job.id &&
@@ -1650,6 +1654,11 @@
         delete w.jobId;
         w.paused = true;
         w.holding = null;
+        w.skipped = Number(w.skipped) || 0;
+        // the live dot uses J.offset, which a reload resets; line it up with the trail again
+        const last = w.anchors[w.anchors.length - 1];
+        if (last)
+          J.offset = { lat: Number(last.lat) || 0, lng: Number(last.lng) || 0 };
         return w;
       }
     } catch (e) {
@@ -1658,23 +1667,47 @@
     return null;
   }
 
-  let wake = null;
+  // A sleeping screen stops GPS in a web page, so keep it on during a walk. The phone drops the
+  // lock whenever the page is hidden (checking a text mid-walk), so take it again on the way back.
+  let wake = null,
+    wakeWanted = false,
+    wakeAsking = false;
   function holdWake() {
-    // a sleeping screen stops GPS in a web page, so keep it on during a walk
-    if (wake || !navigator.wakeLock) return;
+    wakeWanted = true;
+    if (wake || wakeAsking || !navigator.wakeLock) return;
+    wakeAsking = true;
     navigator.wakeLock
       .request("screen")
       .then((w) => {
+        wakeAsking = false;
+        // paused or finished while the request was out: let it go straight away
+        if (!wakeWanted) return w.release();
         wake = w;
-        w.addEventListener("release", () => (wake = null));
+        w.addEventListener("release", () => {
+          if (wake === w) wake = null;
+        });
       })
-      .catch((e) => console.warn("Screen may sleep during the walk", e));
+      .catch((e) => {
+        wakeAsking = false;
+        console.warn("Screen may sleep during the walk", e);
+      });
   }
   function releaseWake() {
+    wakeWanted = false;
     if (wake)
       wake.release().catch((e) => console.warn("Screen lock release", e));
     wake = null;
   }
+  document.addEventListener("visibilitychange", () => {
+    if (
+      document.visibilityState === "visible" &&
+      J &&
+      J.walk &&
+      !J.walk.paused &&
+      J.mode === "walk"
+    )
+      holdWake();
+  });
 
   function startWalk() {
     J.walk = {
@@ -1731,6 +1764,10 @@
     renderPanel();
     setTimeout(() => {
       if (!J || J.walk !== w || !w.holding) return;
+      if (w.paused) {
+        w.holding = null;
+        return renderPanel();
+      }
       const got = w.holding.filter((f) => f.acc <= WALK_MAX_ACC_M);
       const use = got.length
         ? got
@@ -1791,6 +1828,15 @@
     const pts = walkPoints();
     if (pts.length < 8 || walkLength() < 20)
       return toast("Walk a bit more of the edge first.");
+    // Finishing after three sides used to close the shape with a straight line and call it done
+    // (review 2026-11-13). 25 ft leaves room for GPS drift between the start and the end.
+    const gap = Math.round(pts[0].distanceTo(pts[pts.length - 1]) * 3.281);
+    if (gap > 25)
+      return toast(
+        "You're about " +
+          gap +
+          " ft from where you started. Walk back to the start, then tap Finish.",
+      );
     maybeRebase(pts[0]);
     const P = proj(J.job);
     const verts = window.H2HTrace.fit(
@@ -2459,7 +2505,9 @@
         ">" +
         icon("pin") +
         'Corner</button><button class="btn grow" id="an">Anchor</button></div>' +
-        '<div class="row"><button class="btn grow" id="pa">' +
+        '<div class="row"><button class="btn grow" id="pa"' +
+        (w.holding ? " disabled" : "") +
+        ">" +
         (w.paused ? "Resume" : "Pause") +
         '</button><button class="btn grow" id="cx">Start over</button><button class="btn grow" id="fw">' +
         icon("check") +

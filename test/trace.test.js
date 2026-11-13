@@ -250,6 +250,57 @@ for (const [name, y] of Object.entries(yards)) {
   );
 }
 
+// 2b. How a walk really ends (review 2026-11-13). Rectangle trail points, one every 3 ft from (0,0).
+function rectTrail(w, h, extra) {
+  const c = [[0, 0], [w, 0], [w, h], [0, h]];
+  const out = [];
+  for (let k = 0; k < 4; k++) {
+    const a = c[k], b = c[(k + 1) % 4], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    for (let t = 0; t < L; t += 3) out.push({ x: a[0] + ((b[0] - a[0]) * t) / L, y: a[1] + ((b[1] - a[1]) * t) / L });
+  }
+  for (let t = 0; t <= (extra || 0); t += 3) out.push({ x: t, y: 0 });
+  return out;
+}
+// segments of the outline crossing each other anywhere
+function crosses(v) {
+  const o = outline(v);
+  const seg = (p, q, r) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+  for (let i = 0; i < o.length; i++)
+    for (let j = i + 2; j < o.length; j++) {
+      if (i === 0 && j === o.length - 1) continue;
+      const a = o[i], b = o[(i + 1) % o.length], c = o[j], d = o[(j + 1) % o.length];
+      if (seg(a, b, c) * seg(a, b, d) < 0 && seg(c, d, a) * seg(c, d, b) < 0) return true;
+    }
+  return false;
+}
+{
+  const rect = P([[0, 0], [60, 0], [60, 40], [0, 40]]);
+  const over = T.fit(rectTrail(60, 40, 10));
+  check(over && over.length === 4 && worstGap(outline(rect), outline(over), true) < 1.5, `walking 10 ft past the start gave ${over && over.length} corners`);
+  const pins = rectTrail(60, 40);
+  pins[0].corner = true;
+  pins.push({ x: 2.5, y: 0.3, corner: true }); // pinned the start corner again, 2.5 ft off
+  const pg = T.fit(pins);
+  check(pg && pg.length === 4 && !crosses(pg), `pinning the start corner again gave ${pg && pg.length} corners`);
+  const short = rectTrail(60, 40).slice(0, -1); // stopped 3 ft short
+  const sg = T.fit(short);
+  check(sg && sg.length === 4, `stopping short gave ${sg && sg.length} corners`);
+  for (const [w, h] of [[10, 8], [12, 10], [15, 10]]) {
+    const g = T.fit(rectTrail(w, h));
+    check(g && g.length === 4 && g.every((q) => !q.b), `${w}x${h} bed gave ${g && g.length} corners, ${g && g.filter((q) => q.b).length} curves`);
+  }
+  // drift that leaves the end a few feet from the start shouldn't fold the shape
+  let folded = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const r = rng(500 + seed);
+    let dx = 0, dy = 0;
+    const tr = rectTrail(60, 40).map((q) => ((dx += gauss(r) * 0.3), (dy += gauss(r) * 0.3), { x: q.x + dx + gauss(r), y: q.y + dy + gauss(r) }));
+    const g = T.fit(tr);
+    if (!g || crosses(g)) folded++;
+  }
+  check(folded === 0, `${folded} of 40 drifting rectangle walks folded over at the seam`);
+}
+
 // 3. Real-phone GPS: the cleaned shape shouldn't be worse than the raw trail it came from.
 const report = process.argv[2] === "report";
 for (const [name, y] of Object.entries(yards)) {
