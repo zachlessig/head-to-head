@@ -55,6 +55,15 @@ swings 10x, so compare old and new engines back to back before calling anything 
   Two heads on the same spot (one each side of a fence) are drawn a few pixels apart, square to
   the fence, on the map and the plan (`nudges` in `js/plan.js`). Drawing only: real positions
   and coverage don't move.
+- Walk (Zach 2026-11-13): "constantly plot points" as you walk the edge, then smooth it out and
+  find the straight legs and the curves after the shape closes. Start walking records a GPS trail on
+  its own (about one fix a second; fixes the phone rates worse than 20 m are skipped, a guess).
+  Corner pins a sharp corner, averaged over 3 seconds. Anchor can be tapped any number of times mid-walk;
+  the drift correction is spread over time between anchors. Finish runs `fit()` in `js/trace.js`.
+  `node test/trace.test.js` (add `report` for numbers) walks made-up yards with simulated phone GPS.
+  In that simulation a typical phone lands a shape about 13 ft off with one anchor, about 9 ft with 4
+  anchors, and about 6 to 7 ft with 4 anchors plus Corner taps. Those numbers come from a
+  simulation, not a real phone walk; tracing on the photo is still more accurate where the edge shows.
 - Example yard: "Try an example yard" on the home screen builds a made-up yard with every
   feature, on a plain background (no satellite photo of a real place), and lays it out.
   When a feature is added, add it to `exampleJob()` in `js/app.js` too.
