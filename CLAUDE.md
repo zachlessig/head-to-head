@@ -22,6 +22,13 @@ swings 10x, so compare old and new engines back to back before calling anything 
   kidney lawn with a spray tip 1.08 ft past a curve against a 1 ft rule, because sampling stopped
   short of the tip. Measure new limits with an independent script at a finer step before you
   claim them.
+- Never sell GPS walking as accurate enough to draw a sprinkler map from. Zach walked a real yard
+  on 2026-11-14: "its off by up to like 9 feet even with the anchor", and "if you are drawing a
+  sprinkler map, the most margin of error is probably a foot". The simulation in
+  `test/trace.test.js` had promised 6 to 7 ft. Phone GPS drift can't be smoothed away, so a walk is
+  a rough outline only. Never quote simulated accuracy as what a phone will do; say it's simulated
+  and get a real walk before claiming a number. Under a foot needs tape from two fixed points, the
+  camera (App Store version), or an RTK receiver.
 - Never list rotor nozzles on the parts list. Rotors come with every nozzle (Zach, 2026-11-08).
 
 ## His rules
