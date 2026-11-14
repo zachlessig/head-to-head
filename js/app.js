@@ -29,7 +29,6 @@
     sliders:
       '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
     pen: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
-    walk: '<circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="1.5"/>',
     ruler:
       '<path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>',
     drop: '<path d="M12 2.7l5.7 5.7a8 8 0 1 1-11.4 0z"/>',
@@ -42,6 +41,7 @@
     print:
       '<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/>',
     copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+    walk: '<circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="1.5"/>',
     pin: '<path d="M12 22s7-7.2 7-13a7 7 0 0 0-14 0c0 5.8 7 13 7 13z"/><circle cx="12" cy="9" r="2.5"/>',
     x: '<path d="M18 6L6 18M6 6l12 12"/>',
     move: '<path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/>',
@@ -637,7 +637,6 @@
   function teardownJob() {
     document.querySelectorAll(".overlay, .scrim").forEach((el) => el.remove());
     if (!J) return;
-    stopGps();
     if (J.map) J.map.remove();
     J = null;
   }
@@ -900,9 +899,6 @@
       selHead: null,
       selZone: null,
       moving: false,
-      gps: null,
-      offset: { lat: 0, lng: 0 },
-      anchoring: false,
       measure: [],
       undo: [],
       layers: {},
@@ -977,7 +973,7 @@
         toast("Mapbox photos didn't load, so these are backup photos.");
       });
     map.setView([job.view.lat, job.view.lng], job.view.zoom);
-    ["shapes", "heads", "labels", "edit", "gps", "measure", "markers"].forEach(
+    ["shapes", "heads", "labels", "edit", "measure", "markers"].forEach(
       (k) => (J.layers[k] = L.layerGroup().addTo(map)),
     );
     map.on("click", onMapClick);
@@ -1023,18 +1019,15 @@
 
   function setMode(mode) {
     if (mode === "plan") return openPlan();
-    if (J.mode === "walk" && mode !== "walk") stopGps();
     J.mode = mode;
     J.tool = mode === "draw" ? J.tool : null;
-    J.anchoring = false;
     J.measure = [];
     J.selHead = null;
     J.moving = false;
-    if (mode !== "draw" && mode !== "walk") {
+    if (mode !== "draw") {
       finishDrawing(false);
       J.selShape = null;
     }
-    if (mode === "walk") startGps();
     app
       .querySelectorAll(".tab")
       .forEach((t) =>
@@ -1161,7 +1154,7 @@
   function renderEdit() {
     const lay = J.layers.edit;
     lay.clearLayers();
-    if (J.mode !== "draw" && J.mode !== "walk") return;
+    if (J.mode !== "draw") return;
     const id = J.drawing || J.selShape;
     const s = J.job.shapes.find((x) => x.id === id);
     if (!s) return;
@@ -1377,7 +1370,7 @@
       J.drawing = null;
     // undoing a close reopens the shape, so keep drawing it
     const open = J.job.shapes.find((x) => !x.closed);
-    if (open && (J.mode === "draw" || J.mode === "walk")) {
+    if (open && J.mode === "draw") {
       J.drawing = open.id;
       J.selShape = null;
     } else if (open && open.pts.length < 3) {
@@ -1437,28 +1430,6 @@
 
   function onMapClick(e) {
     const ll = e.latlng;
-    if (J.mode === "walk" && J.anchoring) {
-      if (!J.gps) return toast("Waiting for GPS before anchoring.");
-      J.offset = { lat: ll.lat - J.gps.lat, lng: ll.lng - J.gps.lng };
-      J.anchoring = false;
-      // mid-walk anchors fix the drift on the stretch walked before them too (see walkPoints)
-      if (J.walk) {
-        J.walk.anchors.push({
-          t: Date.now(),
-          lat: J.offset.lat,
-          lng: J.offset.lng,
-        });
-        saveWalk();
-      }
-      toast(
-        J.walk
-          ? "Anchored. Your trail lines up with that spot now."
-          : "Anchored. GPS points now line up with that spot.",
-      );
-      renderGps();
-      renderPanel();
-      return;
-    }
     if (J.mode === "measure") {
       if (J.measure.length >= 2) J.measure = [];
       J.measure.push(snapToVertex(ll));
@@ -1512,386 +1483,6 @@
       }),
     );
     return best || ll;
-  }
-
-  /* ---------------- GPS walk ---------------- */
-  function startGps() {
-    if (!navigator.geolocation) {
-      J.gpsError = "This browser has no GPS access.";
-      return;
-    }
-    if (J.watch != null) return;
-    J.gpsError = null;
-    J.watch = navigator.geolocation.watchPosition(
-      (p) => {
-        if (!J) return;
-        const first = !J.gps;
-        J.gpsError = null;
-        J.gps = {
-          lat: p.coords.latitude,
-          lng: p.coords.longitude,
-          acc: p.coords.accuracy,
-        };
-        if (first) J.map.setView(corrected(), Math.max(J.map.getZoom(), 20));
-        recordFix(p);
-        renderGps();
-        if (J.mode === "walk") renderPanel();
-      },
-      (err) => {
-        if (!J) return;
-        if (err.code !== 1 && J.gps) return; // a slow update after a good fix is not worth a warning
-        J.gpsError =
-          err.code === 1
-            ? "Location is blocked for this site. Turn it on in Settings > Privacy > Location Services > Safari Websites."
-            : "No GPS fix yet. Step out from under trees for a moment.";
-        renderPanel();
-      },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 },
-    );
-  }
-  function stopGps() {
-    if (J && J.walk) {
-      J.walk.paused = true;
-      saveWalk();
-    }
-    releaseWake();
-    if (J && J.watch != null) {
-      navigator.geolocation.clearWatch(J.watch);
-      J.watch = null;
-      J.layers.gps && J.layers.gps.clearLayers();
-    }
-    if (J) J.gps = null; // never drop a corner at a fix from before the user walked away
-  }
-  function corrected() {
-    return L.latLng(J.gps.lat + J.offset.lat, J.gps.lng + J.offset.lng);
-  }
-  function renderGps() {
-    const lay = J.layers.gps;
-    lay.clearLayers();
-    if (J.mode !== "walk") return;
-    if (J.walk && J.walk.fixes.length) {
-      const pts = walkPoints();
-      lay.addLayer(
-        L.polyline(pts, {
-          color: "#1f6fe0",
-          weight: 3,
-          dashArray: J.walk.paused ? "4 6" : null,
-          interactive: false,
-        }),
-      );
-      pts.forEach((q) => {
-        if (q.corner)
-          lay.addLayer(
-            L.circleMarker(q, {
-              radius: 6,
-              color: "#fff",
-              weight: 2,
-              fillColor: "#1f6fe0",
-              fillOpacity: 1,
-              interactive: false,
-            }),
-          );
-      });
-    }
-    if (!J.gps) return;
-    const c = corrected();
-    lay.addLayer(
-      L.circle(c, {
-        radius: J.gps.acc,
-        color: "#1f6fe0",
-        weight: 1,
-        fillOpacity: 0.12,
-        interactive: false,
-      }),
-    );
-    lay.addLayer(
-      L.marker(c, {
-        icon: L.divIcon({ className: "me", iconSize: [18, 18] }),
-        interactive: false,
-        keyboard: false,
-      }),
-    );
-  }
-  /* Walk recording (Zach 2026-11-13): walking the edge records your path on its own, about one
-       point a second, so there's no tapping a corner at a time. Corner pins a sharp corner where
-       you stand, averaged over 3 seconds. Finish turns the trail into straight edges and curves
-       (js/trace.js). Fixes are kept raw with their time, and every Anchor tap is kept too, so the
-       drift between two anchors is spread over the stretch walked between them. */
-  const WALK_KEY = "headtohead.walk.v1";
-  // Fixes the phone itself rates worse than this are skipped. Guessed, not measured on a phone:
-  // phones under open sky usually report 5 to 10 m, and under trees 20 m and worse.
-  const WALK_MAX_ACC_M = 20;
-  const WALK_MIN_STEP_FT = 1; // standing still doesn't pile up points
-  const CORNER_HOLD_MS = 3000;
-
-  // One saved walk per job: a single slot let starting a walk on job B wipe a paused walk on
-  // job A (review 2026-11-13).
-  const walkKey = () => WALK_KEY + "." + J.job.id;
-  function saveWalk() {
-    if (!J) return;
-    try {
-      if (J.walk)
-        sessionStorage.setItem(
-          walkKey(),
-          JSON.stringify(
-            Object.assign({ jobId: J.job.id }, J.walk, { holding: null }),
-          ),
-        );
-      else sessionStorage.removeItem(walkKey());
-    } catch (e) {
-      console.warn("Walk not saved for a reload", e);
-    }
-  }
-  function loadWalk() {
-    try {
-      const w = JSON.parse(sessionStorage.getItem(walkKey()));
-      if (
-        w &&
-        w.jobId === J.job.id &&
-        Array.isArray(w.fixes) &&
-        Array.isArray(w.anchors)
-      ) {
-        delete w.jobId;
-        w.paused = true;
-        w.holding = null;
-        w.skipped = Number(w.skipped) || 0;
-        // the live dot uses J.offset, which a reload resets; line it up with the trail again
-        const last = w.anchors[w.anchors.length - 1];
-        if (last)
-          J.offset = { lat: Number(last.lat) || 0, lng: Number(last.lng) || 0 };
-        return w;
-      }
-    } catch (e) {
-      console.warn("Saved walk unreadable", e);
-    }
-    return null;
-  }
-
-  // A sleeping screen stops GPS in a web page, so keep it on during a walk. The phone drops the
-  // lock whenever the page is hidden (checking a text mid-walk), so take it again on the way back.
-  let wake = null,
-    wakeWanted = false,
-    wakeAsking = false;
-  function holdWake() {
-    wakeWanted = true;
-    if (wake || wakeAsking || !navigator.wakeLock) return;
-    wakeAsking = true;
-    navigator.wakeLock
-      .request("screen")
-      .then((w) => {
-        wakeAsking = false;
-        // paused or finished while the request was out: let it go straight away
-        if (!wakeWanted) return w.release();
-        wake = w;
-        w.addEventListener("release", () => {
-          if (wake === w) wake = null;
-        });
-      })
-      .catch((e) => {
-        wakeAsking = false;
-        console.warn("Screen may sleep during the walk", e);
-      });
-  }
-  function releaseWake() {
-    wakeWanted = false;
-    if (wake)
-      wake.release().catch((e) => console.warn("Screen lock release", e));
-    wake = null;
-  }
-  document.addEventListener("visibilitychange", () => {
-    if (
-      document.visibilityState === "visible" &&
-      J &&
-      J.walk &&
-      !J.walk.paused &&
-      J.mode === "walk"
-    )
-      holdWake();
-  });
-
-  function startWalk() {
-    J.walk = {
-      type: J.walkType || "lawn",
-      fixes: [],
-      // an anchor set before starting counts from the first step
-      anchors:
-        J.offset.lat || J.offset.lng
-          ? [{ t: Date.now(), lat: J.offset.lat, lng: J.offset.lng }]
-          : [],
-      paused: false,
-      holding: null,
-      skipped: 0,
-    };
-    holdWake();
-    saveWalk();
-    renderGps();
-    renderPanel();
-  }
-  function recordFix(p) {
-    const w = J.walk;
-    if (!w || w.paused || J.mode !== "walk") return;
-    const fix = {
-      lat: p.coords.latitude,
-      lng: p.coords.longitude,
-      acc: p.coords.accuracy,
-      t: Date.now(),
-    };
-    if (w.holding) {
-      w.holding.push(fix);
-      return;
-    }
-    if (fix.acc > WALK_MAX_ACC_M) {
-      w.skipped++;
-      return;
-    }
-    const last = w.fixes[w.fixes.length - 1];
-    if (last) {
-      const c = Math.cos((fix.lat * Math.PI) / 180);
-      const ft = Math.hypot(
-        (fix.lat - last.lat) * FT_PER_DEG,
-        (fix.lng - last.lng) * FT_PER_DEG * c,
-      );
-      if (ft < WALK_MIN_STEP_FT) return;
-    }
-    w.fixes.push(fix);
-    if (w.fixes.length % 5 === 0) saveWalk();
-  }
-  function walkCorner() {
-    const w = J.walk;
-    if (!w || w.holding) return;
-    if (!J.gps) return toast("Waiting for a GPS fix.");
-    w.holding = [];
-    renderPanel();
-    setTimeout(() => {
-      if (!J || J.walk !== w || !w.holding) return;
-      if (w.paused) {
-        w.holding = null;
-        return renderPanel();
-      }
-      const got = w.holding.filter((f) => f.acc <= WALK_MAX_ACC_M);
-      const use = got.length
-        ? got
-        : J.gps
-          ? [{ lat: J.gps.lat, lng: J.gps.lng }]
-          : [];
-      w.holding = null;
-      if (use.length) {
-        const avg = (k) => use.reduce((a, f) => a + f[k], 0) / use.length;
-        w.fixes.push({
-          lat: avg("lat"),
-          lng: avg("lng"),
-          acc: 0,
-          t: Date.now(),
-          corner: true,
-        });
-        toast("Corner pinned.");
-      } else toast("No GPS fix, so no corner pinned. Try again.");
-      saveWalk();
-      renderGps();
-      renderPanel();
-    }, CORNER_HOLD_MS);
-  }
-  // Each fix moved by the anchor correction for the moment it was taken, changing in a straight
-  // line over time from one anchor to the next.
-  function offsetAt(t) {
-    const a = J.walk.anchors;
-    if (!a.length) return J.offset;
-    if (t <= a[0].t) return a[0];
-    for (let i = 1; i < a.length; i++) {
-      if (t <= a[i].t) {
-        const u = (t - a[i - 1].t) / (a[i].t - a[i - 1].t || 1);
-        return {
-          lat: a[i - 1].lat + u * (a[i].lat - a[i - 1].lat),
-          lng: a[i - 1].lng + u * (a[i].lng - a[i - 1].lng),
-        };
-      }
-    }
-    return a[a.length - 1];
-  }
-  function walkPoints() {
-    return J.walk.fixes.map((f) => {
-      const o = offsetAt(f.t);
-      const ll = L.latLng(f.lat + o.lat, f.lng + o.lng);
-      ll.corner = !!f.corner;
-      return ll;
-    });
-  }
-  function walkLength() {
-    const pts = walkPoints();
-    let ft = 0;
-    for (let i = 1; i < pts.length; i++)
-      ft += pts[i - 1].distanceTo(pts[i]) * 3.281;
-    return ft;
-  }
-  function finishWalk() {
-    const w = J.walk;
-    const pts = walkPoints();
-    if (pts.length < 8 || walkLength() < 20)
-      return toast("Walk a bit more of the edge first.");
-    // Finishing after three sides used to close the shape with a straight line and call it done
-    // (review 2026-11-13). 25 ft leaves room for GPS drift between the start and the end.
-    const gap = Math.round(pts[0].distanceTo(pts[pts.length - 1]) * 3.281);
-    if (gap > 25)
-      return toast(
-        "You're about " +
-          gap +
-          " ft from where you started. Walk back to the start, then tap Finish.",
-      );
-    maybeRebase(pts[0]);
-    const P = proj(J.job);
-    const verts = window.H2HTrace.fit(
-      pts.map((q) => Object.assign(P.toXY(q), { corner: q.corner })),
-    );
-    if (!verts || verts.length < 3)
-      return toast(
-        "Couldn't make a shape from that walk. Walk the whole edge back to where you started.",
-      );
-    pushUndo();
-    const shape = {
-      id: uid(),
-      type: w.type,
-      closed: true,
-      mode: "auto",
-      pts: verts.map((v, i) => {
-        const nx = verts[(i + 1) % verts.length];
-        const chord = Math.hypot(nx.x - v.x, nx.y - v.y);
-        const ll = P.toLL(v.x, v.y);
-        return { lat: ll.lat, lng: ll.lng, bf: chord > 1e-6 ? v.b / chord : 0 };
-      }),
-    };
-    J.job.shapes.push(shape);
-    J.walk = null;
-    saveWalk();
-    releaseWake();
-    touch(J.job);
-    redraw();
-    renderGps();
-    const curves = verts.filter((v) => v.b).length;
-    const straight = verts.length - curves;
-    const what = w.type === "bed" ? "Bed" : "Lawn";
-    const parts =
-      straight +
-      " straight edge" +
-      (straight === 1 ? "" : "s") +
-      (curves ? " and " + curves + " curve" + (curves === 1 ? "" : "s") : "");
-    if (selfCrosses(densify(shapeLocal(shape, P), true)))
-      toast(
-        what +
-          " saved, but two edges cross. Drag a corner so it doesn't fold over itself.",
-      );
-    else
-      toast(
-        what + " saved: " + parts + ". Drag any dot on the map to fix it up.",
-      );
-  }
-  function cancelWalk() {
-    if (J.walk && J.walk.fixes.length > 10 && !confirm("Throw away this walk?"))
-      return;
-    J.walk = null;
-    saveWalk();
-    releaseWake();
-    renderGps();
-    renderPanel();
   }
 
   /* ---------------- measure ---------------- */
@@ -2423,7 +2014,7 @@
       '<p class="hint">' +
       (lawns
         ? "Tap a shape to edit it, or add another."
-        : "Zoom in on the yard and trace the lawn. Where trees hide the edge, use <b>Walk</b>.") +
+        : "Zoom in on the yard and trace the lawn.") +
       "</p>" +
       '<div class="row"><button class="btn primary grow" id="al">' +
       icon("plus") +
@@ -2451,99 +2042,12 @@
     if (u) u.onclick = doUndo;
   }
 
+  // GPS walking was too far off for a sprinkler map (Zach 2026-11-14, off by up to 9 ft). Walk comes
+  // back in the App Store version using the camera; until then the tab says so.
   function panelWalk(el) {
-    if (!J.walk) J.walk = loadWalk();
-    const w = J.walk;
-    let h = "";
-    if (J.gpsError)
-      h += '<div class="badge warn">' + esc(J.gpsError) + "</div>";
-    const accFt = J.gps ? Math.round(J.gps.acc * 3.281) : null;
-    const gpsLine =
-      '<span class="gps">' +
-      (J.gps ? "GPS within about " + accFt + " ft" : "Waiting for GPS...") +
-      "</span>" +
-      (J.offset.lat || J.offset.lng ? " · anchored" : "");
-    if (J.anchoring)
-      h +=
-        '<div class="badge warn">Tap the map where you are standing right now.</div>';
-    if (!w) {
-      h +=
-        '<p class="hint">Walk right along the edge with your phone out. It records your path as you go. Stop on each sharp corner and tap <b>Corner</b>. Walk all the way back to where you started, then tap <b>Finish</b>.</p>' +
-        '<p class="hint">For the best fit, tap <b>Anchor</b> whenever you stand on something you can see on the photo, like a house corner or the end of a driveway.</p>' +
-        '<p class="hint">' +
-        gpsLine +
-        "</p>" +
-        '<div class="seg" style="margin-bottom:8px"><button data-w="lawn" aria-pressed="' +
-        ((J.walkType || "lawn") === "lawn") +
-        '">Walking a lawn</button><button data-w="bed" aria-pressed="' +
-        (J.walkType === "bed") +
-        '">Walking a bed</button></div>' +
-        '<div class="row"><button class="btn primary grow" id="sw"' +
-        (J.gps ? "" : " disabled") +
-        ">" +
-        icon("walk") +
-        'Start walking</button><button class="btn grow" id="an">Anchor</button></div>';
-    } else {
-      const ft = Math.round(walkLength());
-      const corners = w.fixes.filter((f) => f.corner).length;
-      h +=
-        '<p class="hint"><b>' +
-        (w.holding ? "Hold still..." : w.paused ? "Paused" : "Recording") +
-        "</b> · " +
-        ft +
-        " ft walked" +
-        (corners
-          ? " · " + corners + " corner" + (corners === 1 ? "" : "s")
-          : "") +
-        "</p>" +
-        '<p class="hint">' +
-        gpsLine +
-        (w.skipped ? " · " + w.skipped + " shaky readings skipped" : "") +
-        "</p>" +
-        '<div class="row"><button class="btn primary grow" id="cn"' +
-        (J.gps && !w.holding && !w.paused ? "" : " disabled") +
-        ">" +
-        icon("pin") +
-        'Corner</button><button class="btn grow" id="an">Anchor</button></div>' +
-        '<div class="row"><button class="btn grow" id="pa"' +
-        (w.holding ? " disabled" : "") +
-        ">" +
-        (w.paused ? "Resume" : "Pause") +
-        '</button><button class="btn grow" id="cx">Start over</button><button class="btn grow" id="fw">' +
-        icon("check") +
-        "Finish</button></div>";
-    }
-    el.innerHTML = h;
-    el.querySelectorAll("[data-w]").forEach(
-      (b) =>
-        (b.onclick = () => {
-          J.walkType = b.dataset.w;
-          renderPanel();
-        }),
-    );
-    const on = (id, fn) => {
-      const b = el.querySelector("#" + id);
-      if (b) b.onclick = fn;
-    };
-    on("sw", startWalk);
-    on("cn", walkCorner);
-    on("an", () => {
-      J.anchoring = !J.anchoring;
-      renderPanel();
-    });
-    on("pa", () => {
-      w.paused = !w.paused;
-      if (w.paused) releaseWake();
-      else {
-        holdWake();
-        startGps();
-      }
-      saveWalk();
-      renderGps();
-      renderPanel();
-    });
-    on("cx", cancelWalk);
-    on("fw", finishWalk);
+    el.innerHTML =
+      '<p class="hint"><b>Under construction right now.</b></p>' +
+      '<p class="hint">Walking the edge is coming back in the App Store version. Until then, trace the lawn on the photo in Draw.</p>';
   }
 
   function panelMeasure(el) {

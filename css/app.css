@@ -489,10 +489,6 @@ select.t {
   margin: 0;
   font-weight: 600;
 }
-.gps {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
 .toast {
   position: fixed;
   left: 50%;
@@ -593,15 +589,6 @@ select.t {
   align-items: center;
   justify-content: center;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-}
-.me {
-  width: 18px !important;
-  height: 18px !important;
-  margin: -9px 0 0 -9px !important;
-  border-radius: 50%;
-  background: #1f6fe0;
-  border: 3px solid #fff;
-  box-shadow: 0 0 0 2px rgba(31, 111, 224, 0.35);
 }
 .leaflet-control-attribution {
   font-size: 10px;
