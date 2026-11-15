@@ -38,15 +38,16 @@
   // Zach 2026-11-15 (Camera v1 lawn): rotors and pop-ups don't share a stretch of lawn, or two
   // lateral lines run side by side and the pipe goes way up. His layout for a lawn with one long
   // straight side and one curvy, broken-up side: "pop ups along the north curvy side and rotors
-  // along the straight south. split down the middle". A rotor edge is a straight edge at least
-  // ROTOR_EDGE long; every other edge is a pop-up edge, and each spot in the lawn belongs to the
-  // kind of its nearest edge. 24 ft (a 5004's shortest throw) is a guess, not his number.
-  const ROTOR_EDGE = 24;
+  // along the straight south. split down the middle". Straight edges are rotor edges, curves are
+  // pop-up edges, and each spot in the lawn belongs to the kind of its nearest edge. Any straight stretch can be a rotor edge (Zach 2026-11-15: "the
+  // straight edge doesn't need to be a certain distance", the 3-rotor zone rule decides), except a
+  // straight stretch between curves too short for MIN_ROTORS rotors head to head, which stays with
+  // the curves: without that, the 6 to 14 ft straights on Camera v1's curvy side pulled rotors in.
   // A run of pop-up edges shorter than this in all (the 20 ft end of a long lawn, a notch) stays
-  // rotor ground, so a long lawn doesn't grow pop-up pockets at its ends. Also a guess.
+  // rotor ground, so a long lawn doesn't grow pop-up pockets at its ends. Zach okayed 40 ft (2026-11-15).
   const POPUP_RUN = 40;
   // The pop-up side reaches at most this far in from its edges, about one row of pop-ups, so a big
-  // lawn with one curvy side keeps rotors in its open middle. Also a guess.
+  // lawn with one curvy side keeps rotors in its open middle. Zach okayed 16 ft (2026-11-15).
   const POPUP_DEPTH = 16;
   const TOL = 0.2; // ft. Closer than this to the boundary counts as on the line
   const BSTEP = 0.25; // boundary sample spacing
@@ -234,7 +235,7 @@
           bx: b.x,
           by: b.y,
           curve,
-          rotorEdge: !curve && Math.hypot(b.x - a.x, b.y - a.y) >= ROTOR_EDGE,
+          rotorEdge: !curve,
         });
       }
     });
@@ -243,12 +244,33 @@
     const nOuter = rings[0].length;
     const outer = segs.slice(0, nOuter);
     const segLen = (q) => Math.hypot(q.bx - q.ax, q.by - q.ay);
+    // a straight stretch between curves that can't hold MIN_ROTORS rotors head to head
+    // (2 x ROTOR.min = 36 ft) is part of the curvy side
+    if (outer.some((q) => !q.rotorEdge)) {
+      const start = outer.findIndex((q) => !q.rotorEdge);
+      let run = [];
+      const close = () => {
+        if (run.length && run.reduce((t, q) => t + segLen(q), 0) < (MIN_ROTORS - 1) * ROTOR.min)
+          run.forEach((q) => (q.rotorEdge = false));
+        run = [];
+      };
+      const was = outer.map((q) => q.rotorEdge);
+      for (let m = 1; m <= nOuter; m++) {
+        const i = (start + m) % nOuter;
+        if (!was[i]) close();
+        else run.push(outer[i]);
+      }
+      close();
+    }
     if (outer.some((q) => q.rotorEdge)) {
       const start = outer.findIndex((q) => q.rotorEdge);
       let run = [];
       const close = () => {
         if (run.length && run.reduce((t, q) => t + segLen(q), 0) < POPUP_RUN)
-          run.forEach((q) => (q.rotorEdge = true));
+          run.forEach((q) => {
+            q.rotorEdge = true;
+            q.pocket = q.curve;
+          });
         run = [];
       };
       const was = outer.map((q) => q.rotorEdge);
@@ -483,6 +505,10 @@
   // Where a head of this family may sit on a split lawn. Edge spots go by their own edge, a corner
   // by either edge it joins, and everything else by its nearest edge.
   function sideAllows(G, family, smp, x, y) {
+    // a short curve kept as rotor ground still gets VANs along it, so a rotor partway along it ends
+    // up alone among pop-ups (Zach 2026-11-15, a 35 ft curved end: "the rotor what says S1.5 is in
+    // the middle of pop ups"). Rotors sit at its ends only.
+    if (family === "rotor" && smp && smp.ring === 0 && !smp.corner && G.outerSegs[smp.segIdx].pocket) return false;
     if (!G.split) return true;
     const want = family === "rotor";
     if (smp && smp.ring === 0) {

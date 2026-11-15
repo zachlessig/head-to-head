@@ -588,6 +588,29 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(o.totals.coverage >= 0.995, true, "Camera v1: double covered (" + (o.totals.coverage * 100).toFixed(2) + "%)");
 }
 
+// Zach 2026-11-15: "the straight edge doesn't need to be a certain distance before it gets rotors",
+// the 3-rotor rule decides. A short straight bit between curves (too short for 3 rotors head to head)
+// stays with the curvy side; a short straight lawn edge with no curves near it is still a rotor edge.
+{
+  const G = E.prepare({ outer: P([[0, 0], [90, 0], [90, 30, -5], [62, 50], [40, 50, -6], [12, 46, -4], [0, 30]]) });
+  const len = (q) => Math.hypot(q.bx - q.ax, q.by - q.ay);
+  const straight = G.outerSegs.filter((q) => len(q) > 5);
+  eq(straight.find((q) => Math.abs(len(q) - 22) < 0.5).rotorEdge, false, "a 22 ft straight between curves is pop-up side");
+  eq(straight.filter((q) => len(q) >= 29).every((q) => q.rotorEdge), true, "the 90 ft south and 30 ft ends are rotor side");
+  const sq = E.prepare({ outer: P([[0, 0], [20, 0], [20, 20], [0, 20]]) });
+  eq(sq.outerSegs.every((q) => q.rotorEdge), true, "a 20 ft straight-edged lawn has no length minimum");
+}
+
+// Zach 2026-11-15: a 35 ft curved end on a long rotor lawn stays rotor ground, but a rotor partway
+// along that curve sat alone among its VANs: "the rotor what says S1.5 is in the middle of pop ups".
+{
+  const o = E.layoutJob({ areas: [{ outer: P([[0, 0], [100, 0, -7], [100, 35], [0, 35]]), mode: "auto" }], psi: 50, cap: 12 });
+  const onCurve = o.heads.filter((h) => h.kind === "R" && h.x > 100.5);
+  eq(onCurve.length, 0, "no rotor partway along a short curved end (" + onCurve.map((h) => h.label).join(" ") + ")");
+  eq(o.heads.filter((h) => h.kind === "R").length >= 6, true, "the long lawn is still rotors");
+  eq(o.totals.overspray, 0, "short curved end: no overspray");
+}
+
 // Zach 2026-11-10: a company can save its own backflow or filter parts once and every job uses them
 {
   const q = (p, item) => (p.lines.find((l) => l.item === item) || { qty: 0 }).qty;
