@@ -1,19 +1,23 @@
-/* Fresh Cut: lawn green and cream, softer corners, a serif for headings. Readable in sun, friendly enough to hand to a homeowner. */
+/* Fresh Cut: lawn green and cream, softer corners, a serif for headings. Readable in sun, friendly enough to hand to a homeowner.
+   Polished (Zach picked look A of three, 2026-11-15): soft shadows instead of outlines, springy presses, a floating tab bar. */
 :root {
-  --paper: #f6f3ea;
-  --card: #ffffff;
-  --ink: #16301f;
-  --muted: #5d6f62;
-  --line: #dde3d3;
-  --chip: #eaf0e2;
-  --flag: #1f6b45;
+  --paper: #f5f2ea;
+  --card: #fffdf8;
+  --ink: #143020;
+  --muted: #64746a;
+  --line: #e6e2d6;
+  --chip: #edf2e6;
+  --flag: #1d6e47;
   --flag-ink: #f6f3ea;
+  --flag-2: #2f8f5e;
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --soft: 0 1px 2px rgba(20, 48, 32, 0.06), 0 6px 18px rgba(20, 48, 32, 0.07);
   --flag-soft: #dcebdf;
   --ok: #1e7f4f;
   --ok-soft: #dcefe4;
   --bad: #b8321f;
   --bad-soft: #f7ddd7;
-  --radius: 18px;
+  --radius: 20px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
   color-scheme: light;
@@ -739,3 +743,53 @@ table.parts td.q {
   background: none;
   border: 0;
 }
+
+/* polished look (look A) */
+.btn {
+  border: 0;
+  box-shadow: var(--soft);
+  border-radius: 14px;
+  transition: transform 260ms var(--spring), box-shadow 200ms ease-out, background-color 160ms ease-out;
+}
+.btn:active { transform: scale(0.96); transition: transform 110ms ease-out; box-shadow: 0 1px 2px rgba(20,48,32,.08); }
+.btn.primary {
+  background: linear-gradient(180deg, var(--flag-2), var(--flag));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 6px 16px rgba(29,110,71,.28);
+}
+.btn.ghost { box-shadow: none; }
+.job { border: 0; box-shadow: var(--soft); transition: transform 260ms var(--spring); }
+.job:active { transform: scale(0.98); transition-duration: 110ms; }
+.empty { border: 0; background: linear-gradient(180deg, #fbf9f3, #f1eee4); box-shadow: inset 0 0 0 1px var(--line); }
+.chip { border: 0; box-shadow: var(--soft); transition: transform 220ms var(--spring); min-height: 38px; padding: 0 12px; }
+.chip:active { transform: scale(0.95); }
+.badge.ok { background: linear-gradient(90deg, #d9efe2, #e8f4ec); }
+.topbar { background: rgba(245,242,234,.86); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 0; box-shadow: 0 1px 0 var(--line); }
+.panel { border: 0; border-radius: 22px 22px 0 0; box-shadow: 0 -8px 24px rgba(20,48,32,.08); margin-top: -14px; padding-top: 16px; position: relative; }
+.tabs { background: transparent; border: 0; padding: 6px 10px calc(8px + var(--safe-b)); background: var(--paper); }
+.tab { border-radius: 14px; transition: background-color 200ms ease-out, color 200ms ease-out; }
+.tab[aria-selected="true"] { background: var(--card); box-shadow: var(--soft); color: var(--flag); }
+.seg button { border: 0; box-shadow: var(--soft); transition: background-color 180ms ease-out, color 180ms ease-out, transform 220ms var(--spring); }
+.seg button[aria-pressed="true"] { background: var(--flag); color: #fff; }
+.sheet { animation: sheetIn 420ms var(--spring); border-radius: 26px 26px 0 0; }
+@keyframes sheetIn { from { transform: translateY(60%); } to { transform: none; } }
+.jobview { animation: viewIn 320ms cubic-bezier(.2,.8,.2,1); }
+@keyframes viewIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+.home.enter > * { animation: rise 420ms cubic-bezier(.2,.8,.2,1) both; }
+.home.enter > *:nth-child(2) { animation-delay: 60ms; } .home.enter > *:nth-child(3) { animation-delay: 120ms; }
+.home.enter > *:nth-child(4) { animation-delay: 180ms; } .home.enter > *:nth-child(n+5) { animation-delay: 240ms; }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+/* opening animation */
+.splash { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; background: var(--paper); transition: opacity 450ms ease, transform 450ms ease; }
+.splash.out { opacity: 0; transform: scale(1.04); pointer-events: none; }
+.sp-in { text-align: center; }
+.sp-mark { width: 92px; height: 92px; animation: pop 600ms var(--spring) both; }
+.sp-tile { fill: var(--flag); }
+.sp-arc { fill: none; stroke: #fffdf8; stroke-width: 2.6; stroke-linecap: round; stroke-dasharray: 30; stroke-dashoffset: 30; animation: draw 500ms ease-out forwards; }
+.sp-arc1 { animation-delay: 380ms; } .sp-arc2 { animation-delay: 560ms; }
+.sp-drop { fill: #fffdf8; transform-origin: 17px 25px; animation: pop 400ms var(--spring) 250ms both; }
+.sp-word { font: 700 30px Fraunces, Georgia, serif; color: var(--ink); margin-top: 16px; animation: rise 500ms ease-out 650ms both; }
+.sp-sub { color: var(--muted); margin-top: 4px; animation: rise 500ms ease-out 780ms both; }
+@keyframes pop { from { transform: scale(0.4); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .home.enter > *, .jobview, .sheet { animation: none; } }
