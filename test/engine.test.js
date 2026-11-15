@@ -553,6 +553,41 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
 }
 
 
+// Zach 2026-11-15, his Camera v1 lawn (walked with the camera): "pop ups along the north curvy side
+// and rotors along the straight south. split down the middle". Going around the edge the heads may
+// switch between rotor and pop-up only twice: one run of rotors, one run of pop-ups. Before this rule
+// the north edge went R1, 12VAN, 15VAN, R1, 12VAN, 10H, R0.5, ... (14 switches).
+{
+  const cam = P([[37.3, -14.4, 0.0], [-60.9, 29.7, 0.78], [-57.2, 35.5, 0.43], [-46.5, 52.4, 0.0], [-34.4, 46.1, 0.0], [-28.5, 46.8, 0.0], [-23.1, 47.8, -1.26], [-19.2, 40.5, -3.43], [-8.2, 44.5, 0.0], [-2.4, 37.0, 0.36], [13.8, 31.0, -0.75], [26.7, 12.9, -0.76], [41.5, -6.1, 0.0]]);
+  const o = E.layoutJob({ areas: [{ outer: cam, mode: "auto" }], psi: 50, cap: 18 });
+  const n = cam.length;
+  let acc = 0;
+  const sides = cam.map((a, i) => {
+    const b = cam[(i + 1) % n], L = Math.hypot(b.x - a.x, b.y - a.y), sd = { a, b, L, s: acc };
+    acc += L;
+    return sd;
+  });
+  const along = o.heads
+    .map((h) => {
+      let best = Infinity, pos = 0;
+      sides.forEach((sd) => {
+        const dx = sd.b.x - sd.a.x, dy = sd.b.y - sd.a.y;
+        const t = Math.max(0, Math.min(1, ((h.x - sd.a.x) * dx + (h.y - sd.a.y) * dy) / (sd.L * sd.L)));
+        const d = Math.hypot(h.x - sd.a.x - t * dx, h.y - sd.a.y - t * dy);
+        if (d < best) { best = d; pos = sd.s + t * sd.L; }
+      });
+      return { d: best, pos, rot: h.kind === "R" };
+    })
+    .filter((q) => q.d < 4)
+    .sort((p, q) => p.pos - q.pos);
+  let switches = 0;
+  along.forEach((q, i) => { if (q.rot !== along[(i + 1) % along.length].rot) switches++; });
+  eq(switches <= 2, true, "Camera v1: rotors and pop-ups each keep one run around the edge (" + switches + " switches)");
+  eq(o.heads.some((h) => h.kind === "R") && o.heads.some((h) => h.kind !== "R"), true, "Camera v1 still has both rotors and pop-ups");
+  eq(o.totals.overspray, 0, "Camera v1: no overspray");
+  eq(o.totals.coverage >= 0.995, true, "Camera v1: double covered (" + (o.totals.coverage * 100).toFixed(2) + "%)");
+}
+
 // Zach 2026-11-10: a company can save its own backflow or filter parts once and every job uses them
 {
   const q = (p, item) => (p.lines.find((l) => l.item === item) || { qty: 0 }).qty;

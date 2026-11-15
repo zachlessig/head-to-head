@@ -54,6 +54,15 @@ swings 10x, so compare old and new engines back to back before calling anything 
   (their sprays reach each other) and fit under the cap; a 1 or 2 head zone may reach 45 ft on
   the same lawn. Rotor borrowing is neighbours only. There's no minimum number of pop-ups for a
   zone. A test fails if any zone has a head off on its own.
+- Rotor side and pop-up side (Zach 2026-11-15, Camera v1): "pop ups along the north curvy side and
+  rotors along the straight south. split down the middle". In Auto, a straight outer edge at least
+  ROTOR_EDGE (24 ft) long is a rotor edge; other edges are pop-up edges, except a run of them under
+  POPUP_RUN (40 ft) total stays rotor. Each spot goes to its nearest edge's side, but the pop-up side
+  reaches at most POPUP_DEPTH (16 ft) in. Rotors only sit on the rotor side; pop-ups only on the
+  pop-up side, or in a wide patch (70% of 6 ft around) that rotors leave thin. All three numbers
+  are guesses waiting on Zach. A rotor patch needing more valves than its rotors can fill 3 each
+  goes to pop-ups. Test: "Camera v1" in `test/engine.test.js` (at most 2 rotor/pop-up switches
+  around the edge; the old engine had 14).
 - Rotor rule both ways: a mostly pop-up area with under 3 rotors goes all pop-ups, and a rotor
   lawn drops a lone pop-up or two that can't share a valve, if nothing goes dry and no more than
   10 sq ft loses double coverage.

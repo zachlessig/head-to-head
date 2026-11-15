@@ -35,6 +35,19 @@
   // Zach 2026-11-06: "in a situation where the distance only allows 2 rotors, go back to pop ups,
   // only use rotors if you can fit 3 or more in a zone"
   const MIN_ROTORS = 3;
+  // Zach 2026-11-15 (Camera v1 lawn): rotors and pop-ups don't share a stretch of lawn, or two
+  // lateral lines run side by side and the pipe goes way up. His layout for a lawn with one long
+  // straight side and one curvy, broken-up side: "pop ups along the north curvy side and rotors
+  // along the straight south. split down the middle". A rotor edge is a straight edge at least
+  // ROTOR_EDGE long; every other edge is a pop-up edge, and each spot in the lawn belongs to the
+  // kind of its nearest edge. 24 ft (a 5004's shortest throw) is a guess, not his number.
+  const ROTOR_EDGE = 24;
+  // A run of pop-up edges shorter than this in all (the 20 ft end of a long lawn, a notch) stays
+  // rotor ground, so a long lawn doesn't grow pop-up pockets at its ends. Also a guess.
+  const POPUP_RUN = 40;
+  // The pop-up side reaches at most this far in from its edges, about one row of pop-ups, so a big
+  // lawn with one curvy side keeps rotors in its open middle. Also a guess.
+  const POPUP_DEPTH = 16;
   const TOL = 0.2; // ft. Closer than this to the boundary counts as on the line
   const BSTEP = 0.25; // boundary sample spacing
   const CURVE_OVER = 0.3; // ft a curve head may reach past a curved edge; verify() flags past 0.35
@@ -214,9 +227,40 @@
       for (let i = 0; i < pts.length; i++) {
         const a = pts[i],
           b = pts[(i + 1) % pts.length];
-        segs.push({ ax: a.x, ay: a.y, bx: b.x, by: b.y, curve: !a.vertex || !b.vertex });
+        const curve = !a.vertex || !b.vertex;
+        segs.push({
+          ax: a.x,
+          ay: a.y,
+          bx: b.x,
+          by: b.y,
+          curve,
+          rotorEdge: !curve && Math.hypot(b.x - a.x, b.y - a.y) >= ROTOR_EDGE,
+        });
       }
     });
+
+    // which side of the lawn each outer edge belongs to: rotors or pop-ups (Zach 2026-11-15)
+    const nOuter = rings[0].length;
+    const outer = segs.slice(0, nOuter);
+    const segLen = (q) => Math.hypot(q.bx - q.ax, q.by - q.ay);
+    if (outer.some((q) => q.rotorEdge)) {
+      const start = outer.findIndex((q) => q.rotorEdge);
+      let run = [];
+      const close = () => {
+        if (run.length && run.reduce((t, q) => t + segLen(q), 0) < POPUP_RUN)
+          run.forEach((q) => (q.rotorEdge = true));
+        run = [];
+      };
+      const was = outer.map((q) => q.rotorEdge);
+      for (let m = 1; m <= nOuter; m++) {
+        const i = (start + m) % nOuter;
+        if (was[i]) close();
+        else run.push(outer[i]);
+      }
+      close();
+    }
+    segs.slice(nOuter).forEach((q) => (q.rotorEdge = null)); // bed edges take no side
+    const split = outer.some((q) => q.rotorEdge) && outer.some((q) => !q.rotorEdge);
 
     let x0 = Infinity,
       y0 = Infinity,
@@ -228,7 +272,7 @@
       y0 = Math.min(y0, s.ay);
       y1 = Math.max(y1, s.ay);
     });
-    const G = { x0, y0, x1, y1, rings, segs };
+    const G = { x0, y0, x1, y1, rings, segs, split, outerSegs: outer };
 
     // y-bands for fast point-in-lawn; square bins for nearest-boundary queries
     G.band = 2;
@@ -274,6 +318,8 @@
             next: b,
             at: j === 0 ? a : null,
             curve: !a.vertex || !b.vertex,
+            rotorEdge: ri === 0 ? segs[i].rotorEdge : null,
+            segIdx: i,
           };
           list.push(smp);
         }
@@ -391,7 +437,8 @@
     const bx = Math.floor(x / G.sbin),
       by = Math.floor(y / G.sbin);
     let best = Infinity,
-      curve = false;
+      curve = false,
+      rotorEdge = false;
     const maxRing = Math.ceil(Math.max(G.x1 - G.x0, G.y1 - G.y0) / G.sbin) + 2;
     for (let ring = 0; ring <= maxRing; ring++) {
       if (best < (ring - 1) * G.sbin) break;
@@ -407,11 +454,45 @@
             if (d < best - 1e-6) {
               best = d;
               curve = G.segs[i].curve;
-            } else if (d <= best + 1e-6 && !G.segs[i].curve) curve = false;
+              rotorEdge = G.segs[i].rotorEdge;
+            } else if (d <= best + 1e-6) {
+              if (!G.segs[i].curve) curve = false;
+              if (G.segs[i].rotorEdge) rotorEdge = true;
+            }
           }
         }
     }
-    return { d: best, curve };
+    return { d: best, curve, rotorEdge };
+  }
+
+  // On a split lawn, true when a spot is on the rotor side: its nearest outer edge is a rotor edge.
+  // That puts the line between rotors and pop-ups down the middle (Zach 2026-11-15).
+  function rotorSide(G, x, y) {
+    let best = Infinity,
+      rot = false;
+    for (const q of G.outerSegs) {
+      const d = segDist(q, x, y);
+      if (d < best - 1e-6) {
+        best = d;
+        rot = q.rotorEdge;
+      } else if (d <= best + 1e-6 && q.rotorEdge) rot = true;
+    }
+    return rot || best > POPUP_DEPTH;
+  }
+
+  // Where a head of this family may sit on a split lawn. Edge spots go by their own edge, a corner
+  // by either edge it joins, and everything else by its nearest edge.
+  function sideAllows(G, family, smp, x, y) {
+    if (!G.split) return true;
+    const want = family === "rotor";
+    if (smp && smp.ring === 0) {
+      if (smp.corner) {
+        const prevSeg = G.outerSegs[(smp.segIdx - 1 + G.outerSegs.length) % G.outerSegs.length];
+        return !!G.outerSegs[smp.segIdx].rotorEdge === want || !!prevSeg.rotorEdge === want;
+      }
+      return !!smp.rotorEdge === want;
+    }
+    return rotorSide(G, x, y) === want;
   }
 
   // How far a point outside the lawn sits past what its nearest edge allows (0 = within).
@@ -838,6 +919,12 @@
     const heads = ctx ? ctx.heads : [];
     const target = ctx && ctx.target ? ctx.target : new Uint8Array(S.n).fill(1);
     const issues = [];
+    // only a mixed (Auto) lawn splits into a rotor side and a pop-up side
+    // pop-ups may still go where no rotor reaches (a patch whose rotors were dropped)
+    const sideOk = (smp, x, y) =>
+      !(ctx && ctx.sides) ||
+      sideAllows(G, family, smp, x, y) ||
+      (spray && ctx.rotorReach && !ctx.rotorReach(smp ? smp.x : x, smp ? smp.y : y));
     const mark = (h) =>
       S.near(h.x, h.y, h.r, (k) => {
         if (covers(h, S.x[k], S.y[k])) cov[k]++;
@@ -855,6 +942,7 @@
     G.ringSamples.forEach((list) => {
       list.corners.forEach((ci) => {
         const c = list[ci];
+        if (!sideOk(c)) return;
         if (ctx && (heads.some((h) => Math.hypot(h.x - c.x, h.y - c.y) < 0.5) || needNear(c.x, c.y, 4) === 0)) return;
         const h = fitBoundary(G, c, true, family, maxR);
         if (h) {
@@ -873,7 +961,7 @@
     G.ringSamples.forEach((list) => {
       for (let i = 0; i < list.length; i += every) {
         const s = list[i];
-        if (s.corner) continue;
+        if (s.corner || !sideOk(s)) continue;
         const h = fitBoundary(G, s, false, family, maxR);
         if (h) edgeCands.push({ head: h });
       }
@@ -897,6 +985,7 @@
                 Math.abs(s.ny - side[0].ny) < 1e-6,
             ) || side.length < 3;
         if (!straight) return;
+        if (!sideOk(side[Math.floor(side.length / 2)])) return;
         const A = side[0],
           B = side[side.length - 1];
         const L = Math.hypot(B.x - A.x, B.y - A.y);
@@ -970,7 +1059,7 @@
     const gI = spray ? 1 : 2;
     for (let x = G.x0 + gI / 2; x < G.x1; x += gI) {
       for (let y = G.y0 + gI / 2; y < G.y1; y += gI) {
-        if (!inLawn(G, x, y)) continue;
+        if (!inLawn(G, x, y) || !sideOk(null, x, y)) continue;
         const room = Math.min(distB(G, x, y) - 0.02, maxR);
         const nz = spray
           ? nozzle("F", 360, Math.min(room, 13))
@@ -994,7 +1083,7 @@
       G.ringSamples.forEach((list) => {
         for (let i = 0; i < list.length; i += every) {
           const s = list[i];
-          if (s.corner || !nearCurve(G, s.x, s.y, 1)) continue;
+          if (s.corner || !nearCurve(G, s.x, s.y, 1) || !sideOk(s)) continue;
           const h = fitBoundary(G, s, false, family, maxR, true);
           if (h && h.kind === "VAN" && h.series < MIN_ARC_VAN) smallCands.push({ head: h });
         }
@@ -1038,20 +1127,23 @@
           if (d <= ROTOR_RHO) core[k] = 1;
         });
       }
+    if (G.split)
+      for (let k = 0; k < S.n; k++)
+        if ((R[k] || core[k]) && !rotorSide(G, S.x[k], S.y[k])) R[k] = core[k] = 0;
     R.core = core;
     return R;
   }
 
   // Rotors where the lawn opens up, pop-ups everywhere else. An open patch that can't hold
   // MIN_ROTORS rotors goes back to pop-ups (Zach, 2026-11-06).
-  function layoutMixed(G) {
+  function layoutMixed(G, cap) {
     const S = sampleGrid(G, 1);
     const cov = new Int32Array(S.n);
     const heads = [];
     const R = rotorRegion(G, S);
     let rotors = 0, dropped = 0;
     if (R.some((v) => v)) {
-      layoutArea(G, "rotor", { S, cov, heads, target: R });
+      layoutArea(G, "rotor", { S, cov, heads, target: R, sides: true });
       // group rotors whose throws touch; each group is one open patch
       const seen = new Set();
       const groups = [];
@@ -1092,7 +1184,11 @@
       groups.forEach((g, gi) => {
         // 3% of the open core: the 35x34 pentagon left 15% thin, good rotor lawns under 0.5%
         const poor = owned[gi].n && owned[gi].thin / owned[gi].n > 0.03;
-        if (g.length >= MIN_ROTORS && !poor) return;
+        // a patch needing more than one valve needs MIN_ROTORS on each, or one zone comes up short
+        // (5 rotors at 13 GPM on a 12 GPM cap split 3 and 2)
+        const gpm = g.reduce((t, h) => t + h.gpmBase, 0);
+        const valves = Math.max(1, Math.ceil(gpm / (cap || 12) - 1e-9));
+        if (g.length >= MIN_ROTORS * valves && !poor) return;
         g.forEach((h) => {
           heads.splice(heads.indexOf(h), 1);
           S.near(h.x, h.y, h.r, (k) => {
@@ -1111,7 +1207,21 @@
     // the fringe where rotor ground meets narrow ground also goes to pop-ups where it's thin
     for (let k = 0; k < S.n; k++)
       own[k] = !R[k] || cov[k] === 0 || !rotorsLeft || (cov[k] < 2 && (!R.core[k] || (R.curveStrip && R.curveStrip[k]))) ? 1 : 0;
-    const res = layoutArea(G, "spray", { S, cov, heads, target: own });
+    const rc = Int32Array.from(cov);
+    // Rotor ground counts as held by rotors unless a wide patch around the spot is thin on rotors
+    // (a corner whose rotors were dropped). A thin sliver at the edge of a rotor's throw stays held,
+    // or a lone 5H ends up between rotors on a straight edge (Camera v1, 2026-11-15).
+    const rotorReach = (x, y) => {
+      let n = 0,
+        thin = 0;
+      S.near(x, y, 6, (k) => {
+        if (Math.hypot(S.x[k] - x, S.y[k] - y) > 6) return;
+        n++;
+        if (rc[k] < 2) thin++;
+      });
+      return !n || thin < 0.7 * n;
+    };
+    const res = layoutArea(G, "spray", { S, cov, heads, target: own, sides: rotorsLeft, rotorReach });
     let gaps = 0;
     res.gapPts = [];
     for (let k = 0; k < S.n; k++)
@@ -2209,7 +2319,7 @@
           tried = "too small for " + MIN_ROTORS + " rotors, used pop-ups";
         }
       } else {
-        res = layoutMixed(G);
+        res = layoutMixed(G, job.cap || 12);
         family = res.rotors ? (res.heads.length > res.rotors ? "mixed" : "rotor") : "spray";
         if (res.droppedRotors) tried = "an open patch fit fewer than " + MIN_ROTORS + " rotors, or rotors left it thin, so it used pop-ups there";
       }
