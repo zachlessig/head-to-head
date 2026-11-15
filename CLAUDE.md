@@ -66,6 +66,14 @@ swings 10x, so compare old and new engines back to back before calling anything 
   Lets build it for the app store version." It comes back in the App Store version using the
   iPhone camera's motion tracking, not GPS. `js/trace.js` (trail to straight edges and curves) and
   `test/trace.test.js` stay for that; the GPS walk UI is in git history (commit 6670fff).
+  Camera walk (2026-11-15, branch feat/ios-app): `ios/App/App/CameraWalk.swift` is an ARKit screen
+  (world tracking, LiDAR mesh on Pro phones, compass-aligned). A crosshair raycasts to the ground;
+  Start records a point every 0.15 m, Corner pins the crosshair spot, Finish returns feet (x east,
+  y north). `panelWalk` in `js/app.js` opens it only inside the iPhone app; `placeWalk` runs
+  `H2HTrace.fit(points, { precise: true })` and drops the shape in the middle of the screen.
+  Accuracy is untested on a real yard: get Zach's tape comparison before quoting a number.
+  iPhone app: Capacitor 8, bundle ID com.headtoheadapp.app, team 8T89UT9858. `npm run ios` copies
+  the site into www/ and syncs; build with xcodebuild -allowProvisioningUpdates.
 - Grid paper (Zach 2026-11-14): a new job picks Satellite or Grid paper first. Satellite shows the
   address search and "Use where I am now"; grid shows only an optional address for the plan. Grid
   paper is 1 ft squares with a darker line every 10 ft (`gridPaper` in `js/app.js`), drawn in the
