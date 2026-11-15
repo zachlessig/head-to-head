@@ -530,6 +530,27 @@ select.t {
   border: 3px solid var(--flag);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
+.shapemove,
+.shaperot {
+  width: 40px !important;
+  height: 40px !important;
+  margin: -20px 0 0 -20px !important;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+.shapemove svg,
+.shaperot svg {
+  width: 24px;
+  height: 24px;
+}
+.shaperot {
+  background: #fff;
+  color: var(--ink);
+}
 .vh.first {
   background: var(--flag);
 }

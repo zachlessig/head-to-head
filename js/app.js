@@ -1353,6 +1353,89 @@
       });
       lay.addLayer(m);
     });
+    if (!J.drawing) shapeMoveHandles(s, lay);
+  }
+
+  // Move and turn a whole shape (Zach 2026-11-15): a camera walk gets sizes and angles right but
+  // lands in the middle of the screen, a little turned, so it gets lined up on the photo by hand.
+  // The cross in the middle drags the shape; the round arrow above it turns it about its middle.
+  function shapeMoveHandles(s, lay) {
+    if (s.pts.length < 2) return;
+    const P = proj(J.job);
+    const xy0 = s.pts.map((p) => P.toXY(p));
+    const xs = xy0.map((p) => p.x),
+      ys = xy0.map((p) => p.y);
+    const c = {
+      x: (Math.min(...xs) + Math.max(...xs)) / 2,
+      y: (Math.min(...ys) + Math.max(...ys)) / 2,
+    };
+    const set = (f) => {
+      xy0.forEach((q, i) => {
+        const ll = P.toLL(...f(q));
+        s.pts[i].lat = ll.lat;
+        s.pts[i].lng = ll.lng;
+      });
+      renderShapes();
+      renderLabels();
+    };
+    const icon = (cls, svg) =>
+      L.divIcon({ className: cls, iconSize: [40, 40], html: svg });
+    const done = () => {
+      touch(J.job);
+      redraw();
+    };
+
+    const mv = L.marker(P.toLL(c.x, c.y), {
+      icon: icon(
+        "shapemove",
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      ),
+      draggable: true,
+      keyboard: false,
+      title: "Move the whole shape",
+      zIndexOffset: 1200,
+    });
+    mv.on("dragstart", () => pushUndo());
+    mv.on("drag", (e) => {
+      const q = P.toXY(e.target.getLatLng());
+      let dx = q.x - c.x,
+        dy = q.y - c.y;
+      if (J.job.base === "grid") {
+        dx = Math.round(dx);
+        dy = Math.round(dy);
+      }
+      set((p) => [p.x + dx, p.y + dy]);
+    });
+    mv.on("dragend", done);
+    lay.addLayer(mv);
+
+    const cp = J.map.latLngToContainerPoint(P.toLL(c.x, c.y));
+    const rotAt = J.map.containerPointToLatLng([cp.x, cp.y - 64]);
+    const r0 = P.toXY(rotAt);
+    const a0 = Math.atan2(r0.y - c.y, r0.x - c.x);
+    const rt = L.marker(rotAt, {
+      icon: icon(
+        "shaperot",
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      ),
+      draggable: true,
+      keyboard: false,
+      title: "Turn the whole shape",
+      zIndexOffset: 1200,
+    });
+    rt.on("dragstart", () => pushUndo());
+    rt.on("drag", (e) => {
+      const q = P.toXY(e.target.getLatLng());
+      const t = Math.atan2(q.y - c.y, q.x - c.x) - a0;
+      const co = Math.cos(t),
+        si = Math.sin(t);
+      set((p) => [
+        c.x + (p.x - c.x) * co - (p.y - c.y) * si,
+        c.y + (p.x - c.x) * si + (p.y - c.y) * co,
+      ]);
+    });
+    rt.on("dragend", done);
+    lay.addLayer(rt);
   }
 
   function renderLabels() {
@@ -2006,7 +2089,7 @@
     const s = J.selShape && job.shapes.find((x) => x.id === J.selShape);
     if (s && s.type === "fence") {
       el.innerHTML =
-        '<p class="hint"><b>Fence selected.</b> Drag the dots to move it. Heads on each side stay on their own side.</p>' +
+        '<p class="hint"><b>Fence selected.</b> Drag the dots to move it, the cross to move all of it, or the round arrow to turn it. Heads on each side stay on their own side.</p>' +
         '<div class="row">' +
         (J.selVertex != null && s.pts.length > 2
           ? '<button class="btn grow" id="rv">Remove point</button>'
@@ -2044,7 +2127,9 @@
       let h =
         '<p class="hint"><b>' +
         (lawn ? "Lawn" : "Bed") +
-        " selected.</b> Drag the white dots to move corners. Drag a dashed dot to curve an edge, or tap it to add a corner.</p>";
+        " selected.</b> Drag the white dots to move corners. Drag a dashed dot to curve an edge, or tap it to add a corner. Drag the cross to move the whole " +
+        (lawn ? "lawn" : "bed") +
+        ", or the round arrow to turn it.</p>";
       if (lawn) {
         h +=
           '<label class="f">Heads for this lawn</label><div class="seg" style="margin-bottom:10px">' +
