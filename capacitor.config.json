@@ -1,0 +1,8 @@
+{
+  "appId": "com.headtoheadapp.app",
+  "appName": "Head to Head",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never"
+  }
+}
