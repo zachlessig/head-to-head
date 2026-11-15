@@ -389,7 +389,10 @@
     } else if (dist(end, clean[0]) < 0.5) clean.pop();
   }
 
-  function fit(raw) {
+  // opts.precise: points from the camera walk (2026-11-15), which wobble by inches, not feet. The
+  // GPS floors (1.5 ft) would let an edge wander past Zach's 1 ft limit, so they drop to a few inches.
+  function fit(raw, opts) {
+    const precise = !!(opts && opts.precise);
     // drop repeats, since standing still piles up points on one spot
     const clean = [];
     raw.forEach((p) => {
@@ -417,9 +420,9 @@
       })
       .sort((a, b) => a - b);
     const jitter = offs[Math.floor(offs.length / 2)] / 1.45;
-    SMOOTH = Math.max(1.5, Math.min(1.5 * spacing, KS * jitter));
-    TURN_SPAN = Math.max(4, 2 * SMOOTH);
-    TOL = Math.min(6, Math.max(1.5, KT * jitter));
+    SMOOTH = Math.max(precise ? 0.5 : 1.5, Math.min(1.5 * spacing, KS * jitter));
+    TURN_SPAN = Math.max(precise ? 2 : 4, 2 * SMOOTH);
+    TOL = Math.min(6, Math.max(precise ? 0.35 : 1.5, KT * jitter));
     const p = smooth(resample(clean));
     const n = p.length;
     if (n < 8) return null;

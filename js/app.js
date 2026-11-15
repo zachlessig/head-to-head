@@ -2147,12 +2147,124 @@
     if (u) u.onclick = doUndo;
   }
 
-  // GPS walking was too far off for a sprinkler map (Zach 2026-11-14, off by up to 9 ft). Walk comes
-  // back in the App Store version using the camera; until then the tab says so.
+  // Camera walk (Zach 2026-11-15). GPS walking was too far off for a sprinkler map (2026-11-14,
+  // off by up to 9 ft), so walking lives in the iPhone app, where the camera's motion tracking
+  // (CameraWalk.swift) follows the phone. In a browser the tab says it's in the app.
+  function cameraWalk() {
+    const C = window.Capacitor;
+    return C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.CameraWalk
+      ? C.Plugins.CameraWalk
+      : null;
+  }
+
   function panelWalk(el) {
+    const cam = cameraWalk();
+    if (!cam) {
+      el.innerHTML =
+        '<p class="hint"><b>Walking the edge works in the iPhone app.</b></p>' +
+        '<p class="hint">It uses the phone\'s camera to follow you as you walk. Here, draw the lawn in Draw.</p>';
+      return;
+    }
+    const what = J.walkWhat || "lawn";
     el.innerHTML =
-      '<p class="hint"><b>Under construction right now.</b></p>' +
-      '<p class="hint">Walking the edge is coming back in the App Store version. Until then, trace the lawn on the photo in Draw.</p>';
+      '<p class="hint">Point the circle at the edge of the ' +
+      what +
+      " and walk it all the way around. Tap Corner on each corner.</p>" +
+      '<div class="seg" id="ww">' +
+      [
+        ["lawn", "Lawn"],
+        ["bed", "Bed"],
+      ]
+        .map(
+          ([k, t]) =>
+            '<button type="button" data-k="' +
+            k +
+            '" aria-pressed="' +
+            (what === k) +
+            '">' +
+            t +
+            "</button>",
+        )
+        .join("") +
+      "</div>" +
+      '<button class="btn primary" style="width:100%" id="wgo">' +
+      icon("walk") +
+      "Start camera walk</button>";
+    el.querySelectorAll("[data-k]").forEach(
+      (b) =>
+        (b.onclick = () => {
+          J.walkWhat = b.dataset.k;
+          renderPanel();
+        }),
+    );
+    el.querySelector("#wgo").onclick = async () => {
+      let res;
+      try {
+        res = await cam.start({ what });
+      } catch (e) {
+        console.warn("Camera walk failed", e);
+        return toast("The camera walk didn't start. " + ((e && e.message) || ""));
+      }
+      if (!J || !res || res.cancelled || !res.points) return;
+      placeWalk(res.points, what);
+    };
+  }
+
+  // Walk points come back in feet from where the walk started (x east, y north). The shape goes
+  // in the middle of the screen; the camera knows sizes and angles, not where the yard is.
+  function placeWalk(raw, what) {
+    const verts = window.H2HTrace.fit(raw, { precise: true });
+    if (!verts || verts.length < 3)
+      return toast(
+        "Couldn't make a shape from that walk. Walk the whole edge back to where you started.",
+      );
+    const job = J.job;
+    if (!job.base && !job.shapes.some((s) => s.pts.length)) {
+      const c = J.map.getCenter();
+      maybeRebase(c);
+    }
+    const P = proj(job);
+    const mid = P.toXY(J.map.getCenter());
+    const xs = verts.map((v) => v.x),
+      ys = verts.map((v) => v.y);
+    let dx = mid.x - (Math.min(...xs) + Math.max(...xs)) / 2,
+      dy = mid.y - (Math.min(...ys) + Math.max(...ys)) / 2;
+    if (job.base === "grid") {
+      // keep the first corner on a grid line so the squares still count true
+      dx = Math.round(verts[0].x + dx) - verts[0].x;
+      dy = Math.round(verts[0].y + dy) - verts[0].y;
+    }
+    pushUndo();
+    const shape = {
+      id: uid(),
+      type: what === "bed" ? "bed" : "lawn",
+      closed: true,
+      mode: "auto",
+      pts: verts.map((v, i) => {
+        const nx = verts[(i + 1) % verts.length];
+        const chord = Math.hypot(nx.x - v.x, nx.y - v.y);
+        const ll = P.toLL(v.x + dx, v.y + dy);
+        return { lat: ll.lat, lng: ll.lng, bf: chord > 1e-6 ? v.b / chord : 0 };
+      }),
+    };
+    job.shapes.push(shape);
+    touch(job);
+    setMode("draw");
+    J.map.fitBounds(
+      shape.pts.map((p) => [p.lat, p.lng]),
+      { padding: [24, 24] },
+    );
+    const curves = verts.filter((v) => v.b).length;
+    const straight = verts.length - curves;
+    const name = shape.type === "bed" ? "Bed" : "Lawn";
+    const parts =
+      straight +
+      " straight edge" +
+      (straight === 1 ? "" : "s") +
+      (curves ? " and " + curves + " curve" + (curves === 1 ? "" : "s") : "");
+    if (selfCrosses(densify(shapeLocal(shape, P), true)))
+      toast(name + " saved, but two edges cross. Drag a corner so it doesn't fold over itself.");
+    else toast(name + " saved: " + parts + ". Drag any dot to fix it up.");
   }
 
   function panelMeasure(el) {
