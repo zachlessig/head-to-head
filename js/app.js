@@ -1276,6 +1276,7 @@
         p.lat = ll.lat;
         p.lng = ll.lng;
         renderShapes();
+        renderLabels(); // side lengths count up and down while the dot moves (Zach 2026-11-14)
       });
       m.on("dragend", () => {
         touch(J.job);
@@ -1334,6 +1335,7 @@
         bulge = Math.max(-0.9 * c, Math.min(0.9 * c, bulge));
         s.pts[i].bf = bulge / c;
         renderShapes();
+        renderLabels();
       });
       m.on("dragend", () => {
         touch(J.job);
