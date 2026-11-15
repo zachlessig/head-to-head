@@ -611,6 +611,18 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(o.totals.overspray, 0, "short curved end: no overspray");
 }
 
+// DIY trench estimate: each zone's heads joined by the shortest tree, one shared trench from the valve
+// box out to every zone, and the meter-to-valve mainline, plus 15% and rounded up to 10 ft.
+{
+  const hs = [{ x: 0, y: 0, zone: 1 }, { x: 20, y: 0, zone: 1 }, { x: 40, y: 0, zone: 1 }, { x: 0, y: 30, zone: 2 }, { x: 25, y: 30, zone: 2 }];
+  const t = E.trenchFeet(hs, { x: 0, y: -10 }, { x: 0, y: -40 });
+  eq(t.laterals, 65, "trench: zone 1 is 40 ft of lateral, zone 2 is 25");
+  eq(t.feeders, 40, "trench: one shared trench from the valve box, 10 ft to zone 1 and 30 more to zone 2");
+  eq(t.main, 30, "trench: 30 ft of mainline from meter to valve box");
+  eq(t.ft, 160, "trench: 135 ft plus 15%, rounded up to 160");
+  eq(E.trenchFeet(hs, null, null).ft, 80, "trench: no markers counts laterals only");
+}
+
 // Zach 2026-11-10: a company can save its own backflow or filter parts once and every job uses them
 {
   const q = (p, item) => (p.lines.find((l) => l.item === item) || { qty: 0 }).qty;

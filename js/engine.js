@@ -2323,6 +2323,57 @@
     return dropped;
   }
 
+  // Rough trench length for a homeowner digging their own system (Zach 2026-11-15: "a rough estimate
+  // for the number of feet a DIY homeowner might have to trench"). Each zone's heads are joined by
+  // the shortest straight-line tree (its lateral), one shared trench reaches from the valve box to
+  // the nearest head of every zone, and the mainline runs from the meter to the valve box. Straight lines undercount a
+  // real dig, so it adds TRENCH_SLACK and rounds up to 10 ft. Not checked against a real job yet.
+  // Drip in beds isn't counted: it lies on top under mulch.
+  const TRENCH_SLACK = 1.15;
+  function trenchFeet(heads, valve, meter) {
+    const zones = new Map();
+    heads.forEach((h) => {
+      if (!zones.has(h.zone)) zones.set(h.zone, []);
+      zones.get(h.zone).push(h);
+    });
+    const tree = (pts) => {
+      // Prim's shortest tree over straight-line distances
+      if (pts.length < 2) return 0;
+      const best = pts.map(() => Infinity);
+      const done = pts.map(() => false);
+      best[0] = 0;
+      let total = 0;
+      for (let n = 0; n < pts.length; n++) {
+        let u = -1;
+        for (let i = 0; i < pts.length; i++) if (!done[i] && (u < 0 || best[i] < best[u])) u = i;
+        done[u] = true;
+        total += best[u];
+        for (let i = 0; i < pts.length; i++)
+          if (!done[i]) best[i] = Math.min(best[i], Math.hypot(pts[i].x - pts[u].x, pts[i].y - pts[u].y));
+      }
+      return total;
+    };
+    let laterals = 0;
+    const box = valve || meter;
+    const entries = [];
+    zones.forEach((zh) => {
+      laterals += tree(zh);
+      if (box) {
+        let e = zh[0];
+        zh.forEach((h) => {
+          if (Math.hypot(h.x - box.x, h.y - box.y) < Math.hypot(e.x - box.x, e.y - box.y)) e = h;
+        });
+        entries.push(e);
+      }
+    });
+    // the pipes from the valve box out to each zone share one trench: a tree over the box and the
+    // head of each zone nearest it (a separate run per zone counted the example yard at 2,010 ft)
+    const feeders = box ? tree([box, ...entries]) : 0;
+    const main = valve && meter ? Math.hypot(valve.x - meter.x, valve.y - meter.y) : 0;
+    const raw = laterals + feeders + main;
+    return { ft: Math.ceil((raw * TRENCH_SLACK) / 10) * 10, laterals, feeders, main, hasBox: !!box };
+  }
+
   function layoutJob(job) {
     const factor = Math.sqrt((job.psi || 50) / 30);
     const allHeads = [];
@@ -2435,5 +2486,6 @@
     ROTOR,
     arcPoints,
     orient,
+    trenchFeet,
   };
 });

@@ -793,3 +793,56 @@ table.parts td.q {
 @keyframes pop { from { transform: scale(0.4); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes draw { to { stroke-dashoffset: 0; } }
 @media (prefers-reduced-motion: reduce) { .home.enter > *, .jobview, .sheet { animation: none; } }
+
+/* homeowner mode: the layout is blurred until the yard is unlocked */
+.leaflet-container.locked .leaflet-overlay-pane,
+.leaflet-container.locked .leaflet-marker-pane {
+  filter: blur(9px);
+  pointer-events: none;
+}
+.leaflet-container.locked::after {
+  content: "Unlock to see your heads";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 700;
+  background: rgba(255, 253, 248, 0.92);
+  color: var(--ink);
+  font-weight: 700;
+  padding: 10px 16px;
+  border-radius: 999px;
+  box-shadow: var(--soft);
+  pointer-events: none;
+}
+.installers {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--card);
+  box-shadow: var(--soft);
+}
+.inst {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.inst b {
+  display: block;
+}
+.inst span {
+  color: var(--muted);
+  font-size: 13px;
+}
+.inst .stars {
+  text-align: right;
+  font-weight: 700;
+  color: #b7791f;
+  white-space: nowrap;
+}
+.inst .stars span {
+  display: block;
+  font-weight: 500;
+}

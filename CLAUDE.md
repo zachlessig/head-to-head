@@ -101,6 +101,20 @@ swings 10x, so compare old and new engines back to back before calling anything 
   job's own feet from `job.origin`, which never moves on a grid job. Corners snap to whole feet
   (`gridSnap`); curve bulges don't. Measure on a grid job just reads a length (no tape scale fix).
   Zoomed out, the 1 ft lines drop away and a scale bar shows. `job.base` is "grid" or missing.
+- Homeowner mode (Zach 2026-11-15): "Homeowner? Map your own yard" on the sign-in and home screens
+  (`prefs.homeowner`, no account, jobs stay on the phone). They map and generate like a contractor,
+  but until a yard is paid for (`job.unlocked`) the heads on the map are blurred, tapping them does
+  nothing, and Plan and Parts open the unlock sheet. They do see the head count, zones and a rough
+  trench length (`trenchFeet` in `js/engine.js`: each zone's shortest tree, one shared trench from
+  the valve box to every zone, the meter-to-valve mainline, plus 15%; not checked against a real
+  job). Price is $10 one time (`UNLOCK_PRICE`). Payments aren't hooked up: only the http localhost
+  test copy shows a no-charge unlock; the iPhone app is capacitor://localhost and must never get it.
+  Installers near them show with their Google rating; installers pay to be listed (price not set).
+  No one is listed yet, so only the test copy shows a "Sample listing".
+- Look (Zach picked look A of three, 2026-11-15): cream and green, soft shadows instead of outlines,
+  springy button presses, a floating tab bar, and an opening animation where the logo's spray arcs
+  draw in (`splash` in `js/app.js`). The home screen fades in only when you arrive at it, not when a
+  sync redraws it. He wants a new logo; ideas were shown, none picked yet.
 - Example yard: "Try an example yard" on the home screen builds a made-up yard with every
   feature, on a plain background (no satellite photo of a real place), and lays it out.
   When a feature is added, add it to `exampleJob()` in `js/app.js` too.

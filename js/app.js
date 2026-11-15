@@ -125,6 +125,21 @@
     }
   }
 
+  // Homeowner mode (Zach 2026-11-15): a homeowner maps their own yard with no account. The heads
+  // and parts list stay blurred until they pay once for that yard. Payments aren't hooked up yet, so
+  // only a test copy on this Mac (localhost) shows a no-charge unlock button.
+  const UNLOCK_PRICE = "$10";
+  const isHome = () => !!prefs.homeowner;
+  const locked = (job) => isHome() && !job.unlocked;
+  // http only: the iPhone app also calls itself localhost, but over capacitor://, and must never
+  // hand out free unlocks
+  const TEST_COPY = location.protocol === "http:" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  function setHomeowner(on) {
+    prefs.homeowner = !!on;
+    savePrefs();
+    route();
+  }
+
   function touch(job) {
     job.updated = Date.now();
     saveJobs();
@@ -177,8 +192,8 @@
     renderHome();
   });
   function route() {
-    if (Cloud.enabled && !Cloud.session) return renderSignIn();
-    if (Cloud.enabled && !Cloud.company) return renderMakeCompany();
+    if (Cloud.enabled && !isHome() && !Cloud.session) return renderSignIn();
+    if (Cloud.enabled && !isHome() && !Cloud.company) return renderMakeCompany();
     const m = location.hash.match(/^#\/job\/(\w+)/);
     teardownJob();
     if (m) {
@@ -231,15 +246,19 @@
         icon("plus") +
         "Folder</button></div>";
     }
-    h +=
-      '<p class="lede">Trace the yard, tap Generate, and get heads, zones and a parts list.</p>';
+    h += isHome()
+      ? '<p class="lede">Trace your yard on the satellite photo and get every sprinkler head, zone and part laid out for you.</p>'
+      : '<p class="lede">Trace the yard, tap Generate, and get heads, zones and a parts list.</p>';
     h +=
       '<button class="btn primary" style="width:100%;margin-bottom:18px" id="new">' +
       icon("plus") +
-      "New job</button>";
+      (isHome() ? "Map my yard" : "New job") +
+      "</button>";
     if (!list.length) {
       h +=
-        '<div class="empty"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="6" y="14" width="52" height="38" rx="6" fill="#e3f0d6" stroke="#3d5a2c" stroke-width="2"/><g fill="none" stroke="#1f6b45" stroke-width="2"><path d="M6 52a14 14 0 0 1 14-14"/><path d="M58 52a14 14 0 0 0-14-14"/><path d="M6 14a14 14 0 0 0 14 14"/></g><circle cx="6" cy="52" r="3" fill="#1f6b45"/><circle cx="58" cy="52" r="3" fill="#1f6b45"/><circle cx="6" cy="14" r="3" fill="#1f6b45"/></svg><div><b>No jobs yet</b></div><div>Start one from the truck or standing in the yard.</div></div>';
+        '<div class="empty"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="6" y="14" width="52" height="38" rx="6" fill="#e3f0d6" stroke="#3d5a2c" stroke-width="2"/><g fill="none" stroke="#1f6b45" stroke-width="2"><path d="M6 52a14 14 0 0 1 14-14"/><path d="M58 52a14 14 0 0 0-14-14"/><path d="M6 14a14 14 0 0 0 14 14"/></g><circle cx="6" cy="52" r="3" fill="#1f6b45"/><circle cx="58" cy="52" r="3" fill="#1f6b45"/><circle cx="6" cy="14" r="3" fill="#1f6b45"/></svg><div><b>No jobs yet</b></div><div>' +
+        (isHome() ? "Find your house on the map and trace the lawn." : "Start one from the truck or standing in the yard.") +
+        "</div></div>";
     } else {
       list.forEach((j) => {
         const heads = j.layout
@@ -271,9 +290,15 @@
           " and on this phone, so they work with no signal."
         : "Jobs save on this phone.") +
       " Address search and satellite photos come from Mapbox.</p>";
+    if (isHome())
+      h += '<button class="btn small ghost" style="width:100%" id="mode">Installer? Use the contractor version</button>';
+    else if (!(Cloud.enabled && Cloud.company))
+      h += '<button class="btn small ghost" style="width:100%" id="mode">Homeowner? Map your own yard</button>';
     h += "</main>";
     app.innerHTML = h;
     app.querySelector("#new").onclick = newJobSheet;
+    const md = app.querySelector("#mode");
+    if (md) md.onclick = () => setHomeowner(!isHome());
     const co = app.querySelector("#co");
     if (co) co.onclick = companySheet;
     app.querySelectorAll("[data-f]").forEach(
@@ -1862,6 +1887,9 @@
     const lay = J.layers.heads;
     lay.clearLayers();
     const L0 = J.job.layout;
+    J.map
+      .getContainer()
+      .classList.toggle("locked", !!L0 && J.mode === "heads" && locked(J.job));
     if (!L0 || J.mode !== "heads") return;
     const P = proj(J.job);
     // heads sharing a spot (both sides of a fence) are drawn a few pixels apart, toward the side
@@ -2480,6 +2508,7 @@
       return;
     }
     const stale = L0 && L0.sig !== signature(job);
+    if (L0 && L0.totals && locked(job)) return panelLocked(el, stale);
     if (J.problems && J.problems.length)
       h += J.problems
         .map((m) => '<div class="badge bad">' + esc(m) + "</div>")
@@ -2572,6 +2601,7 @@
         lineTxt +
         ". Tap a head to move or delete it.</p>" +
         shapeKeyRow(L0.heads);
+      if (isHome()) h += trenchLine(job) + installersCard();
       h +=
         '<div class="row"><button class="btn primary grow" id="gen">Generate again</button><button class="btn grow" id="pl">' +
         icon("list") +
@@ -2602,6 +2632,89 @@
           renderPanel();
         }),
     );
+  }
+
+  // What a homeowner sees before paying: the layout is done, the map is blurred, and the numbers
+  // that tell them what they're in for are shown
+  function trenchLine(job) {
+    const P = proj(job);
+    const at = (tag) => {
+      const m = job.markers.find((k) => k.tag === tag);
+      return m ? P.toXY(m) : null;
+    };
+    const t = E.trenchFeet(job.layout.heads, at("valve"), at("meter"));
+    return (
+      '<dl class="kv"><dt>Trench to dig</dt><dd>About ' +
+      t.ft +
+      " ft</dd></dl>" +
+      '<p class="note">A rough number for digging it yourself: the pipe between the heads, back to the valve box' +
+      (t.hasBox ? "" : " (add a Meter and a Valve box on the Draw tab to count those runs)") +
+      ", plus some extra for going around things. Drip in the beds lies on top, so it isn't counted.</p>"
+    );
+  }
+
+  function panelLocked(el, stale) {
+    const job = J.job;
+    const L0 = job.layout;
+    const drip = dripFor(job);
+    let h = stale
+      ? '<div class="badge warn">The yard changed since this layout. Generate again.</div>'
+      : '<div class="badge ok">' + icon("check") + "Your layout is ready.</div>";
+    h +=
+      '<dl class="kv"><dt>Sprinkler heads</dt><dd>' +
+      L0.heads.length +
+      "</dd><dt>Zones</dt><dd>" +
+      L0.zones.length +
+      (drip.zones.length ? " sprinkler, " + drip.zones.length + " drip" : "") +
+      "</dd></dl>" +
+      trenchLine(job);
+    h +=
+      '<button class="btn primary" style="width:100%;margin:6px 0 10px" id="ul">Unlock the heads and parts list · ' +
+      UNLOCK_PRICE +
+      "</button>" +
+      '<button class="btn small" style="width:100%" id="gen">Generate again</button>' +
+      installersCard();
+    el.innerHTML = h;
+    el.querySelector("#ul").onclick = unlockSheet;
+    el.querySelector("#gen").onclick = generate;
+  }
+
+  function unlockSheet() {
+    sheet(
+      "<h2>Unlock this yard</h2>" +
+        '<p class="hint">One payment of ' +
+        UNLOCK_PRICE +
+        ", no subscription. You get every head on the map with its nozzle, a printable plan, and the full parts list to take to the store.</p>" +
+        (TEST_COPY
+          ? '<button class="btn primary" style="width:100%" id="tu">Unlock (test copy, no charge)</button>'
+          : '<button class="btn primary" style="width:100%" disabled>Payments open soon</button>') +
+        '<button class="btn ghost" style="width:100%;margin-top:8px" id="nx">Not now</button>',
+      (el, close) => {
+        el.querySelector("#nx").onclick = close;
+        const tu = el.querySelector("#tu");
+        if (tu)
+          tu.onclick = () => {
+            J.job.unlocked = true;
+            touch(J.job);
+            close();
+            redraw();
+            toast("Unlocked.");
+          };
+      },
+    );
+  }
+
+  // Installers who pay to be listed show up for homeowners in their area (Zach 2026-11-15), with
+  // their Google rating. No one is signed up yet, so only the test copy shows a sample listing.
+  function installersCard() {
+    let h =
+      '<div class="installers"><b>Rather have a pro put it in?</b>';
+    if (TEST_COPY)
+      h +=
+        '<div class="inst"><div class="grow"><b>Sample Sprinkler Co.</b><span>Sample listing · Layton, UT</span></div>' +
+        '<div class="stars">★ 4.8<span>Google rating</span></div></div>';
+    else h += '<p class="note">Installers in your area show up here soon.</p>';
+    return h + '<p class="note">Installer? Get listed here from the contractor version.</p></div>';
   }
 
   /* ---------------- settings ---------------- */
@@ -2815,6 +2928,7 @@
   }
 
   function openPlan() {
+    if (locked(J.job)) return unlockSheet();
     let copy = "customer";
     const ov = document.createElement("div");
     ov.className = "overlay";
@@ -3041,6 +3155,7 @@
   }
 
   function openParts() {
+    if (locked(J.job)) return unlockSheet();
     const L0 = J.job.layout;
     const job = J.job;
     const ov = document.createElement("div");
@@ -3341,7 +3456,8 @@
               )
               .join("") +
             '<label class="f" for="em">Email</label><input class="t" id="em" type="email" inputmode="email" autocomplete="email" placeholder="you@company.com">' +
-            '<button class="btn primary" style="width:100%;margin-top:12px" id="go">Email me a code</button>'
+            '<button class="btn primary" style="width:100%;margin-top:12px" id="go">Email me a code</button>' +
+            '<button class="btn small ghost" style="width:100%;margin-top:18px" id="mode">Homeowner? Map your own yard, no account needed</button>'
           : '<p class="lede">We sent a 6-digit code to <b>' +
             esc(email) +
             "</b>.</p>" +
@@ -3354,6 +3470,8 @@
             "</p>"
           : "") +
         "</main>";
+      const md = app.querySelector("#mode");
+      if (md) md.onclick = () => setHomeowner(true);
       app.querySelectorAll("[data-p]").forEach(
         (b) =>
           (b.onclick = () =>
@@ -3968,7 +4086,7 @@
   }
 
   async function boot() {
-    if (!Cloud.enabled) return route();
+    if (!Cloud.enabled || isHome()) return route();
     Cloud.setLocalJobs(() => jobs);
     Cloud.on((what) => {
       if (what === "signedOut") route();
