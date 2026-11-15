@@ -386,6 +386,7 @@
       id: uid(),
       name: "Example yard",
       example: true,
+      base: "grid",
       address: "Made-up yard to show the app",
       created: Date.now(),
       updated: Date.now(),
@@ -469,13 +470,18 @@
     let picked = null;
     let water = null;
     let supply = null; // the line from the street, picked here (Zach 2026-11-10)
+    let base = null; // "satellite" or "grid" paper (Zach 2026-11-14)
     sheet(
       '<h2>New job</h2><div class="stack">' +
         '<div><label class="f" for="jn">Customer or job name</label><input class="t" id="jn" placeholder="Smith backyard" autocomplete="off"></div>' +
-        '<div><label class="f" for="ja">Address</label><div class="row"><input class="t" id="ja" placeholder="123 Main St" autocomplete="off"><button class="btn" id="js" aria-label="Find address">' +
+        '<div><label class="f">Draw on</label><div class="seg" id="bs">' +
+        '<button type="button" data-b="satellite" aria-pressed="false">Satellite</button>' +
+        '<button type="button" data-b="grid" aria-pressed="false">Grid paper</button>' +
+        '</div><p class="note" id="bn">Grid paper is 1 ft squares with a darker line every 10 ft, for drawing from your tape.</p></div>' +
+        '<div id="jab" hidden><label class="f" for="ja" id="jal">Address</label><div class="row"><input class="t" id="ja" placeholder="123 Main St" autocomplete="off"><button class="btn" id="js" aria-label="Find address">' +
         icon("search") +
         '</button></div><div class="results" id="jr"></div></div>' +
-        '<button class="btn" id="jl" style="width:100%">' +
+        '<button class="btn" id="jl" style="width:100%" hidden>' +
         icon("pin") +
         "Use where I am now</button>" +
         waterSeg(null) +
@@ -500,7 +506,28 @@
           addr = el.querySelector("#ja"),
           res = el.querySelector("#jr");
         name.focus();
+        el.querySelectorAll("[data-b]").forEach(
+          (b) =>
+            (b.onclick = () => {
+              base = b.dataset.b;
+              el.querySelectorAll("[data-b]").forEach((x) =>
+                x.setAttribute("aria-pressed", String(x === b)),
+              );
+              const sat = base === "satellite";
+              el.querySelector("#jab").hidden = false;
+              el.querySelector("#js").hidden = !sat;
+              el.querySelector("#jl").hidden = !sat;
+              el.querySelector("#jal").textContent = sat
+                ? "Address"
+                : "Address (optional, shows on the plan)";
+              if (!sat) {
+                picked = null;
+                res.innerHTML = "";
+              }
+            }),
+        );
         const search = async () => {
+          if (base !== "satellite") return;
           const q = addr.value.trim();
           if (!q) return;
           if (!res.querySelector("button"))
@@ -589,6 +616,12 @@
         );
         el.querySelector("#jc").onclick = close;
         el.querySelector("#jo").onclick = () => {
+          if (!base) {
+            const bn = el.querySelector("#bn");
+            bn.textContent = "Pick satellite or grid paper first.";
+            bn.style.color = "var(--bad)";
+            return;
+          }
           if (!water) {
             const wn = el.querySelector("#wn");
             wn.textContent = "Pick culinary or secondary first.";
@@ -601,7 +634,8 @@
             sn.style.color = "var(--bad)";
             return;
           }
-          const center = picked || DEFAULT_CENTER;
+          const grid = base === "grid";
+          const center = (!grid && picked) || DEFAULT_CENTER;
           const job = {
             id: uid(),
             name: name.value.trim() || "Untitled yard",
@@ -609,7 +643,11 @@
             created: Date.now(),
             updated: Date.now(),
             origin: center,
-            view: { lat: center.lat, lng: center.lng, zoom: picked ? 20 : 15 },
+            view: {
+              lat: center.lat,
+              lng: center.lng,
+              zoom: grid ? 21 : picked ? 20 : 15,
+            },
             scale: 1,
             psi: 50,
             line: supply,
@@ -620,6 +658,7 @@
             markers: [],
             layout: null,
           };
+          if (grid) job.base = "grid";
           job.folderId = currentFolder();
           jobs.push(job);
           saveJobs();
@@ -879,12 +918,65 @@
   function maybeRebase(ll) {
     const job = J.job;
     if (
+      job.base === "grid" ||
       job.layout ||
       job.shapes.some((s) => s.pts.length) ||
       job.markers.length
     )
       return;
     job.origin = { lat: ll.lat, lng: ll.lng };
+  }
+
+  // Grid paper (Zach 2026-11-14): a line every foot, a darker one every 10 ft, measured in the
+  // job's own feet from its origin so drawn corners land on the squares.
+  function gridPaper(job) {
+    const Grid = L.GridLayer.extend({
+      createTile(coords) {
+        const tile = document.createElement("canvas");
+        const size = this.getTileSize();
+        const dpr = window.devicePixelRatio || 1;
+        tile.width = size.x * dpr;
+        tile.height = size.y * dpr;
+        const ctx = tile.getContext("2d");
+        ctx.scale(dpr, dpr);
+        const P = proj(job);
+        const nw = coords.scaleBy(size);
+        const a = P.toXY(this._map.unproject(nw, coords.z));
+        const b = P.toXY(this._map.unproject(nw.add(size), coords.z));
+        const pxPerFt = size.x / (b.x - a.x);
+        const lines = (step, color, width) => {
+          if (step * pxPerFt < 4) return;
+          ctx.strokeStyle = color;
+          ctx.lineWidth = width;
+          ctx.beginPath();
+          for (let x = Math.ceil(a.x / step) * step; x <= b.x; x += step) {
+            const px = Math.round((x - a.x) * pxPerFt) + 0.5;
+            ctx.moveTo(px, 0);
+            ctx.lineTo(px, size.y);
+          }
+          // y grows north, screen grows down
+          for (let y = Math.floor(a.y / step) * step; y >= b.y; y -= step) {
+            const py = Math.round(((a.y - y) / (a.y - b.y)) * size.y) + 0.5;
+            ctx.moveTo(0, py);
+            ctx.lineTo(size.x, py);
+          }
+          ctx.stroke();
+        };
+        lines(1, "rgba(61,90,44,0.13)", 1);
+        lines(10, "rgba(61,90,44,0.42)", 1.25);
+        if (10 * pxPerFt < 4) lines(100, "rgba(61,90,44,0.42)", 1.25);
+        return tile;
+      },
+    });
+    return new Grid({ maxZoom: 22, maxNativeZoom: 22, tileSize: 256 });
+  }
+
+  // On grid paper, corners snap to the nearest foot, like counting squares.
+  function gridSnap(ll) {
+    if (!J || J.job.base !== "grid") return ll;
+    const P = proj(J.job);
+    const p = P.toXY(ll);
+    return P.toLL(Math.round(p.x), Math.round(p.y));
   }
 
   function openJob(job) {
@@ -937,9 +1029,17 @@
     J.map = map;
     // the example yard is made up, so no photo of a real place goes under it
     if (job.example) map.getContainer().style.background = "#e9efe2";
+    const grid = job.base === "grid";
+    if (grid) {
+      map.getContainer().style.background = "#fbfcf8";
+      gridPaper(job).addTo(map);
+      // zoomed out, the 1 ft lines drop away, so a scale bar says what a square is
+      L.control.scale({ metric: false, position: "bottomleft" }).addTo(map);
+    }
     // Mapbox satellite through the Static Tiles API. The v4 raster endpoint answered 429 for this
     // account on 2026-11-07 while this one served z21 imagery, so this is the one wired in.
-    const satellite = job.example
+    const satellite =
+      job.example || grid
       ? null
       : L.tileLayer(
           "https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/512/{z}/{x}/{y}?access_token=" +
@@ -1172,7 +1272,7 @@
       });
       m.on("dragstart", () => pushUndo());
       m.on("drag", (e) => {
-        const ll = e.target.getLatLng();
+        const ll = gridSnap(e.target.getLatLng());
         p.lat = ll.lat;
         p.lng = ll.lng;
         renderShapes();
@@ -1243,7 +1343,7 @@
         L.DomEvent.stopPropagation(e);
         if (moved) return;
         pushUndo();
-        const ll = P.toLL(apex.x, apex.y);
+        const ll = gridSnap(P.toLL(apex.x, apex.y));
         s.pts[i].bf = 0;
         s.pts.splice(i + 1, 0, { lat: ll.lat, lng: ll.lng, bf: 0 });
         touch(J.job);
@@ -1454,7 +1554,8 @@
       const s = J.job.shapes.find((x) => x.id === J.drawing);
       pushUndo();
       maybeRebase(ll);
-      s.pts.push({ lat: ll.lat, lng: ll.lng, bf: 0 });
+      const at = gridSnap(ll);
+      s.pts.push({ lat: at.lat, lng: at.lng, bf: 0 });
       touch(J.job);
       renderShapes();
       renderEdit();
@@ -2014,7 +2115,9 @@
       '<p class="hint">' +
       (lawns
         ? "Tap a shape to edit it, or add another."
-        : "Zoom in on the yard and trace the lawn.") +
+        : job.base === "grid"
+          ? "Draw the lawn from your tape. Each square is 1 ft, every darker line is 10 ft."
+          : "Zoom in on the yard and trace the lawn.") +
       "</p>" +
       '<div class="row"><button class="btn primary grow" id="al">' +
       icon("plus") +
@@ -2063,6 +2166,16 @@
         ft.toFixed(1) +
         " ft</b>. What does your tape say?</p>" +
         '<div class="row"><input class="t" id="tp" inputmode="decimal" placeholder="Tape reading in feet" aria-label="Tape reading in feet"><button class="btn primary" id="ap">Apply</button></div>';
+    }
+    if (job.base === "grid") {
+      // grid paper has no photo to be off, so there's nothing to correct with a tape
+      if (J.measure.length >= 2)
+        h =
+          '<p class="hint">That\'s <b>' +
+          ft.toFixed(1) +
+          " ft</b> on the grid.</p>";
+      el.innerHTML = h;
+      return;
     }
     const pct = (job.scale - 1) * 100;
     h +=
@@ -3298,6 +3411,7 @@
       popupsOnly: j.popupsOnly === true,
       water: pick(j.water, ["culinary", "secondary"], null),
       example: j.example === true,
+      base: j.base === "grid" ? "grid" : undefined,
       folderId: /^[0-9a-f-]{36}$/.test(String(j.folderId)) ? j.folderId : null,
       shapes: arr(j.shapes).map((sh) => ({
         id: word(sh && sh.id) || uid(),

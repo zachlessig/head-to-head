@@ -66,6 +66,12 @@ swings 10x, so compare old and new engines back to back before calling anything 
   Lets build it for the app store version." It comes back in the App Store version using the
   iPhone camera's motion tracking, not GPS. `js/trace.js` (trail to straight edges and curves) and
   `test/trace.test.js` stay for that; the GPS walk UI is in git history (commit 6670fff).
+- Grid paper (Zach 2026-11-14): a new job picks Satellite or Grid paper first. Satellite shows the
+  address search and "Use where I am now"; grid shows only an optional address for the plan. Grid
+  paper is 1 ft squares with a darker line every 10 ft (`gridPaper` in `js/app.js`), drawn in the
+  job's own feet from `job.origin`, which never moves on a grid job. Corners snap to whole feet
+  (`gridSnap`); curve bulges don't. Measure on a grid job just reads a length (no tape scale fix).
+  Zoomed out, the 1 ft lines drop away and a scale bar shows. `job.base` is "grid" or missing.
 - Example yard: "Try an example yard" on the home screen builds a made-up yard with every
   feature, on a plain background (no satellite photo of a real place), and lays it out.
   When a feature is added, add it to `exampleJob()` in `js/app.js` too.
