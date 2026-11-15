@@ -29,6 +29,16 @@ swings 10x, so compare old and new engines back to back before calling anything 
   a rough outline only. Never quote simulated accuracy as what a phone will do; say it's simulated
   and get a real walk before claiming a number. Under a foot needs tape from two fixed points, the
   camera (App Store version), or an RTK receiver.
+- Never give Zach click-by-click directions for a Mac app without a screenshot of what's on his
+  screen first. On 2026-11-15 he was told to pick a Team in Xcode's project window while only
+  Xcode Settings was open: "i dont see what you are talking about". Open the exact window
+  yourself, screenshot, then describe what he'll actually see.
+- Never mix rotors and pop-ups in the same area just because each fits (Zach 2026-11-15, Camera v1
+  lawn): "most contractors won't like the idea of having pop up and rotors in the same line/ close
+  area. then you are running multiple lateral lines in the same area that makes your pipe usage go
+  way up." The north edge there went R1, 12VAN, 15VAN, R1, 12VAN, 10H, R0.5, 12VAN, 10VAN, R1.5.
+  Being on separate zones isn't enough. Asked him how he'd lay that lawn out (all rotors, all
+  pop-ups, or split down the middle) before building the rule; use his answer.
 - Never list rotor nozzles on the parts list. Rotors come with every nozzle (Zach, 2026-11-08).
 
 ## His rules
