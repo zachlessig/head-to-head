@@ -52,7 +52,8 @@ swings 10x, so compare old and new engines back to back before calling anything 
 - Zones stay in one part of the yard (Zach 2026-11-09): "dont spread rotors across the entire
   yard", no "blender of heads". Two zones of the same kind merge only when they're neighbours
   (their sprays reach each other) and fit under the cap; a 1 or 2 head zone may reach 45 ft on
-  the same lawn. Rotor borrowing is neighbours only. There's no minimum number of pop-ups for a
+  the same lawn. Rotor borrowing is neighbours only. A pop-up zone of one head that can't merge
+  (cap) takes the nearest head of a pop-up zone of 3+ within 45 ft (`shareLonePopup`). There's no minimum number of pop-ups for a
   zone. A test fails if any zone has a head off on its own.
 - Rotor side and pop-up side (Zach 2026-11-15, Camera v1): "pop ups along the north curvy side and
   rotors along the straight south. split down the middle". In Auto, straight outer edges are rotor edges
@@ -130,10 +131,12 @@ swings 10x, so compare old and new engines back to back before calling anything 
 - Trees (Zach 2026-11-15): a tree pin has a trunk size slider (2 to 48 in, new trees start at 12).
   Under 6 in (`BIG_TRUNK_IN`) the layout ignores it. A bigger trunk: blocks spray (`shaded` in
   `covers`, so a head can't water the ground behind it), the ground under the trunk needs no water,
-  no head within `TREE_KEEP` (4 ft, guess) of the trunk unless the tree is within 5 ft of a fence
-  (his number, worked out in `buildAreas`), no rotor within `ROTOR_TREE` (15 ft, guess) of it in any
-  direction ("pop ups only around trees"), and pop-ups may fill within `TREE_POPUPS` (15 ft, guess)
-  of it on rotor ground. Big trees show a dashed ring on the map. Tests: "Trees" in
+  no head within 7 ft of the trunk (`TREE_KEEP`, his number) except a head sitting on a fence line
+  ("the fence boundary should override that"; areas carry `fences` for this), and no rotor whose
+  spray reaches the trunk, at any distance ("as long as the rotor spray isnt hitting the trunk then
+  it doesnt matter"). A rotor that would reach a trunk is screwed down to stop short of it if it can
+  still throw its 18 ft minimum. Ground within `TREE_POPUPS` (15 ft, guess) of a big trunk is
+  pop-up ground from the start. Big trees show a dashed 7 ft ring on the map. Tests: "Trees" in
   `test/engine.test.js`, checked by tracing spray lines past the trunk independently.
 - Example yard: "Try an example yard" on the home screen builds a made-up yard with every
   feature, on a plain background (no satellite photo of a real place), and lays it out.
@@ -178,9 +181,8 @@ swings 10x, so compare old and new engines back to back before calling anything 
 ## Zach's list before he feels good about the app (2026-11-15)
 
 1. Trenching for homeowners: `trenchFeet` is a placeholder until he gives his rule.
-2. Rework tree mechanics: built 2026-11-15 (see Trees under His rules). Open: his numbers for
-   TREE_KEEP, ROTOR_TREE and TREE_POPUPS, and whether a lone pop-up zone behind a mid-lawn tree is
-   worth it.
+2. Rework tree mechanics: built 2026-11-15 (see Trees under His rules). Open: TREE_POPUPS (15 ft)
+   is still a guess.
 3. Google ratings for the installer list, for when that list is switched on (`SHOW_INSTALLERS`).
 4. The website vs the app: how the website should differ from the iPhone app.
 

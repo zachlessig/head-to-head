@@ -803,36 +803,23 @@
           .flatMap((b) => E.splitByFences(shapeLocal(b, P), fences))
           .map((h) => E.offFence(h, fences))
           .filter((h) => pointInRing(E.pointInside(h), ring));
-        // big trees in this piece of lawn, and whether each sits within 5 ft of a fence
+        // big trees in this piece of lawn; the fences go along so a head on a fence line may sit
+        // closer to a tree than 7 ft
         const trees = job.markers
           .filter((m) => m.tag === "tree" && (m.trunk || 0) >= E.BIG_TRUNK_IN)
           .map((m) => Object.assign(P.toXY(m), { trunk: m.trunk }))
-          .filter((t) => pointInRing(t, ring))
-          .map((t) =>
-            Object.assign(t, {
-              nearFence: fences.some((f) =>
-                f.some((a, i) => i > 0 && segDist(t, f[i - 1], a) < E.TREE_FENCE),
-              ),
-            }),
-          );
+          .filter((t) => pointInRing(t, ring));
         areas.push({
           outer,
           holes: holes.concat(slit.holes),
           trees,
+          fences,
           mode: s.mode || "auto",
           shapeId: s.id,
         });
       });
     });
     return areas;
-  }
-
-  function segDist(p, a, b) {
-    const dx = b.x - a.x,
-      dy = b.y - a.y,
-      L2 = dx * dx + dy * dy || 1;
-    const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L2));
-    return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
   }
 
   // Finished fences as open lines in local feet.
@@ -1636,7 +1623,7 @@
       el.querySelector("#tkn").textContent =
         v < E.BIG_TRUNK_IN
           ? "Small tree: laid out like open lawn."
-          : "Big tree: no heads right next to it unless it's within 5 ft of a fence, pop-ups only around it, and the spray it blocks gets covered from another side.";
+          : "Big tree: heads stay 7 ft away (a head on a fence line may be closer), no rotor sprays the trunk, pop-ups fill in around it, and the spray it blocks gets covered from another side.";
       onSet(v);
     };
     tk.oninput = show;

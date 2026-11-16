@@ -624,7 +624,7 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
 }
 
 // Trees (Zach 2026-11-15): under 6 in of trunk the layout ignores it. A bigger trunk blocks spray,
-// heads stay off it unless it's within 5 ft of a fence, and no rotor next to it points at the bark.
+// heads stay 7 ft off it unless they sit on a fence line, and no rotor's spray hits the trunk.
 // Checked here independently: spray lines are traced past the trunk at 200 steps.
 {
   const rect = P([[0, 0], [60, 0], [60, 40], [0, 40]]);
@@ -646,14 +646,14 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
     }
     return false;
   };
-  eq(o.heads.every((h) => Math.hypot(h.x - t.x, h.y - t.y) >= tr + 4 - 1e-6), true, "no head within 4 ft of a big trunk");
+  eq(o.heads.every((h) => Math.hypot(h.x - t.x, h.y - t.y) >= tr + 7 - 1e-6), true, "no head within 7 ft of a big trunk");
   const hit = o.heads.filter((h) => {
-    if (h.kind !== "R" || Math.hypot(h.x - t.x, h.y - t.y) > 15 + tr) return false;
+    if (h.kind !== "R") return false;
     for (let a = 0; a < 360; a += 5)
       if (inArc(h, t.x + tr * Math.cos((a * Math.PI) / 180), t.y + tr * Math.sin((a * Math.PI) / 180))) return true;
     return false;
   });
-  eq(hit.length, 0, "no rotor within 15 ft points at a big trunk");
+  eq(hit.length, 0, "no rotor sprays a big trunk");
   let n = 0, dbl = 0;
   for (let x = 0.75; x < 59.5; x += 0.5)
     for (let y = 0.75; y < 39.5; y += 0.5) {
@@ -665,12 +665,18 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
     }
   eq(dbl / n >= 0.99, true, "the shadow behind a big trunk is still double covered (" + ((dbl / n) * 100).toFixed(1) + "%)");
   eq(o.totals.overspray, 0, "big tree: no overspray");
-  // an 8 ft strip with a 12 in tree 1.5 ft off the fence: near the fence a head may go right by it
-  const strip = (nearFence) =>
-    E.layoutJob({ areas: [{ outer: P([[0, 0], [40, 0], [40, 8], [0, 8]]), trees: [{ x: 20, y: 6.5, trunk: 12, nearFence }], mode: "auto" }], psi: 50, cap: 12 });
-  const closest = (o) => Math.min(...o.heads.map((h) => Math.hypot(h.x - 20, h.y - 6.5)));
-  eq(closest(strip(false)) >= 0.5 + 4 - 1e-6, true, "strip: heads stay 4 ft off the trunk");
-  eq(closest(strip(true)) < 0.5 + 4, true, "strip: by a fence, a head may sit next to the tree (" + closest(strip(true)).toFixed(1) + " ft)");
+  // an 8 ft strip with a 12 in tree 1.5 ft off its top edge: when that edge is a fence, a head on
+  // the fence line may sit right by the tree
+  const strip = (fence) =>
+    E.layoutJob({
+      areas: [{ outer: P([[0, 0], [40, 0], [40, 8], [0, 8]]), trees: [{ x: 20, y: 6.5, trunk: 12 }], fences: fence ? [[{ x: 0, y: 8 }, { x: 40, y: 8 }]] : [], mode: "auto" }],
+      psi: 50,
+      cap: 12,
+    });
+  const near = (o) => o.heads.filter((h) => Math.hypot(h.x - 20, h.y - 6.5) < 0.5 + 7);
+  eq(near(strip(false)).length, 0, "strip: heads stay 7 ft off the trunk");
+  const nf = near(strip(true));
+  eq(nf.length > 0 && nf.every((h) => Math.abs(h.y - 8) < 0.5), true, "strip: only heads on the fence line come closer (" + nf.length + ")");
 }
 
 // Zach 2026-11-10: a company can save its own backflow or filter parts once and every job uses them

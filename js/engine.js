@@ -51,29 +51,39 @@
   const POPUP_DEPTH = 16;
   // Trees (Zach 2026-11-15): "if the trunk diameter is less than 6 inches then id just map it like
   // normal. if its bigger than that then the app needs to account for the lost spray from the tree
-  // blocking it." A big trunk casts a shadow no head can water through. "unless the tree is within
-  // like 5 feet of a fence i generally keep heads away from big trees cause its hard to dig in that
-  // area with the roots", and "rotors are not good next to a tree cause they spray the bark too hard
-  // so pop ups only around trees": no rotor whose throw reaches a big trunk.
+  // blocking it." A big trunk casts a shadow no head can water through. Heads stay off it for the
+  // roots: "heads should stay at least 7 feet away unless there is a fence, then the fence boundary
+  // should override that", so a head on a fence line may sit closer. Rotors: "as long as the rotor
+  // spray isnt hitting the trunk then it doesnt matter" (they spray the bark too hard).
   const BIG_TRUNK_IN = 6;
-  const TREE_FENCE = 5; // ft, his number
-  // How far heads stay off a big trunk. 4 ft from the trunk's edge is a guess, not his number.
-  const TREE_KEEP = 4;
-  // "Next to a tree": no rotor this close to a big trunk. Banning every rotor whose throw reaches a
-  // trunk turned a 60x40 lawn with a tree 3 ft off the fence into 28 pop-ups. 15 ft is a guess,
-  // not his number.
-  const ROTOR_TREE = 15;
-  // Pop-ups may go this close to a big trunk on rotor ground, to fill what the rotors can't reach
-  // (a tree mid-lawn left 97.5% covered on rotors alone). Also a guess.
+  const TREE_KEEP = 7; // ft from the trunk, his number
+  // The ground this close to a big trunk is pop-up ground from the start: rotors can't water it
+  // without hitting the bark, and left on rotor ground the thin ring there dropped every rotor in
+  // the example yard's backyard (26 zones). 15 ft is a guess, not his number.
   const TREE_POPUPS = 15;
   function nearTrunk(x, y, rad) {
     return TRUNKS.some((t) => Math.hypot(x - t.x, y - t.y) < t.r + rad);
   }
-  // big trunks in the lawn being laid out, {x, y, r (ft), keep (heads stay off it)}; set by
-  // useTrunks(G) at the top of every pass, since covers() has no G
+  // big trunks in the lawn being laid out, {x, y, r (ft)}, and the fence lines that override the
+  // 7 ft; set by useTrunks(G) at the top of every pass, since covers() has no G
   let TRUNKS = [];
+  let FENCES = [];
   function useTrunks(G) {
     TRUNKS = (G && G.trunks) || [];
+    FENCES = (G && G.fences) || [];
+  }
+  function onFence(x, y) {
+    return FENCES.some((f) =>
+      f.some((b, i) => {
+        if (!i) return false;
+        const a = f[i - 1],
+          dx = b.x - a.x,
+          dy = b.y - a.y,
+          L2 = dx * dx + dy * dy || 1;
+        const u = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / L2));
+        return Math.hypot(x - a.x - u * dx, y - a.y - u * dy) < 0.5;
+      }),
+    );
   }
   // true where a trunk stands between the head and the spot
   function shaded(h, x, y) {
@@ -93,10 +103,14 @@
   function treeOk(h) {
     for (const t of TRUNKS) {
       const d = Math.hypot(h.x - t.x, h.y - t.y);
-      if (t.keep && d < t.r + TREE_KEEP) return false;
-      // "pop ups only around trees": no rotor this close, whichever way it points (rotors on the
-      // edge of a tree-ring bed faced away and left a lone pop-up on its own valve beside them)
-      if (h.kind === "R" && d <= ROTOR_TREE + t.r) return false;
+      if (d < t.r + TREE_KEEP && !onFence(h.x, h.y)) return false;
+      if (h.kind === "R" && d <= h.r + t.r) {
+        if (h.arc >= 359.5) return false;
+        const a = Math.atan2(t.y - h.y, t.x - h.x) / DEG;
+        const diff = Math.abs(((((a - h.dir) % 360) + 540) % 360) - 180);
+        const half = Math.asin(Math.min(1, t.r / Math.max(d, 1e-6))) / DEG;
+        if (diff <= h.arc / 2 + half) return false;
+      }
     }
     return true;
   }
@@ -348,7 +362,8 @@
     const G = { x0, y0, x1, y1, rings, segs, split, outerSegs: outer };
     G.trunks = (area.trees || [])
       .filter((t) => (t.trunk || 0) >= BIG_TRUNK_IN)
-      .map((t) => ({ x: t.x, y: t.y, r: t.trunk / 24, keep: !t.nearFence }));
+      .map((t) => ({ x: t.x, y: t.y, r: t.trunk / 24 }));
+    G.fences = area.fences || [];
 
     // y-bands for fast point-in-lawn; square bins for nearest-boundary queries
     G.band = 2;
@@ -829,7 +844,16 @@
         useArc,
         isCorner ? "corner" : "edge",
       );
-      return treeOk(fit) ? fit : null;
+      if (treeOk(fit)) return fit;
+      // a rotor whose throw reaches a trunk gets screwed down to stop short of it, if it can still
+      // throw its minimum (a tree 3 ft off the edge of a 60x40 lawn banned the corner rotors and
+      // the whole lawn went to pop-ups)
+      const t = fit.kind === "R" && TRUNKS.find((q) => Math.hypot(q.x - p.x, q.y - p.y) <= fit.r + q.r);
+      if (t && Math.hypot(t.x - p.x, t.y - p.y) - t.r - 0.3 >= ROTOR.min && Math.hypot(t.x - p.x, t.y - p.y) >= t.r + TREE_KEEP) {
+        r = Math.hypot(t.x - p.x, t.y - p.y) - t.r - 0.3;
+        continue;
+      }
+      return null;
     }
     return null;
   }
@@ -1153,7 +1177,14 @@
           ? nozzle("F", 360, Math.min(room, 13))
           : nozzle("R", 360, room);
         if (!nz) continue;
-        const mh = makeHead(x, y, nz, 0, 360, "interior");
+        let mh = makeHead(x, y, nz, 0, 360, "interior");
+        if (!treeOk(mh) && !spray) {
+          // screw the rotor down to stop short of the nearest trunk it reaches
+          const t = TRUNKS.find((q) => Math.hypot(q.x - x, q.y - y) <= mh.r + q.r);
+          const room2 = t ? Math.hypot(t.x - x, t.y - y) - t.r - 0.3 : 0;
+          const nz2 = room2 >= ROTOR.min ? nozzle("R", 360, Math.min(room, room2)) : null;
+          if (nz2) mh = makeHead(x, y, nz2, 0, 360, "interior");
+        }
         if (treeOk(mh)) midCands.push({ head: mh });
       }
     }
@@ -1223,7 +1254,7 @@
     // reach read as thin and dropped every rotor in the example yard's backyard (26 zones)
     if (G.trunks && G.trunks.length)
       for (let k = 0; k < S.n; k++)
-        if ((R[k] || core[k]) && G.trunks.some((t) => Math.hypot(S.x[k] - t.x, S.y[k] - t.y) < t.r + ROTOR_TREE)) R[k] = core[k] = 0;
+        if ((R[k] || core[k]) && G.trunks.some((t) => Math.hypot(S.x[k] - t.x, S.y[k] - t.y) < t.r + TREE_POPUPS)) R[k] = core[k] = 0;
     R.core = core;
     return R;
   }
@@ -1454,6 +1485,7 @@
     // never leave a rotor zone under 3 heads when a neighbouring rotor zone can absorb or share
     fixSmallRotorZones(zones, cap);
     mergeNeighbourZones(zones, cap);
+    shareLonePopup(zones, cap);
     zones.forEach((z) => (z.gpm = z.heads.reduce((s, h) => s + h.gpm, 0)));
     // number zones top-left to bottom-right so the plan reads naturally
     zones.forEach((z) => {
@@ -1592,6 +1624,30 @@
   function zonesNeighbour(a, b) {
     const reach = Math.max(...a.heads.map((h) => h.r), ...b.heads.map((h) => h.r)) + ZONE_REACH_SLACK;
     return zoneGap(a, b) <= reach;
+  }
+
+  // A pop-up zone of one head next to a pop-up zone of three or more, with no room to merge, takes
+  // the neighbour's nearest head so both run two or more (the pop-ups around the example yard's
+  // tree came out 2, 3 and 1 on a 12 GPM cap; 2, 2 and 2 is the same three valves).
+  function shareLonePopup(zones, cap) {
+    const sum = (zz) => zz.reduce((s, h) => s + h.gpm, 0);
+    for (const z of zones) {
+      if (z.family !== "spray" || z.heads.length !== 1) continue;
+      const lone = z.heads[0];
+      let best = null;
+      for (const o of zones) {
+        if (o === z || o.family !== "spray" || o.heads.length < 3 || o.heads[0].area !== lone.area) continue;
+        if (!zonesNeighbour(z, o) && zoneGap(z, o) > TINY_JOIN_FT) continue;
+        for (const h of o.heads) {
+          const d = Math.hypot(h.x - lone.x, h.y - lone.y);
+          if (sum(z.heads) + h.gpm <= cap + 1e-9 && (!best || d < best.d)) best = { o, h, d };
+        }
+      }
+      if (best) {
+        best.o.heads.splice(best.o.heads.indexOf(best.h), 1);
+        z.heads.push(best.h);
+      }
+    }
   }
 
   function fixSmallRotorZones(zones, cap) {
@@ -2563,6 +2619,5 @@
     trenchFeet,
     BIG_TRUNK_IN,
     TREE_KEEP,
-    TREE_FENCE,
   };
 });
