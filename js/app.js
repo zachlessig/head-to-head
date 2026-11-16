@@ -2706,7 +2706,11 @@
 
   // Installers who pay to be listed show up for homeowners in their area (Zach 2026-11-15), with
   // their Google rating. No one is signed up yet, so only the test copy shows a sample listing.
+  // Off until homeowners are using it in numbers (Zach 2026-11-15: listing "would need to be a thing
+  // once there is alot of DIY traction first"); the test copy still shows it
+  const SHOW_INSTALLERS = false;
   function installersCard() {
+    if (!SHOW_INSTALLERS && !TEST_COPY) return "";
     let h =
       '<div class="installers"><b>Rather have a pro put it in?</b>';
     if (TEST_COPY)

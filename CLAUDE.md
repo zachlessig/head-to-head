@@ -109,8 +109,13 @@ swings 10x, so compare old and new engines back to back before calling anything 
   the valve box to every zone, the meter-to-valve mainline, plus 15%; not checked against a real
   job). Price is $10 one time (`UNLOCK_PRICE`). Payments aren't hooked up: only the http localhost
   test copy shows a no-charge unlock; the iPhone app is capacitor://localhost and must never get it.
-  Installers near them show with their Google rating; installers pay to be listed (price not set).
-  No one is listed yet, so only the test copy shows a "Sample listing".
+  Installers near them show with their Google rating; installers pay $49 a month on top of the
+  subscription to be listed. That list stays off (`SHOW_INSTALLERS`) until lots of homeowners use
+  the app (Zach 2026-11-15); only the test copy shows it, with a "Sample listing".
+- Pricing (Zach 2026-11-15): contractors pay about $35 a month. The first contractors on the app
+  lock in $20 a month. Homeowners pay $10 once per yard. Nothing is charged yet.
+- Trench estimate: Zach is still working out how he wants trenching counted ("ill work out the
+  trenching system later"). Don't tune `trenchFeet` without his rule.
 - Look (Zach picked look A of three, 2026-11-15): cream and green, soft shadows instead of outlines,
   springy button presses, a floating tab bar, and an opening animation where the logo's spray arcs
   draw in (`splash` in `js/app.js`). The home screen fades in only when you arrive at it, not when a
