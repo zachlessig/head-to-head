@@ -167,6 +167,13 @@ swings 10x, so compare old and new engines back to back before calling anything 
     A company can replace either with its own parts ("Edit our backflow setup" on the parts list),
     saved on the phone (`headtohead.prefs.v1`, `setups`) and used on every job with that water.
 
+## Zach's list before he feels good about the app (2026-11-15)
+
+1. Trenching for homeowners: `trenchFeet` is a placeholder until he gives his rule.
+2. Rework tree mechanics: today a tree is only a pin on the map; the layout ignores it.
+3. Google ratings for the installer list, for when that list is switched on (`SHOW_INSTALLERS`).
+4. The website vs the app: how the website should differ from the iPhone app.
+
 ## Shipping
 
 The site is GitHub Pages from `main` (zachlessig/head-to-head). Push and it's live in about
