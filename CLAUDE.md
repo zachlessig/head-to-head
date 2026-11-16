@@ -119,7 +119,11 @@ swings 10x, so compare old and new engines back to back before calling anything 
 - Look (Zach picked look A of three, 2026-11-15): cream and green, soft shadows instead of outlines,
   springy button presses, a floating tab bar, and an opening animation where the logo's spray arcs
   draw in (`splash` in `js/app.js`). The home screen fades in only when you arrive at it, not when a
-  sync redraws it. He wants a new logo; ideas were shown, none picked yet.
+  sync redraws it. Logo (Zach 2026-11-15, option 4 from a logo page made in another session): the
+  words HEAD TO HEAD bent into a water drop with the sprinkler as the T, letters cut out, in the
+  app's green. `icons/logo.svg` (drop alone), `icons/icon.svg` (cream drop on a green tile), PNGs
+  at 180/512 and the iPhone's 1024 AppIcon are renders of that tile. The opening animation drops it
+  in with a ripple.
 - Example yard: "Try an example yard" on the home screen builds a made-up yard with every
   feature, on a plain background (no satellite photo of a real place), and lays it out.
   When a feature is added, add it to `exampleJob()` in `js/app.js` too.

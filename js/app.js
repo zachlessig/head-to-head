@@ -212,7 +212,7 @@
     // fade in only when arriving at this screen, not when a sync redraws it
     let h = '<main class="home' + (document.querySelector(".home") ? "" : " enter") + '">';
     h +=
-      '<div class="brand"><svg class="mark" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="9" fill="#1f6b45"/><path d="M9 25a11 11 0 0 1 16 0M12 21a7 7 0 0 1 10 0" stroke="#fffdf8" stroke-width="2.6" fill="none" stroke-linecap="round"/><circle cx="17" cy="25" r="2.6" fill="#fffdf8"/></svg><h1>Head to Head</h1>' +
+      '<div class="brand"><img class="mark" src="icons/logo.svg" alt=""><h1>Head to Head</h1>' +
       (Cloud.enabled && Cloud.company
         ? '<button class="iconbtn" id="co" aria-label="Company and account" style="margin-left:auto">' +
           icon("sliders") +
@@ -3432,7 +3432,7 @@
   }
 
   function brandBlock() {
-    return '<div class="brand"><svg class="mark" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="9" fill="#1f6b45"/><path d="M9 25a11 11 0 0 1 16 0M12 21a7 7 0 0 1 10 0" stroke="#fffdf8" stroke-width="2.6" fill="none" stroke-linecap="round"/><circle cx="17" cy="25" r="2.6" fill="#fffdf8"/></svg><h1>Head to Head</h1></div>';
+    return '<div class="brand"><img class="mark" src="icons/logo.svg" alt=""><h1>Head to Head</h1></div>';
   }
 
   function renderSignIn() {
@@ -4114,20 +4114,19 @@
     });
   }
 
-  // opening animation: the logo's spray arcs draw in, then the app shows through
+  // opening animation: the drop logo falls in and lands with a ripple (logo: Zach's pick 2026-11-15,
+  // the words HEAD TO HEAD cut out of a water drop, the sprinkler as the T)
   function splash() {
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const s = document.createElement("div");
     s.className = "splash";
     s.setAttribute("aria-hidden", "true");
     s.innerHTML =
-      '<div class="sp-in"><svg class="sp-mark" viewBox="0 0 34 34"><rect class="sp-tile" width="34" height="34" rx="9"/>' +
-      '<path class="sp-arc sp-arc2" d="M9 25a11 11 0 0 1 16 0"/><path class="sp-arc sp-arc1" d="M12 21a7 7 0 0 1 10 0"/>' +
-      '<circle class="sp-drop" cx="17" cy="25" r="2.6"/></svg><div class="sp-word">Head to Head</div>' +
+      '<div class="sp-in"><div class="sp-ripple"></div><img class="sp-mark" src="icons/logo.svg" alt="">' +
       '<div class="sp-sub">Sprinkler layouts in minutes</div></div>';
     document.body.appendChild(s);
-    setTimeout(() => s.classList.add("out"), 1300);
-    setTimeout(() => s.remove(), 1800);
+    setTimeout(() => s.classList.add("out"), 1400);
+    setTimeout(() => s.remove(), 1900);
   }
 
   splash();

@@ -154,8 +154,8 @@ svg.i {
   font-weight: 700;
 }
 .brand .mark {
-  width: 34px;
-  height: 34px;
+  width: auto;
+  height: 46px;
 }
 .home p.lede {
   margin: 0 0 18px;
@@ -779,19 +779,15 @@ table.parts td.q {
 .home.enter > *:nth-child(4) { animation-delay: 180ms; } .home.enter > *:nth-child(n+5) { animation-delay: 240ms; }
 @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 
-/* opening animation */
+/* opening animation: the drop falls in and lands with a ripple */
 .splash { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; background: var(--paper); transition: opacity 450ms ease, transform 450ms ease; }
 .splash.out { opacity: 0; transform: scale(1.04); pointer-events: none; }
-.sp-in { text-align: center; }
-.sp-mark { width: 92px; height: 92px; animation: pop 600ms var(--spring) both; }
-.sp-tile { fill: var(--flag); }
-.sp-arc { fill: none; stroke: #fffdf8; stroke-width: 2.6; stroke-linecap: round; stroke-dasharray: 30; stroke-dashoffset: 30; animation: draw 500ms ease-out forwards; }
-.sp-arc1 { animation-delay: 380ms; } .sp-arc2 { animation-delay: 560ms; }
-.sp-drop { fill: #fffdf8; transform-origin: 17px 25px; animation: pop 400ms var(--spring) 250ms both; }
-.sp-word { font: 700 30px Fraunces, Georgia, serif; color: var(--ink); margin-top: 16px; animation: rise 500ms ease-out 650ms both; }
-.sp-sub { color: var(--muted); margin-top: 4px; animation: rise 500ms ease-out 780ms both; }
-@keyframes pop { from { transform: scale(0.4); opacity: 0; } to { transform: none; opacity: 1; } }
-@keyframes draw { to { stroke-dashoffset: 0; } }
+.sp-in { text-align: center; position: relative; }
+.sp-mark { display: block; width: 150px; height: auto; margin: 0 auto; animation: fall 620ms cubic-bezier(0.34, 1.4, 0.64, 1) both; }
+.sp-ripple { position: absolute; left: 50%; top: 140px; width: 160px; height: 34px; margin-left: -80px; border-radius: 50%; border: 2px solid var(--flag-2); opacity: 0; animation: ripple 900ms ease-out 450ms; }
+.sp-sub { color: var(--muted); margin-top: 18px; animation: rise 500ms ease-out 650ms both; }
+@keyframes fall { from { transform: translateY(-70px) scale(0.6); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes ripple { from { transform: scale(0.3); opacity: 0.8; } to { transform: scale(1.6); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .home.enter > *, .jobview, .sheet { animation: none; } }
 
 /* homeowner mode: the layout is blurred until the yard is unlocked */
