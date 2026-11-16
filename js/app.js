@@ -211,19 +211,20 @@
       .sort((a, b) => b.updated - a.updated);
     // fade in only when arriving at this screen, not when a sync redraws it
     let h = '<main class="home' + (document.querySelector(".home") ? "" : " enter") + '">';
+    // header (Zach 2026-11-15, option B): just the drop, small and centered, with the company's name
+    // centered under it and a thin line below
     h +=
-      '<div class="brand"><img class="mark" src="icons/logo.svg" alt=""><h1>Head to Head</h1>' +
+      '<div class="brand"><img class="mark" src="icons/logo.svg" alt="Head to Head">' +
       (Cloud.enabled && Cloud.company
-        ? '<button class="iconbtn" id="co" aria-label="Company and account" style="margin-left:auto">' +
+        ? '<button class="iconbtn" id="co" aria-label="Company and account">' +
           icon("sliders") +
           "</button>"
         : "") +
+      (Cloud.enabled && Cloud.company
+        ? '<div class="co-name">' + esc(Cloud.company.name) + "</div>"
+        : "") +
       "</div>";
     if (Cloud.enabled && Cloud.company) {
-      h +=
-        '<p class="note" style="margin:-10px 0 12px">' +
-        esc(Cloud.company.name) +
-        "</p>";
       // crew folders: All, each folder, and + Folder
       h +=
         '<div class="chips" style="flex-wrap:wrap;margin-bottom:14px">' +
@@ -246,9 +247,9 @@
         icon("plus") +
         "Folder</button></div>";
     }
-    h += isHome()
-      ? '<p class="lede">Trace your yard on the satellite photo and get every sprinkler head, zone and part laid out for you.</p>'
-      : '<p class="lede">Trace the yard, tap Generate, and get heads, zones and a parts list.</p>';
+    if (isHome())
+      h +=
+        '<p class="lede">Trace your yard on the satellite photo and get every sprinkler head, zone and part laid out for you.</p>';
     h +=
       '<button class="btn primary" style="width:100%;margin-bottom:18px" id="new">' +
       icon("plus") +
@@ -4114,19 +4115,19 @@
     });
   }
 
-  // opening animation: the drop logo falls in and lands with a ripple (logo: Zach's pick 2026-11-15,
-  // the words HEAD TO HEAD cut out of a water drop, the sprinkler as the T)
+  // opening animation (Zach's pick 2026-11-15, "the rain one"): three small drops fall, and where
+  // they land the drop logo grows in
   function splash() {
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const s = document.createElement("div");
     s.className = "splash";
     s.setAttribute("aria-hidden", "true");
     s.innerHTML =
-      '<div class="sp-in"><div class="sp-ripple"></div><img class="sp-mark" src="icons/logo.svg" alt="">' +
-      '<div class="sp-sub">Sprinkler layouts in minutes</div></div>';
+      '<div class="sp-in"><div class="sp-drop r1"></div><div class="sp-drop r2"></div><div class="sp-drop r3"></div>' +
+      '<img class="sp-mark" src="icons/logo.svg" alt=""><div class="sp-sub">Sprinkler layouts in minutes</div></div>';
     document.body.appendChild(s);
-    setTimeout(() => s.classList.add("out"), 1400);
-    setTimeout(() => s.remove(), 1900);
+    setTimeout(() => s.classList.add("out"), 1700);
+    setTimeout(() => s.remove(), 2200);
   }
 
   splash();

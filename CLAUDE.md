@@ -122,8 +122,10 @@ swings 10x, so compare old and new engines back to back before calling anything 
   sync redraws it. Logo (Zach 2026-11-15, option 4 from a logo page made in another session): the
   words HEAD TO HEAD bent into a water drop with the sprinkler as the T, letters cut out, in the
   app's green. `icons/logo.svg` (drop alone), `icons/icon.svg` (green drop on a cream tile, his pick over green), PNGs
-  at 180/512 and the iPhone's 1024 AppIcon are renders of that tile. The opening animation drops it
-  in with a ripple. The letters are holes in one even-odd path, not a mask: the masked version
+  at 180/512 and the iPhone's 1024 AppIcon are renders of that tile. Opening animation (his pick of 9,
+  "the rain one"): three small drops fall and the logo grows in where they land. Home header (his
+  pick, option B, "sleek and simple"): only the drop, small and centered, the company's name
+  centered under it, a thin line below; no intro sentence for contractors (homeowners keep theirs). The letters are holes in one even-odd path, not a mask: the masked version
   rendered blurry on his iPhone (WebKit draws masks at low resolution).
 - Example yard: "Try an example yard" on the home screen builds a made-up yard with every
   feature, on a plain background (no satellite photo of a real place), and lays it out.

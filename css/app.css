@@ -155,7 +155,27 @@ svg.i {
 }
 .brand .mark {
   width: auto;
-  height: 60px;
+  height: 40px;
+}
+.home .brand {
+  position: relative;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 0 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.home .brand #co {
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+.co-name {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink);
+  text-align: center;
 }
 .home p.lede {
   margin: 0 0 18px;
@@ -779,15 +799,18 @@ table.parts td.q {
 .home.enter > *:nth-child(4) { animation-delay: 180ms; } .home.enter > *:nth-child(n+5) { animation-delay: 240ms; }
 @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 
-/* opening animation: the drop falls in and lands with a ripple */
+/* opening animation: three drops fall and the logo grows in where they land */
 .splash { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; background: var(--paper); transition: opacity 450ms ease, transform 450ms ease; }
 .splash.out { opacity: 0; transform: scale(1.04); pointer-events: none; }
-.sp-in { text-align: center; position: relative; }
-.sp-mark { display: block; width: 150px; height: auto; margin: 0 auto; animation: fall 620ms cubic-bezier(0.34, 1.4, 0.64, 1) both; }
-.sp-ripple { position: absolute; left: 50%; top: 140px; width: 160px; height: 34px; margin-left: -80px; border-radius: 50%; border: 2px solid var(--flag-2); opacity: 0; animation: ripple 900ms ease-out 450ms; }
-.sp-sub { color: var(--muted); margin-top: 18px; animation: rise 500ms ease-out 650ms both; }
-@keyframes fall { from { transform: translateY(-70px) scale(0.6); opacity: 0; } to { transform: none; opacity: 1; } }
-@keyframes ripple { from { transform: scale(0.3); opacity: 0.8; } to { transform: scale(1.6); opacity: 0; } }
+.sp-in { text-align: center; position: relative; width: 150px; }
+.sp-mark { display: block; width: 150px; height: auto; margin: 0 auto; animation: grow 600ms cubic-bezier(0.34, 1.5, 0.64, 1) 620ms both; }
+.sp-drop { position: absolute; left: 50%; width: 14px; height: 20px; margin-left: -7px; background: var(--flag-2); border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; opacity: 0; animation: raindrop 520ms cubic-bezier(0.5, 0, 1, 1) both; }
+.sp-drop.r1 { margin-left: -46px; }
+.sp-drop.r2 { margin-left: 30px; animation-delay: 160ms; }
+.sp-drop.r3 { animation-delay: 320ms; }
+.sp-sub { color: var(--muted); margin-top: 18px; animation: rise 500ms ease-out 900ms both; }
+@keyframes raindrop { from { top: -260px; opacity: 1; } to { top: 120px; opacity: 0; } }
+@keyframes grow { from { transform: scale(0.15); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .home.enter > *, .jobview, .sheet { animation: none; } }
 
 /* homeowner mode: the layout is blurred until the yard is unlocked */
