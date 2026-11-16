@@ -3500,9 +3500,19 @@
             draw("code");
           } catch (e) {
             console.warn("Code not sent", e);
+            // the server allows one code per email a minute and a few an hour; say so instead of
+            // blaming the signal (Zach 2026-11-15 only saw "Couldn't send the code")
+            const msg = String((e && e.message) || "");
+            const wait = msg.match(/after (\d+) seconds/);
             draw(
               "email",
-              "Couldn't send the code. Check the address and your signal, then try again.",
+              (e && e.status === 429) || /rate limit|security purposes/i.test(msg)
+                ? wait
+                  ? "A code was just sent. Check your email, or wait " + wait[1] + " seconds and ask again."
+                  : "Too many codes asked for this hour. Use the last code we sent, or try again later."
+                : !navigator.onLine
+                  ? "No signal. Try again when you have service."
+                  : "Couldn't send the code (" + (msg || "no answer from the server") + "). Try again in a minute.",
             );
           }
         };
