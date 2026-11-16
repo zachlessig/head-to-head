@@ -49,6 +49,57 @@
   // The pop-up side reaches at most this far in from its edges, about one row of pop-ups, so a big
   // lawn with one curvy side keeps rotors in its open middle. Zach okayed 16 ft (2026-11-15).
   const POPUP_DEPTH = 16;
+  // Trees (Zach 2026-11-15): "if the trunk diameter is less than 6 inches then id just map it like
+  // normal. if its bigger than that then the app needs to account for the lost spray from the tree
+  // blocking it." A big trunk casts a shadow no head can water through. "unless the tree is within
+  // like 5 feet of a fence i generally keep heads away from big trees cause its hard to dig in that
+  // area with the roots", and "rotors are not good next to a tree cause they spray the bark too hard
+  // so pop ups only around trees": no rotor whose throw reaches a big trunk.
+  const BIG_TRUNK_IN = 6;
+  const TREE_FENCE = 5; // ft, his number
+  // How far heads stay off a big trunk. 4 ft from the trunk's edge is a guess, not his number.
+  const TREE_KEEP = 4;
+  // "Next to a tree": no rotor this close to a big trunk. Banning every rotor whose throw reaches a
+  // trunk turned a 60x40 lawn with a tree 3 ft off the fence into 28 pop-ups. 15 ft is a guess,
+  // not his number.
+  const ROTOR_TREE = 15;
+  // Pop-ups may go this close to a big trunk on rotor ground, to fill what the rotors can't reach
+  // (a tree mid-lawn left 97.5% covered on rotors alone). Also a guess.
+  const TREE_POPUPS = 15;
+  function nearTrunk(x, y, rad) {
+    return TRUNKS.some((t) => Math.hypot(x - t.x, y - t.y) < t.r + rad);
+  }
+  // big trunks in the lawn being laid out, {x, y, r (ft), keep (heads stay off it)}; set by
+  // useTrunks(G) at the top of every pass, since covers() has no G
+  let TRUNKS = [];
+  function useTrunks(G) {
+    TRUNKS = (G && G.trunks) || [];
+  }
+  // true where a trunk stands between the head and the spot
+  function shaded(h, x, y) {
+    for (const t of TRUNKS) {
+      const dx = x - h.x,
+        dy = y - h.y,
+        L2 = dx * dx + dy * dy;
+      if (L2 < 1e-9) continue;
+      const u = ((t.x - h.x) * dx + (t.y - h.y) * dy) / L2;
+      if (u <= 0) continue;
+      const uc = Math.min(u, 1);
+      if (Math.hypot(h.x + uc * dx - t.x, h.y + uc * dy - t.y) < t.r) return true;
+    }
+    return false;
+  }
+  // a head that sits too close to a big tree, or a rotor whose stream would hit the bark
+  function treeOk(h) {
+    for (const t of TRUNKS) {
+      const d = Math.hypot(h.x - t.x, h.y - t.y);
+      if (t.keep && d < t.r + TREE_KEEP) return false;
+      // "pop ups only around trees": no rotor this close, whichever way it points (rotors on the
+      // edge of a tree-ring bed faced away and left a lone pop-up on its own valve beside them)
+      if (h.kind === "R" && d <= ROTOR_TREE + t.r) return false;
+    }
+    return true;
+  }
   const TOL = 0.2; // ft. Closer than this to the boundary counts as on the line
   const BSTEP = 0.25; // boundary sample spacing
   const CURVE_OVER = 0.3; // ft a curve head may reach past a curved edge; verify() flags past 0.35
@@ -295,6 +346,9 @@
       y1 = Math.max(y1, s.ay);
     });
     const G = { x0, y0, x1, y1, rings, segs, split, outerSegs: outer };
+    G.trunks = (area.trees || [])
+      .filter((t) => (t.trunk || 0) >= BIG_TRUNK_IN)
+      .map((t) => ({ x: t.x, y: t.y, r: t.trunk / 24, keep: !t.nearFence }));
 
     // y-bands for fast point-in-lawn; square bins for nearest-boundary queries
     G.band = 2;
@@ -767,7 +821,7 @@
         r = nz.r;
         continue;
       }
-      return makeHead(
+      const fit = makeHead(
         p.x,
         p.y,
         nz,
@@ -775,6 +829,7 @@
         useArc,
         isCorner ? "corner" : "edge",
       );
+      return treeOk(fit) ? fit : null;
     }
     return null;
   }
@@ -801,10 +856,13 @@
       dy = y - h.y;
     const d2 = dx * dx + dy * dy;
     if (d2 > h.r * h.r + 1e-6) return false;
-    if (h.arc >= 359.5 || d2 < 1e-8) return true;
-    const a = Math.atan2(dy, dx) / DEG;
-    let diff = Math.abs(((((a - h.dir) % 360) + 540) % 360) - 180);
-    return diff <= h.arc / 2 + 1e-6;
+    if (d2 < 1e-8) return true;
+    if (h.arc < 359.5) {
+      const a = Math.atan2(dy, dx) / DEG;
+      let diff = Math.abs(((((a - h.dir) % 360) + 540) % 360) - 180);
+      if (diff > h.arc / 2 + 1e-6) return false;
+    }
+    return !TRUNKS.length || !shaded(h, x, y);
   }
 
   /* ---------------- greedy placement ---------------- */
@@ -898,6 +956,8 @@
         if (!inLawn(G, x, y)) continue;
         const d = distB(G, x, y);
         if (d < 0.4) continue; // the last few inches at the edge are covered by overspray, per Zach
+        // the ground under a trunk needs no water
+        if (G.trunks && G.trunks.some((t) => Math.hypot(x - t.x, y - t.y) < t.r + 0.25)) continue;
         xs.push(x);
         ys.push(y);
         db.push(d);
@@ -937,6 +997,7 @@
   // ctx (optional) shares one sample grid between a rotor pass and a pop-up pass on the same lawn:
   // {S, cov, heads, target}. target marks the samples this pass is responsible for.
   function layoutArea(G, family, ctx) {
+    useTrunks(G);
     const spray = family === "spray";
     const maxR = spray ? 16 : ROTOR.max;
     const gS = ctx ? ctx.S.step : spray ? 1 : 2; // coverage sample spacing
@@ -950,7 +1011,8 @@
     const sideOk = (smp, x, y) =>
       !(ctx && ctx.sides) ||
       sideAllows(G, family, smp, x, y) ||
-      (spray && ctx.rotorReach && !ctx.rotorReach(smp ? smp.x : x, smp ? smp.y : y));
+      (spray && ctx.rotorReach && !ctx.rotorReach(smp ? smp.x : x, smp ? smp.y : y)) ||
+      (spray && TRUNKS.length && nearTrunk(smp ? smp.x : x, smp ? smp.y : y, TREE_POPUPS));
     const mark = (h) =>
       S.near(h.x, h.y, h.r, (k) => {
         if (covers(h, S.x[k], S.y[k])) cov[k]++;
@@ -1091,7 +1153,8 @@
           ? nozzle("F", 360, Math.min(room, 13))
           : nozzle("R", 360, room);
         if (!nz) continue;
-        midCands.push({ head: makeHead(x, y, nz, 0, 360, "interior") });
+        const mh = makeHead(x, y, nz, 0, 360, "interior");
+        if (treeOk(mh)) midCands.push({ head: mh });
       }
     }
     const minGain = spray ? 3 : 2; // don't add a head for a sliver a neighbour's overspray already hits
@@ -1156,6 +1219,11 @@
     if (G.split)
       for (let k = 0; k < S.n; k++)
         if ((R[k] || core[k]) && !rotorSide(G, S.x[k], S.y[k])) R[k] = core[k] = 0;
+    // the ground around a big tree is pop-up ground from the start; left in, the ring rotors can't
+    // reach read as thin and dropped every rotor in the example yard's backyard (26 zones)
+    if (G.trunks && G.trunks.length)
+      for (let k = 0; k < S.n; k++)
+        if ((R[k] || core[k]) && G.trunks.some((t) => Math.hypot(S.x[k] - t.x, S.y[k] - t.y) < t.r + ROTOR_TREE)) R[k] = core[k] = 0;
     R.core = core;
     return R;
   }
@@ -1163,6 +1231,7 @@
   // Rotors where the lawn opens up, pop-ups everywhere else. An open patch that can't hold
   // MIN_ROTORS rotors goes back to pop-ups (Zach, 2026-11-06).
   function layoutMixed(G, cap) {
+    useTrunks(G);
     const S = sampleGrid(G, 1);
     const cov = new Int32Array(S.n);
     const heads = [];
@@ -1232,7 +1301,11 @@
     const rotorsLeft = heads.length > 0;
     // the fringe where rotor ground meets narrow ground also goes to pop-ups where it's thin
     for (let k = 0; k < S.n; k++)
-      own[k] = !R[k] || cov[k] === 0 || !rotorsLeft || (cov[k] < 2 && (!R.core[k] || (R.curveStrip && R.curveStrip[k]))) ? 1 : 0;
+      own[k] =
+        !R[k] || cov[k] === 0 || !rotorsLeft ||
+        (cov[k] < 2 && (!R.core[k] || (R.curveStrip && R.curveStrip[k]) || (TRUNKS.length && nearTrunk(S.x[k], S.y[k], TREE_POPUPS))))
+          ? 1
+          : 0;
     const rc = Int32Array.from(cov);
     // Rotor ground counts as held by rotors unless a wide patch around the spot is thin on rotors
     // (a corner whose rotors were dropped). A thin sliver at the edge of a rotor's throw stays held,
@@ -1275,6 +1348,7 @@
 
   // Re-checks a layout from scratch at finer resolution than placement used.
   function verify(G, heads) {
+    useTrunks(G);
     let overspray = 0,
       worst = 0;
     const bad = [];
@@ -2487,5 +2561,8 @@
     arcPoints,
     orient,
     trenchFeet,
+    BIG_TRUNK_IN,
+    TREE_KEEP,
+    TREE_FENCE,
   };
 });

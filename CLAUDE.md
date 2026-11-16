@@ -127,6 +127,14 @@ swings 10x, so compare old and new engines back to back before calling anything 
   pick, option B, "sleek and simple"): only the drop, small and centered, the company's name
   centered under it, a thin line below; no intro sentence for contractors (homeowners keep theirs). The letters are holes in one even-odd path, not a mask: the masked version
   rendered blurry on his iPhone (WebKit draws masks at low resolution).
+- Trees (Zach 2026-11-15): a tree pin has a trunk size slider (2 to 48 in, new trees start at 12).
+  Under 6 in (`BIG_TRUNK_IN`) the layout ignores it. A bigger trunk: blocks spray (`shaded` in
+  `covers`, so a head can't water the ground behind it), the ground under the trunk needs no water,
+  no head within `TREE_KEEP` (4 ft, guess) of the trunk unless the tree is within 5 ft of a fence
+  (his number, worked out in `buildAreas`), no rotor within `ROTOR_TREE` (15 ft, guess) of it in any
+  direction ("pop ups only around trees"), and pop-ups may fill within `TREE_POPUPS` (15 ft, guess)
+  of it on rotor ground. Big trees show a dashed ring on the map. Tests: "Trees" in
+  `test/engine.test.js`, checked by tracing spray lines past the trunk independently.
 - Example yard: "Try an example yard" on the home screen builds a made-up yard with every
   feature, on a plain background (no satellite photo of a real place), and lays it out.
   When a feature is added, add it to `exampleJob()` in `js/app.js` too.
@@ -170,7 +178,9 @@ swings 10x, so compare old and new engines back to back before calling anything 
 ## Zach's list before he feels good about the app (2026-11-15)
 
 1. Trenching for homeowners: `trenchFeet` is a placeholder until he gives his rule.
-2. Rework tree mechanics: today a tree is only a pin on the map; the layout ignores it.
+2. Rework tree mechanics: built 2026-11-15 (see Trees under His rules). Open: his numbers for
+   TREE_KEEP, ROTOR_TREE and TREE_POPUPS, and whether a lone pop-up zone behind a mid-lawn tree is
+   worth it.
 3. Google ratings for the installer list, for when that list is switched on (`SHOW_INSTALLERS`).
 4. The website vs the app: how the website should differ from the iPhone app.
 

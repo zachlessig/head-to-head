@@ -429,7 +429,7 @@
       markers: [
         marker("meter", -8, -52),
         marker("valve", -4, 34),
-        marker("tree", 60, 70),
+        Object.assign(marker("tree", 60, 70), { trunk: 14 }),
       ],
       layout: null,
     };
@@ -803,15 +803,36 @@
           .flatMap((b) => E.splitByFences(shapeLocal(b, P), fences))
           .map((h) => E.offFence(h, fences))
           .filter((h) => pointInRing(E.pointInside(h), ring));
+        // big trees in this piece of lawn, and whether each sits within 5 ft of a fence
+        const trees = job.markers
+          .filter((m) => m.tag === "tree" && (m.trunk || 0) >= E.BIG_TRUNK_IN)
+          .map((m) => Object.assign(P.toXY(m), { trunk: m.trunk }))
+          .filter((t) => pointInRing(t, ring))
+          .map((t) =>
+            Object.assign(t, {
+              nearFence: fences.some((f) =>
+                f.some((a, i) => i > 0 && segDist(t, f[i - 1], a) < E.TREE_FENCE),
+              ),
+            }),
+          );
         areas.push({
           outer,
           holes: holes.concat(slit.holes),
+          trees,
           mode: s.mode || "auto",
           shapeId: s.id,
         });
       });
     });
     return areas;
+  }
+
+  function segDist(p, a, b) {
+    const dx = b.x - a.x,
+      dy = b.y - a.y,
+      L2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L2));
+    return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
   }
 
   // Finished fences as open lines in local feet.
@@ -848,6 +869,9 @@
       job.psi,
       capOf(job),
       job.popupsOnly,
+      job.markers
+        .filter((m) => m.tag === "tree" && (m.trunk || 0) >= E.BIG_TRUNK_IN)
+        .map((m) => [m.lat.toFixed(7), m.lng.toFixed(7), m.trunk]),
     ]);
   }
 
@@ -1015,6 +1039,7 @@
       selShape: null,
       selVertex: null,
       markerTag: "tree",
+      treeTrunk: 12, // inches across, for the next tree tapped onto the map
       selHead: null,
       selZone: null,
       moving: false,
@@ -1546,11 +1571,23 @@
         sheet(
           "<h2>" +
             t.name +
-            '</h2><div class="row"><button class="btn grow" id="mc">Keep</button><button class="btn danger grow" id="md">' +
+            "</h2>" +
+            (m.tag === "tree" ? trunkSlider(m.trunk || 0) : "") +
+            '<div class="row"><button class="btn grow" id="mc">Keep</button><button class="btn danger grow" id="md">' +
             icon("trash") +
             "Remove</button></div>",
           (el, close) => {
-            el.querySelector("#mc").onclick = close;
+            const was = m.trunk || 0;
+            wireTrunkSlider(el, (v) => {
+              m.trunk = v;
+            });
+            el.querySelector("#mc").onclick = () => {
+              if ((m.trunk || 0) !== was) {
+                touch(J.job);
+                redraw();
+              }
+              close();
+            };
             el.querySelector("#md").onclick = () => {
               pushUndo();
               J.job.markers = J.job.markers.filter((x) => x !== m);
@@ -1562,7 +1599,48 @@
         );
       });
       lay.addLayer(mk);
+      // a big tree shows its trunk and the ring heads stay out of
+      if (m.tag === "tree" && (m.trunk || 0) >= E.BIG_TRUNK_IN) {
+        const ftToM = 0.3048 / (J.job.scale || 1);
+        lay.addLayer(
+          L.circle([m.lat, m.lng], {
+            radius: (m.trunk / 24 + E.TREE_KEEP) * ftToM,
+            color: "#3d7a3a",
+            weight: 1.5,
+            dashArray: "4 4",
+            fill: false,
+            interactive: false,
+          }),
+        );
+      }
     });
+  }
+
+  // Trunk size for a tree (Zach 2026-11-15): under 6 in it's laid out like open lawn; 6 in and up
+  // blocks spray, keeps heads off it, and keeps rotors from blasting the bark
+  function trunkSlider(v) {
+    return (
+      '<label class="f" for="tk">Trunk across: <b id="tkv">' +
+      v +
+      ' in</b></label><input id="tk" type="range" min="2" max="48" step="1" value="' +
+      v +
+      '" style="width:100%;accent-color:var(--flag)"><p class="note" id="tkn" style="margin:4px 0 12px"></p>'
+    );
+  }
+  function wireTrunkSlider(el, onSet) {
+    const tk = el.querySelector("#tk");
+    if (!tk) return;
+    const show = () => {
+      const v = +tk.value;
+      el.querySelector("#tkv").textContent = v + " in";
+      el.querySelector("#tkn").textContent =
+        v < E.BIG_TRUNK_IN
+          ? "Small tree: laid out like open lawn."
+          : "Big tree: no heads right next to it unless it's within 5 ft of a fence, pop-ups only around it, and the spray it blocks gets covered from another side.";
+      onSet(v);
+    };
+    tk.oninput = show;
+    show();
   }
 
   /* ---------------- drawing tools ---------------- */
@@ -1652,12 +1730,12 @@
     if (J.mode !== "draw") return;
     if (J.tool === "marker") {
       pushUndo();
-      J.job.markers.push({
-        id: uid(),
-        tag: J.markerTag,
-        lat: ll.lat,
-        lng: ll.lng,
-      });
+      J.job.markers.push(
+        Object.assign(
+          { id: uid(), tag: J.markerTag, lat: ll.lat, lng: ll.lng },
+          J.markerTag === "tree" ? { trunk: J.treeTrunk } : {},
+        ),
+      );
       touch(J.job);
       renderMarkers();
       return;
@@ -2100,9 +2178,12 @@
               "</button>",
           )
           .join("") +
-        '</div><button class="btn" style="width:100%" id="done">' +
+        "</div>" +
+        (J.markerTag === "tree" ? trunkSlider(J.treeTrunk) : "") +
+        '<button class="btn" style="width:100%" id="done">' +
         icon("check") +
         "Done adding markers</button>";
+      wireTrunkSlider(el, (v) => (J.treeTrunk = v));
       el.querySelectorAll(".chip").forEach(
         (c) =>
           (c.onclick = () => {
