@@ -113,6 +113,15 @@ swings 10x, so compare old and new engines back to back before calling anything 
   Installers near them show with their Google rating; installers pay $49 a month on top of the
   subscription to be listed. That list stays off (`SHOW_INSTALLERS`) until lots of homeowners use
   the app (Zach 2026-11-15); only the test copy shows it, with a "Sample listing".
+- Website and iPhone app (Zach 2026-11-16): "keep full mapping on the website except the camera
+  feature. tell people that feature is available on the app though." The website is the front door
+  and the office: a front page for signed-out visitors (`landingPage`, with the sign-in form in
+  it), paying (Apple takes no cut there; the iPhone app only links to the website, `planBlock`),
+  mapping with a mouse (the map fills the left side and the panel sits on the right at 900 px and
+  wider), printing and crew invites. The iPhone app is for the yard: camera walk, plus everything
+  else. `NATIVE` in `js/app.js` tells them apart; inside the app, links that leave the phone use
+  `SITE_URL` (the app's own address is capacitor://localhost). The front page shows no reviews or
+  customer counts until real ones exist. `img/app-layout.jpg` is a capture of the example yard.
 - Pricing (Zach 2026-11-15): contractors pay about $35 a month. The first contractors on the app
   lock in $20 a month. Homeowners pay $10 once per yard. Nothing is charged yet.
 - Trench estimate: Zach is still working out how he wants trenching counted ("ill work out the
@@ -184,7 +193,7 @@ swings 10x, so compare old and new engines back to back before calling anything 
 2. Rework tree mechanics: built 2026-11-15 (see Trees under His rules). Open: TREE_POPUPS (15 ft)
    is still a guess.
 3. Google ratings for the installer list, for when that list is switched on (`SHOW_INSTALLERS`).
-4. The website vs the app: how the website should differ from the iPhone app.
+4. The website vs the app: decided and built 2026-11-16 (see Website and iPhone app under His rules).
 
 ## Shipping
 

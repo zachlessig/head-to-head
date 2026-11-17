@@ -133,7 +133,19 @@
   const locked = (job) => isHome() && !job.unlocked;
   // http only: the iPhone app also calls itself localhost, but over capacitor://, and must never
   // hand out free unlocks
-  const TEST_COPY = location.protocol === "http:" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  const TEST_COPY =
+    location.protocol === "http:" &&
+    /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  // Website vs iPhone app (Zach 2026-11-16): the website is the front door and the office (sign
+  // up, pay, map with a mouse, print); the app is for the yard (camera walk). Both share jobs.
+  const NATIVE = !!(
+    window.Capacitor &&
+    window.Capacitor.isNativePlatform &&
+    window.Capacitor.isNativePlatform()
+  );
+  // where people land from an invite or "manage your plan"; headtoheadapp.com once it points here
+  const SITE_URL = "https://zachlessig.github.io/head-to-head/";
+  const DEVICE = NATIVE ? "phone" : "device";
   function setHomeowner(on) {
     prefs.homeowner = !!on;
     savePrefs();
@@ -193,7 +205,8 @@
   });
   function route() {
     if (Cloud.enabled && !isHome() && !Cloud.session) return renderSignIn();
-    if (Cloud.enabled && !isHome() && !Cloud.company) return renderMakeCompany();
+    if (Cloud.enabled && !isHome() && !Cloud.company)
+      return renderMakeCompany();
     const m = location.hash.match(/^#\/job\/(\w+)/);
     teardownJob();
     if (m) {
@@ -205,12 +218,16 @@
 
   /* ---------------- home ---------------- */
   function renderHome() {
+    leaveLanding();
     const fid = currentFolder();
     const list = jobs
       .filter((j) => !fid || j.folderId === fid)
       .sort((a, b) => b.updated - a.updated);
     // fade in only when arriving at this screen, not when a sync redraws it
-    let h = '<main class="home' + (document.querySelector(".home") ? "" : " enter") + '">';
+    let h =
+      '<main class="home' +
+      (document.querySelector(".home") ? "" : " enter") +
+      '">';
     // header (Zach 2026-11-15, option B): just the drop, small and centered, with the company's name
     // centered under it and a thin line below
     h +=
@@ -258,7 +275,9 @@
     if (!list.length) {
       h +=
         '<div class="empty"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="6" y="14" width="52" height="38" rx="6" fill="#e3f0d6" stroke="#3d5a2c" stroke-width="2"/><g fill="none" stroke="#1f6b45" stroke-width="2"><path d="M6 52a14 14 0 0 1 14-14"/><path d="M58 52a14 14 0 0 0-14-14"/><path d="M6 14a14 14 0 0 0 14 14"/></g><circle cx="6" cy="52" r="3" fill="#1f6b45"/><circle cx="58" cy="52" r="3" fill="#1f6b45"/><circle cx="6" cy="14" r="3" fill="#1f6b45"/></svg><div><b>No jobs yet</b></div><div>' +
-        (isHome() ? "Find your house on the map and trace the lawn." : "Start one from the truck or standing in the yard.") +
+        (isHome()
+          ? "Find your house on the map and trace the lawn."
+          : "Start one from the truck or standing in the yard.") +
         "</div></div>";
     } else {
       list.forEach((j) => {
@@ -288,13 +307,17 @@
       (Cloud.enabled && Cloud.company
         ? "Jobs save online to " +
           esc(Cloud.company.name) +
-          " and on this phone, so they work with no signal."
-        : "Jobs save on this phone.") +
+          " and on this " +
+          DEVICE +
+          ", so they work with no signal."
+        : "Jobs save on this " + DEVICE + ".") +
       " Address search and satellite photos come from Mapbox.</p>";
     if (isHome())
-      h += '<button class="btn small ghost" style="width:100%" id="mode">Installer? Use the contractor version</button>';
+      h +=
+        '<button class="btn small ghost" style="width:100%" id="mode">Installer? Use the contractor version</button>';
     else if (!(Cloud.enabled && Cloud.company))
-      h += '<button class="btn small ghost" style="width:100%" id="mode">Homeowner? Map your own yard</button>';
+      h +=
+        '<button class="btn small ghost" style="width:100%" id="mode">Homeowner? Map your own yard</button>';
     h += "</main>";
     app.innerHTML = h;
     app.querySelector("#new").onclick = newJobSheet;
@@ -1079,19 +1102,19 @@
     // account on 2026-11-07 while this one served z21 imagery, so this is the one wired in.
     const satellite =
       job.example || grid
-      ? null
-      : L.tileLayer(
-          "https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/512/{z}/{x}/{y}?access_token=" +
-            MAPBOX_TOKEN,
-          {
-            tileSize: 512,
-            zoomOffset: -1,
-            maxZoom: 22,
-            maxNativeZoom: 22,
-            attribution:
-              '© <a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noopener">Mapbox</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> © Maxar <a href="https://www.mapbox.com/map-feedback/" target="_blank" rel="noopener"><b>Improve this map</b></a>',
-          },
-        );
+        ? null
+        : L.tileLayer(
+            "https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/512/{z}/{x}/{y}?access_token=" +
+              MAPBOX_TOKEN,
+            {
+              tileSize: 512,
+              zoomOffset: -1,
+              maxZoom: 22,
+              maxNativeZoom: 22,
+              attribution:
+                '© <a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noopener">Mapbox</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> © Maxar <a href="https://www.mapbox.com/map-feedback/" target="_blank" rel="noopener"><b>Improve this map</b></a>',
+            },
+          );
     if (satellite) satellite.addTo(map);
     // if Mapbox refuses (token, quota, outage), fall back to Esri photos so the job still opens
     let tileFails = 0,
@@ -2335,7 +2358,11 @@
   // (CameraWalk.swift) follows the phone. In a browser the tab says it's in the app.
   function cameraWalk() {
     const C = window.Capacitor;
-    return C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.CameraWalk
+    return C &&
+      C.isNativePlatform &&
+      C.isNativePlatform() &&
+      C.Plugins &&
+      C.Plugins.CameraWalk
       ? C.Plugins.CameraWalk
       : null;
   }
@@ -2343,9 +2370,18 @@
   function panelWalk(el) {
     const cam = cameraWalk();
     if (!cam) {
+      // Zach 2026-11-16: everything maps on the website except the camera, and the website says
+      // where to get it
       el.innerHTML =
-        '<p class="hint"><b>Walking the edge works in the iPhone app.</b></p>' +
-        '<p class="hint">It uses the phone\'s camera to follow you as you walk. Here, draw the lawn in Draw.</p>';
+        '<div class="appnote">' +
+        icon("walk") +
+        "<div><b>Walk the yard with your iPhone's camera</b>" +
+        "<span>In the Head to Head iPhone app, you walk the edge of the lawn and the camera measures it as you go. Coming soon to the App Store.</span></div></div>" +
+        '<p class="hint">Everything else works here. Trace the lawn on the Draw tab' +
+        (Cloud.enabled && Cloud.company
+          ? ", and jobs you start here show up in the app."
+          : ".") +
+        "</p>";
       return;
     }
     const what = J.walkWhat || "lawn";
@@ -2386,7 +2422,9 @@
         res = await cam.start({ what });
       } catch (e) {
         console.warn("Camera walk failed", e);
-        return toast("The camera walk didn't start. " + ((e && e.message) || ""));
+        return toast(
+          "The camera walk didn't start. " + ((e && e.message) || ""),
+        );
       }
       if (!J || !res || res.cancelled || !res.points) return;
       placeWalk(res.points, what);
@@ -2446,7 +2484,10 @@
       (straight === 1 ? "" : "s") +
       (curves ? " and " + curves + " curve" + (curves === 1 ? "" : "s") : "");
     if (selfCrosses(densify(shapeLocal(shape, P), true)))
-      toast(name + " saved, but two edges cross. Drag a corner so it doesn't fold over itself.");
+      toast(
+        name +
+          " saved, but two edges cross. Drag a corner so it doesn't fold over itself.",
+      );
     else toast(name + " saved: " + parts + ". Drag any dot to fix it up.");
   }
 
@@ -2717,7 +2758,9 @@
       t.ft +
       " ft</dd></dl>" +
       '<p class="note">A rough number for digging it yourself: the pipe between the heads, back to the valve box' +
-      (t.hasBox ? "" : " (add a Meter and a Valve box on the Draw tab to count those runs)") +
+      (t.hasBox
+        ? ""
+        : " (add a Meter and a Valve box on the Draw tab to count those runs)") +
       ", plus some extra for going around things. Drip in the beds lies on top, so it isn't counted.</p>"
     );
   }
@@ -2728,7 +2771,9 @@
     const drip = dripFor(job);
     let h = stale
       ? '<div class="badge warn">The yard changed since this layout. Generate again.</div>'
-      : '<div class="badge ok">' + icon("check") + "Your layout is ready.</div>";
+      : '<div class="badge ok">' +
+        icon("check") +
+        "Your layout is ready.</div>";
     h +=
       '<dl class="kv"><dt>Sprinkler heads</dt><dd>' +
       L0.heads.length +
@@ -2780,14 +2825,16 @@
   const SHOW_INSTALLERS = false;
   function installersCard() {
     if (!SHOW_INSTALLERS && !TEST_COPY) return "";
-    let h =
-      '<div class="installers"><b>Rather have a pro put it in?</b>';
+    let h = '<div class="installers"><b>Rather have a pro put it in?</b>';
     if (TEST_COPY)
       h +=
         '<div class="inst"><div class="grow"><b>Sample Sprinkler Co.</b><span>Sample listing · Layton, UT</span></div>' +
         '<div class="stars">★ 4.8<span>Google rating</span></div></div>';
     else h += '<p class="note">Installers in your area show up here soon.</p>';
-    return h + '<p class="note">Installer? Get listed here from the contractor version.</p></div>';
+    return (
+      h +
+      '<p class="note">Installer? Get listed here from the contractor version.</p></div>'
+    );
   }
 
   /* ---------------- settings ---------------- */
@@ -3504,16 +3551,108 @@
     return '<div class="brand"><img class="mark" src="icons/logo.svg" alt=""><h1>Head to Head</h1></div>';
   }
 
+  // The website's front page (Zach 2026-11-16). Says what it does for whom in the first line, shows
+  // the real app (img/app-layout.jpg is a capture of "Try an example yard"), puts the price on the
+  // page, and has one form. No reviews or customer counts: there aren't any yet, so none are shown.
+  function landingPage() {
+    const step = (n, t, d) =>
+      '<li><span class="l-n">' +
+      n +
+      "</span><b>" +
+      t +
+      "</b><span>" +
+      d +
+      "</span></li>";
+    return (
+      '<main class="landing">' +
+      '<header class="l-top"><img src="icons/logo.svg" alt=""><b>Head to Head</b>' +
+      '<a href="#signin" class="btn small ghost" id="l-in">Sign in</a></header>' +
+      '<section class="l-hero"><div class="l-copy">' +
+      "<h1>Draw the yard. Get the sprinkler layout.</h1>" +
+      '<p class="l-sub">Trace a lawn on the satellite photo. Head to Head places every head, splits the zones to fit your water, and writes the parts list for the supply counter.</p>' +
+      '<div class="l-card" id="signin"></div>' +
+      '</div><figure class="l-shot"><img src="img/app-layout.jpg" width="508" height="1100" alt="A laid-out yard in Head to Head: sprinkler heads, spray patterns and zones on a lawn, with a list of zones and their GPM"></figure></section>' +
+      '<section class="l-sec"><h2>How it works</h2><ol class="l-steps">' +
+      step(
+        1,
+        "Trace it",
+        "On the satellite photo, on grid paper, or by walking it with your iPhone's camera.",
+      ) +
+      step(
+        2,
+        "Lay it out",
+        "Heads and nozzles placed head to head, with zero overspray on straight edges and zones sized to your GPM and pressure.",
+      ) +
+      step(
+        3,
+        "Print and buy",
+        "A plan for the customer, a plan for the crew, and a parts list ready for the counter.",
+      ) +
+      "</ol></section>" +
+      '<section class="l-sec l-app">' +
+      icon("walk") +
+      "<div><h2>Walk the yard with your camera</h2>" +
+      "<p>The iPhone app measures the lawn as you walk its edge, no tape needed. Coming soon to the App Store. Everything else works right here in your browser, and your company's jobs show up in both.</p></div></section>" +
+      '<section class="l-sec"><h2>Pricing</h2><div class="l-prices">' +
+      '<div class="l-price"><b>Contractors</b><div class="l-amt">$35<span>/month</span></div>' +
+      "<p>The first contractors on Head to Head lock in <b>$20 a month</b>.</p>" +
+      "<p>Jobs save online and your whole crew can open them.</p>" +
+      '<a href="#signin" class="btn primary" id="l-co">Start my company</a></div>' +
+      '<div class="l-price"><b>Homeowners</b><div class="l-amt">$10<span> once per yard</span></div>' +
+      "<p>Map your yard for free and see how many heads and zones it needs.</p>" +
+      "<p>Pay once to see every head and get the parts list.</p>" +
+      '<button class="btn" id="l-ho">Map my yard</button></div>' +
+      "</div>" +
+      '<p class="note">Payments open soon. Nothing is charged yet.</p></section>' +
+      '<footer class="l-foot">Built by a landscaper who ran a sprinkler supply counter. © ' +
+      new Date().getFullYear() +
+      " Head to Head</footer>" +
+      "</main>"
+    );
+  }
+
+  // the front page is long; the next screen would otherwise open at the old scroll spot (a phone
+  // that tapped "Map my yard" down in Pricing landed on the home screen's footer)
+  function leaveLanding() {
+    if (app.querySelector(".landing")) window.scrollTo(0, 0);
+  }
+
+  function wireLanding() {
+    const toForm = (e) => {
+      e.preventDefault();
+      const box = app.querySelector("#signin");
+      box.scrollIntoView({
+        behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "auto"
+          : "smooth",
+        block: "center",
+      });
+      const em = box.querySelector("#em");
+      if (em) em.focus({ preventScroll: true });
+    };
+    app.querySelector("#l-in").onclick = toForm;
+    app.querySelector("#l-co").onclick = toForm;
+    app.querySelector("#l-ho").onclick = () => setHomeowner(true);
+  }
+
   function renderSignIn() {
     teardownJob();
     const providers = (window.H2H_CLOUD && window.H2H_CLOUD.providers) || [];
     let email = "";
-    const draw = (step, msg) => {
-      app.innerHTML =
-        '<main class="home">' +
-        brandBlock() +
+    // On the website, someone who isn't signed in sees the front page with the sign-in form in it.
+    // The iPhone app keeps the plain sign-in: anyone opening it already knows what it is.
+    if (!NATIVE) {
+      app.innerHTML = landingPage();
+      wireLanding();
+    }
+    const draw = (step, msg, focusBox) => {
+      const box = NATIVE ? app : app.querySelector("#signin");
+      box.innerHTML =
+        (NATIVE ? '<main class="home">' + brandBlock() : "") +
         (step === "email"
-          ? '<p class="lede">Sign in to save jobs online and share them with your crew. You stay signed in until you sign out.</p>' +
+          ? (NATIVE
+              ? '<p class="lede">Sign in to save jobs online and share them with your crew. You stay signed in until you sign out.</p>'
+              : '<h2 class="l-form-h">Contractors, start here</h2><p class="note">Enter your email and we\'ll send a 6-digit code. New here? The same code sets up your company.</p>') +
             providers
               .map(
                 (p) =>
@@ -3542,7 +3681,7 @@
             esc(msg) +
             "</p>"
           : "") +
-        "</main>";
+        (NATIVE ? "</main>" : "");
       const md = app.querySelector("#mode");
       if (md) md.onclick = () => setHomeowner(true);
       app.querySelectorAll("[data-p]").forEach(
@@ -3556,7 +3695,8 @@
       const go = app.querySelector("#go");
       if (go) {
         const em = app.querySelector("#em");
-        em.focus();
+        // on the front page, jumping to the box on load would pop the keyboard over the page
+        if (NATIVE || msg || focusBox) em.focus();
         const send = async () => {
           email = em.value.trim();
           if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
@@ -3574,13 +3714,18 @@
             const wait = msg.match(/after (\d+) seconds/);
             draw(
               "email",
-              (e && e.status === 429) || /rate limit|security purposes/i.test(msg)
+              (e && e.status === 429) ||
+                /rate limit|security purposes/i.test(msg)
                 ? wait
-                  ? "A code was just sent. Check your email, or wait " + wait[1] + " seconds and ask again."
+                  ? "A code was just sent. Check your email, or wait " +
+                    wait[1] +
+                    " seconds and ask again."
                   : "Too many codes asked for this hour. Use the last code we sent, or try again later."
                 : !navigator.onLine
                   ? "No signal. Try again when you have service."
-                  : "Couldn't send the code (" + (msg || "no answer from the server") + "). Try again in a minute.",
+                  : "Couldn't send the code (" +
+                    (msg || "no answer from the server") +
+                    "). Try again in a minute.",
             );
           }
         };
@@ -3611,7 +3756,7 @@
         cd.addEventListener("keydown", (e) => {
           if (e.key === "Enter") verify();
         });
-        app.querySelector("#back").onclick = () => draw("email");
+        app.querySelector("#back").onclick = () => draw("email", "", true);
       }
     };
     draw("email");
@@ -3687,6 +3832,7 @@
   }
 
   function renderMakeCompany() {
+    leaveLanding();
     teardownJob();
     app.innerHTML =
       '<main class="home">' +
@@ -3937,6 +4083,31 @@
     }
   }
 
+  // Plan and billing (Zach 2026-11-16): paying happens on the website, where Apple takes no cut.
+  // The iPhone app only says where to go. Payments aren't hooked up, so nothing here charges.
+  const PLAN_PRICE = "$35 a month";
+  const FOUNDING_PRICE = "$20 a month";
+  function planBlock(owner) {
+    let h = '<label class="f" style="margin-top:14px">Plan</label><div class="plan">';
+    if (NATIVE)
+      h +=
+        "<p>Your plan is handled on the Head to Head website.</p>" +
+        '<a class="btn small" href="' +
+        SITE_URL +
+        '" target="_blank" rel="noopener">Open the website</a>';
+    else
+      h +=
+        "<p><b>Founding contractor</b>: " +
+        FOUNDING_PRICE +
+        " locked in (" +
+        PLAN_PRICE +
+        " after the first contractors).</p>" +
+        '<p class="note">Payments open soon. Nothing is charged yet' +
+        (owner ? ", and you'll pick how to pay right here." : ".") +
+        "</p>";
+    return h + "</div>";
+  }
+
   async function companySheet() {
     const c = Cloud.company;
     const owner = c.role === "owner";
@@ -3948,7 +4119,8 @@
     } catch (e) {
       console.warn("Company not loaded", e);
     }
-    const link = location.origin + location.pathname;
+    // inside the iPhone app location is capacitor://localhost, which nobody else can open
+    const link = NATIVE ? SITE_URL : location.origin + location.pathname;
     sheet(
       "<h2>" +
         esc(c.name) +
@@ -4020,7 +4192,10 @@
               .join("") +
             "</select>"
           : "") +
-        '<p class="note" style="margin-top:12px">On iPhone, add this app to your home screen (Share, then Add to Home Screen) so Safari doesn\'t sign you out after a week away.</p>' +
+        planBlock(owner) +
+        (NATIVE
+          ? ""
+          : '<p class="note" style="margin-top:12px">On iPhone, add this app to your home screen (Share, then Add to Home Screen) so Safari doesn\'t sign you out after a week away.</p>') +
         (owner
           ? ""
           : '<button class="btn danger" style="width:100%;margin-bottom:8px" id="lv">Leave ' +

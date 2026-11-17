@@ -865,3 +865,95 @@ table.parts td.q {
   display: block;
   font-weight: 500;
 }
+
+/* Computer screens (website, 2026-11-16): the map takes the whole left side and the panel and tabs
+   sit in a column on the right, so tracing with a mouse gets the room. Sheets open in the middle. */
+@media (min-width: 900px) {
+  .jobview {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas: "top top" "map panel" "map tabs";
+  }
+  .topbar { grid-area: top; }
+  #map { grid-area: map; }
+  .panel {
+    grid-area: panel;
+    max-height: none;
+    margin-top: 0;
+    border-radius: 0;
+    box-shadow: -1px 0 0 var(--line);
+    padding: 16px 18px;
+  }
+  .tabs {
+    grid-area: tabs;
+    box-shadow: -1px 0 0 var(--line);
+    padding: 8px 10px 10px;
+  }
+  .tab { min-height: 52px; }
+  .scrim { align-items: center; padding: 24px; }
+  .sheet { border-radius: 22px; max-height: 84vh; padding: 22px 22px 20px; }
+  @keyframes sheetIn { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover { filter: brightness(0.97); }
+  .tab:hover { color: var(--ink); }
+  .job:hover { transform: translateY(-1px); }
+}
+
+/* Website front page (2026-11-16). Same cream and green as the app; the real app shot is the
+   picture, so nothing decorative competes with it. */
+.landing { max-width: 1080px; margin: 0 auto; padding: calc(10px + var(--safe-t)) 16px 40px; }
+.l-top { display: flex; align-items: center; gap: 10px; padding: 6px 0 18px; }
+.l-top img { width: 34px; height: auto; }
+.l-top b { flex: 1; font-family: Fraunces, Georgia, serif; font-size: 20px; }
+.l-top a { text-decoration: none; color: var(--flag); }
+.l-hero { display: grid; gap: 28px; align-items: center; }
+.l-hero h1 { font-family: Fraunces, Georgia, serif; font-size: clamp(34px, 6vw, 54px); line-height: 1.05; letter-spacing: -0.01em; margin: 6px 0 14px; text-wrap: balance; }
+.l-sub { font-size: 18px; color: var(--muted); margin: 0 0 22px; max-width: 34em; }
+.l-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--soft); padding: 18px; max-width: 440px; }
+.l-form-h { font-size: 18px; margin: 0 0 4px; }
+.l-card .note { margin-top: 0; }
+.l-card .lede { margin: 0 0 12px; color: var(--muted); }
+.l-card .lede b { color: var(--ink); }
+.l-shot { margin: 0; justify-self: center; }
+.l-shot img { display: block; width: min(300px, 78vw); height: auto; border-radius: 34px; border: 8px solid #143020; box-shadow: 0 24px 60px rgba(20, 48, 32, 0.22); }
+.l-sec { margin-top: 56px; }
+.l-sec h2 { font-family: Fraunces, Georgia, serif; font-size: 28px; margin: 0 0 16px; }
+.l-steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+.l-steps li { background: var(--card); border-radius: 16px; box-shadow: var(--soft); padding: 16px; display: grid; grid-template-columns: auto 1fr; column-gap: 12px; align-content: start; }
+.l-steps li span:last-child { grid-column: 2; color: var(--muted); }
+.l-n { grid-row: span 2; width: 30px; height: 30px; border-radius: 50%; background: var(--flag-soft); color: var(--flag); font-weight: 800; display: grid; place-items: center; }
+.l-app { display: flex; gap: 16px; align-items: flex-start; background: var(--flag-soft); border-radius: var(--radius); padding: 20px; }
+.l-app svg.i { width: 34px; height: 34px; color: var(--flag); margin-top: 2px; }
+.l-app h2 { font-size: 22px; margin-bottom: 6px; }
+.l-app p { margin: 0; color: var(--ink); }
+.l-prices { display: grid; gap: 14px; }
+.l-price { background: var(--card); border-radius: var(--radius); box-shadow: var(--soft); padding: 20px; display: flex; flex-direction: column; }
+.l-price p { margin: 0 0 8px; color: var(--muted); }
+.l-price p b { color: var(--ink); }
+.l-price .btn { margin-top: auto; text-decoration: none; }
+.l-amt { font-family: Fraunces, Georgia, serif; font-size: 40px; font-weight: 700; margin: 4px 0 10px; }
+.l-amt span { font-family: "DM Sans", sans-serif; font-size: 16px; font-weight: 500; color: var(--muted); }
+.l-foot { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+@media (min-width: 820px) {
+  .landing { padding: 18px 32px 56px; }
+  .l-hero { grid-template-columns: 1.15fr 0.85fr; gap: 48px; }
+  .l-shot img { width: 320px; }
+  .l-steps { grid-template-columns: repeat(3, 1fr); }
+  .l-steps li { grid-template-columns: 1fr; row-gap: 6px; }
+  .l-steps li span:last-child { grid-column: 1; }
+  .l-n { grid-row: auto; }
+  .l-prices { grid-template-columns: 1fr 1fr; max-width: 760px; }
+}
+
+/* Walk tab on the website: where to get the camera walk */
+.appnote { display: flex; gap: 12px; align-items: flex-start; background: var(--flag-soft); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+.appnote svg.i { width: 26px; height: 26px; color: var(--flag); }
+.appnote b { display: block; margin-bottom: 4px; }
+.appnote span { color: var(--ink); font-size: 15px; }
+
+/* company sheet: plan */
+.plan { background: var(--card); border-radius: 14px; box-shadow: var(--soft); padding: 12px 14px; }
+.plan p { margin: 0 0 6px; }
+.plan .btn { text-decoration: none; }
