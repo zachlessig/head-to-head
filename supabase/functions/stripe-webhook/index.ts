@@ -110,7 +110,11 @@ Deno.serve(async (req) => {
       // a company deleted with its account: nothing to record, and a 500 would make Stripe retry
       const co = await fetch(SUPABASE_URL + "/rest/v1/companies?select=id&id=eq." + companyId, {
         headers: { apikey: SERVICE_KEY, Authorization: "Bearer " + SERVICE_KEY },
-      }).then((r) => r.json());
+      }).then(async (r) => {
+        // a failed lookup throws, so Stripe retries; only a real empty answer means "gone"
+        if (!r.ok) throw new Error("company lookup " + r.status);
+        return r.json();
+      });
       if (!Array.isArray(co) || !co.length) return new Response("company gone", { status: 200 });
       // a second subscription that ended doesn't overwrite the one that's still running
       const cur = await currentBilling(companyId);
