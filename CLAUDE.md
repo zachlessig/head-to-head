@@ -216,12 +216,16 @@ swings 10x, so compare old and new engines back to back before calling anything 
     and '<size> lateral pipe' by roll (Zach 2026-11-17): mainline in 100 and 300 ft rolls with no
     extra ("keep that pretty close"); lateral in 100 and 400 ft rolls plus 100 ft up to 1300 ft, 200
     ft over that, 400 ft over 3000 (`lateralExtra`); `rollMix` picks the least pipe left over, then
-    the fewest rolls. Laterals may split ("lateral lines can split too"), and spigot pipe is the
-    mainline's size, counted in with it (Zach 2026-11-17).
+    the fewest rolls. Laterals may split ("lateral lines can split too"), and spigot pipe is 1"
+    mainline, counted in with it (Zach 2026-11-17).
   - Sizes (2026-11-10): the new job screen asks for the supply line from the street (3/4" or 1",
     required). Job settings has a lateral line size (3/4" or 1", past the valves),
     starting at the supply size. Saddles, couplings, tees, elbows and LD clamps carry the lateral
-    size; mainline pinch clamps the supply size; swing elbows and swing adapters no size. A 3/4"
+    size; mainline pipe and mainline pinch clamps are 1" on every yard (Zach 2026-11-17: "the mainline
+    from the meter to each of the boxes and spigot should be 1 inch on every yard"); swing elbows and
+    swing adapters no size. The lateral starts at the supply size and can be switched on the parts
+    list too ("Lateral line" 3/4" or 1"); picking 1" is remembered for the company's new jobs
+    (`prefs.lateral`), since "some landscapers only use 1 inch everywhere". A 3/4"
     lateral on a bigger supply shows a warning and caps zones at 12 GPM, as if the supply were 3/4".
   - Water: every job is culinary or secondary, picked on the new job screen. Culinary gets "Backflow setup"
     and secondary "Filter setup" (brands vary too much to list), each with a stainless steel ball

@@ -821,8 +821,10 @@
 
   // Lateral line (past the valves): 3/4" or 1", starting at the supply size. Zach 2026-11-10: a
   // 3/4" lateral on a 1" supply cuts pressure, so the job is designed as if the supply were 3/4".
+  // Zach 2026-11-17: the lateral matches the supply from the street, but "some landscapers only use
+  // 1 inch everywhere for simplicity sake", so a company that picks 1" gets it on every new job.
   function lateralOf(job) {
-    return job.lateral || (job.line === "34" ? "34" : "1");
+    return job.lateral || (prefs.lateral === "1" ? "1" : job.line === "34" ? "34" : "1");
   }
   function capOf(job) {
     const supply =
@@ -840,8 +842,10 @@
   function boxSize(job) {
     return job.boxSize || prefs.boxSize || "standard";
   }
+  // mainline (meter to the valve boxes, spigots, its pinch clamps) is 1" on every yard (Zach
+  // 2026-11-17); the supply size only sets the lateral's default and the GPM cap
   function pipeSizes(job) {
-    return { lateral: sizeName(lateralOf(job)), main: sizeName(job.line), box: boxSize(job) };
+    return { lateral: sizeName(lateralOf(job)), main: sizeName("1"), box: boxSize(job) };
   }
 
   function proj(job) {
@@ -3595,6 +3599,14 @@
               : "This is your edited list. The layout changed after you edited it, so it may be out of date. Reset to get the app's new list.") +
             "</div>";
         body +=
+          '<label class="f">Lateral line</label><div class="seg" id="vlat" style="margin-bottom:12px">' +
+          ["34", "1"]
+            .map(
+              (k) =>
+                '<button data-lt="' + k + '" aria-pressed="' + (lateralOf(job) === k) + '">' + sizeName(k) + "</button>",
+            )
+            .join("") +
+          "</div>" +
           '<label class="f">Valve boxes</label><div class="seg" id="vbox" style="margin-bottom:12px">' +
           ["standard", "jumbo"]
             .map(
@@ -3643,6 +3655,17 @@
         '<div class="body">' +
         body +
         "</div>";
+      ov.querySelectorAll("[data-lt]").forEach(
+        (b) =>
+          (b.onclick = () => {
+            job.lateral = b.dataset.lt;
+            // 1" is remembered for the company's next jobs; 3/4" stays this job's
+            prefs.lateral = b.dataset.lt === "1" ? "1" : null;
+            savePrefs();
+            touch(job);
+            render();
+          }),
+      );
       ov.querySelectorAll("[data-vb]").forEach(
         (b) =>
           (b.onclick = () => {
