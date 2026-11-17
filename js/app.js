@@ -1659,7 +1659,13 @@
 
   // Trunk size for a tree (Zach 2026-11-15): under 6 in it's laid out like open lawn; 6 in and up
   // blocks spray, keeps heads off it, and keeps rotors from blasting the bark
+  // a whole number of inches, 0 to 48 (the slider's top); anything else, like a bad synced or
+  // stored value, becomes a number. 0 is an old tree pin with no size, which the layout ignores.
+  function trunkIn(v) {
+    return Math.max(0, Math.min(48, Math.round(+v) || 0));
+  }
   function trunkSlider(v) {
+    v = trunkIn(v);
     return (
       '<label class="f" for="tk">Trunk across: <b id="tkv">' +
       v +
@@ -4051,6 +4057,11 @@
           tag: m.tag,
           lat: num(m.lat, 0),
           lng: num(m.lng, 0),
+          // trees keep their trunk size across phones (it was dropped here, so a synced tree
+          // lost its size); clamped to the slider's own range
+          ...(m.tag === "tree" && m.trunk != null
+            ? { trunk: trunkIn(m.trunk) }
+            : {}),
         })),
       layout: null,
     };
