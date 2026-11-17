@@ -3210,6 +3210,10 @@
     return {
       fences: fenceLines(job, P),
       copy,
+      // Zach 2026-11-17: a homeowner's plan says "Homeowner plan" and carries no company name, and a
+      // contractor's carries theirs, so the $10 homeowner side is no use for handing plans to customers
+      homeowner: isHome(),
+      company: !isHome() && Cloud.enabled && Cloud.company ? Cloud.company.name : "",
       title: job.name,
       address: job.address,
       date: new Date().toLocaleDateString(),

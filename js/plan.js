@@ -77,11 +77,37 @@
     ctx.fillStyle = "#5f6964";
     ctx.fillText([d.address, d.date].filter(Boolean).join("   "), 48, 108);
     ctx.textAlign = "right";
-    ctx.fillText(
-      d.copy === "contractor" ? "Contractor copy" : "Sprinkler plan",
-      W - 48,
-      70,
-    );
+    if (d.homeowner) {
+      // a homeowner's plan is marked as one, top and bottom, with no company name anywhere
+      ctx.font = "800 30px Inter, sans-serif";
+      ctx.fillStyle = "#1d6e47";
+      ctx.fillText("Homeowner plan", W - 48, 70);
+      ctx.font = "500 20px Inter, sans-serif";
+      ctx.fillStyle = "#5f6964";
+      ctx.textAlign = "center";
+      ctx.fillText(
+        "Homeowner plan" + (d.address ? " for " + d.address : "") + ". Made with Head to Head.",
+        W / 2,
+        H - 16,
+      );
+    } else {
+      // the contractor's company name goes on both copies; long names shrink to fit beside the title
+      const label = d.company || "Sprinkler plan";
+      let size = 30;
+      ctx.font = "800 " + size + "px Inter, sans-serif";
+      while (size > 18 && ctx.measureText(label).width > 440) {
+        size -= 2;
+        ctx.font = "800 " + size + "px Inter, sans-serif";
+      }
+      ctx.fillStyle = d.company ? "#1d6e47" : "#5f6964";
+      ctx.fillText(label, W - 48, 70);
+      if (d.copy === "contractor") {
+        ctx.font = "600 20px Inter, sans-serif";
+        ctx.fillStyle = "#5f6964";
+        ctx.fillText("Contractor copy", W - 48, 40);
+      }
+    }
+    ctx.fillStyle = "#5f6964";
     // symbol legend, top right
     ctx.font = "600 19px Inter, sans-serif";
     kinds.forEach((t, i) => {
