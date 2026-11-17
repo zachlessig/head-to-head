@@ -830,11 +830,13 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(vans.every((h) => Math.cos((h.dir * Math.PI) / 180) > 0.9), true, "fence sliver: 4VANs aimed away from the fence");
 }
 
-// Sod (Zach 2026-11-17): pallets of 500 sq ft after adding 10% for cuts and edges.
+// Sod (Zach 2026-11-17): pallets of 500 sq ft after adding 10% for cuts and edges, rounded up to the
+// half pallet.
 {
-  eq(E.sodPallets(1000).pallets, 3, "sod: 1000 sq ft + 10% = 1100, three pallets");
+  eq(E.sodPallets(1000).pallets, 2.5, "sod: 1000 sq ft + 10% = 1100, two and a half pallets");
   eq(E.sodPallets(4545).pallets, 10, "sod: 4545 sq ft + 10% = 4999.5, ten pallets");
-  eq(E.sodPallets(4546).pallets, 11, "sod: 4546 sq ft + 10% = 5000.6, eleven pallets");
+  eq(E.sodPallets(4546).pallets, 10.5, "sod: 4546 sq ft + 10% = 5000.6, ten and a half pallets");
+  eq(E.sodPallets(9604).pallets, 21.5, "sod: the example yard's 9604 sq ft + 10% = 10564, 21.5 pallets");
   eq(E.sodPallets(0).pallets, 0, "sod: no lawn, no pallets");
 }
 

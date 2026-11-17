@@ -2062,7 +2062,8 @@
   const SOD_EXTRA = 0.1;
   function sodPallets(sqft) {
     const withExtra = sqft * (1 + SOD_EXTRA);
-    return { sqft, withExtra, pallets: sqft > 0 ? Math.ceil(withExtra / SOD_PALLET_SQFT - 1e-9) : 0 };
+    // rounded up to the half pallet (Zach 2026-11-17: "round it to the half pallet")
+    return { sqft, withExtra, pallets: sqft > 0 ? Math.ceil((2 * withExtra) / SOD_PALLET_SQFT - 1e-9) / 2 : 0 };
   }
   const PIPE_ROLLS = { mainline: [100, 300], lateral: [100, 400] };
   function lateralExtra(ft) {

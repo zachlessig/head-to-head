@@ -213,7 +213,7 @@ swings 10x, so compare old and new engines back to back before calling anything 
   line to the tip for its tab.
 - Sod calculator (Zach 2026-11-17, Measure tab, `sodBlock` and `sodPallets`): the lawn's total
   square feet (beds inside lawns taken out), and pallets of 500 sq ft after adding 10% for edges
-  and cuts, with a note saying so.
+  and cuts, rounded up to the half pallet, with a note saying so.
 - Example yard: "Try an example yard" on the home screen builds a made-up yard with every
   feature, on a plain background (no satellite photo of a real place), and lays it out.
   When a feature is added, add it to `exampleJob()` in `js/app.js` too.
