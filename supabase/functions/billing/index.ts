@@ -197,6 +197,8 @@ Deno.serve(async (req) => {
         });
         bill = { stripe_customer_id: c.id };
       }
+      if (bill.pending_checkout)
+        await stripe("checkout/sessions/" + bill.pending_checkout + "/expire", {}).catch(() => null);
       const s = await stripe("checkout/sessions", {
         mode: "subscription",
         customer: bill.stripe_customer_id,
@@ -213,6 +215,10 @@ Deno.serve(async (req) => {
         metadata: { company_id: companyId },
         success_url: backTo(origin, "?billing=done"),
         cancel_url: backTo(origin, "?billing=cancel"),
+      });
+      await db("billing?company_id=eq." + companyId, {
+        method: "PATCH",
+        body: JSON.stringify({ pending_checkout: s.id }),
       });
       return reply({ url: s.url });
     }
@@ -244,9 +250,8 @@ Deno.serve(async (req) => {
         const rows = await db("billing?select=subscription_id,status&company_id=eq." + c.id);
         const bill = Array.isArray(rows) && rows[0] ? rows[0] : null;
         if (bill && bill.subscription_id && bill.status !== "canceled")
-          await stripe("subscriptions/" + bill.subscription_id, undefined, "DELETE").catch((e) =>
-            console.error("cancel on delete", e)
-          );
+          // if the plan can't be stopped, don't delete: they'd keep paying with no account left
+          await stripe("subscriptions/" + bill.subscription_id, undefined, "DELETE");
         await db("companies?id=eq." + c.id, { method: "DELETE" });
       }
       await db("members?user_id=eq." + user.id, { method: "DELETE" });
@@ -261,6 +266,13 @@ Deno.serve(async (req) => {
     if (input.action === "unlock") {
       const jobId = String(input.job_id || "");
       if (!JOB_ID.test(jobId)) return reply({ error: "Bad job" }, 400);
+      // the price follows who's asking, not what the page says: anyone signed into a company pays
+      // the contractor price (review 2026-11-17: the page could ask for the $10 one)
+      const asker = await whoIs(req);
+      const inCompany = asker
+        ? ((await db("members?select=company_id&user_id=eq." + asker.id + "&limit=1")) || []).length > 0
+        : false;
+      input.kind = inCompany ? "contractor" : "homeowner";
       const s = await stripe("checkout/sessions", {
         mode: "payment",
         line_items: {

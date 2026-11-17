@@ -2028,7 +2028,9 @@
           })),
           sig: signature(J.job),
         };
-        if (contractor() && planActive === true) markPaid(J.job);
+        // laid out on the plan (or before payments started, or offline with the plan unknown):
+        // stays open after a cancel
+        if (contractor() && planActive !== false) markPaid(J.job);
         applyCheck(
           J.job,
           out.totals,
@@ -4236,6 +4238,17 @@
       id: String(j.id),
       name: str(j.name) || "Untitled yard",
       address: str(j.address),
+      // a paid yard stays paid on every phone in the company (review 2026-11-17: dropping these
+      // here locked paid yards again after a sync)
+      unlocked: j.unlocked === true,
+      paidAt:
+        j.paidAt && typeof j.paidAt === "object"
+          ? {
+              lat: num(j.paidAt.lat, 0),
+              lng: num(j.paidAt.lng, 0),
+              area: Math.max(0, num(j.paidAt.area, 0)),
+            }
+          : null,
       created: num(j.created, Date.now()),
       updated: num(j.updated, Date.now()),
       origin: {
@@ -4797,13 +4810,15 @@
           };
         // Delete account (Zach 2026-11-17; Apple requires it in the app too)
         el.querySelector("#da").onclick = async () => {
-          const what = owner
+          const mine = Cloud.companies.filter((x) => x.role === "owner").map((x) => x.name);
+          const what = mine.length
             ? "This deletes your sign-in and " +
-              c.name +
+              mine.join(" and ") +
               ", with every job, folder and invite in it, for everyone on your crew. Your plan stops today. It can't be undone.\n\nJust want to stop paying? Use Deactivate the plan instead: it keeps every job."
             : "This deletes your sign-in and takes you off " +
               c.name +
               ". The company's jobs stay with the company. It can't be undone.";
+          // (an owner of another company hears about that one too, above)
           const typed = prompt(what + "\n\nType DELETE to delete your account.");
           if (!typed || typed.trim().toUpperCase() !== "DELETE") return;
           try {
@@ -4829,8 +4844,10 @@
   }
 
   async function boot() {
-    await paymentReturn();
-    if (!Cloud.enabled || isHome()) return route();
+    if (!Cloud.enabled || isHome()) {
+      await paymentReturn();
+      return route();
+    }
     Cloud.setLocalJobs(() => jobs);
     Cloud.on((what) => {
       if (what === "signedOut") route();
@@ -4840,8 +4857,11 @@
     } catch (e) {
       // no signal on launch: run on what's saved on the phone and sync later
       console.warn("Couldn't reach the server", e);
+      await paymentReturn();
       return route();
     }
+    // after the session is back, so a contractor's paid yard is queued to go up to the company
+    await paymentReturn();
     if (Cloud.session && Cloud.company) await afterSignIn();
     else route();
     // keep up with the rest of the crew while the app is open

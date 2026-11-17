@@ -5,6 +5,29 @@
 const WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const STRIPE_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
+const LIVE = ["active", "trialing", "past_due"];
+
+// Stripe doesn't promise messages arrive in order, so the subscription is read fresh from Stripe
+// and that's what gets saved, never the copy inside the message (review 2026-11-17: a late
+// "created" could overwrite "active").
+async function freshSubscription(id: string) {
+  const res = await fetch("https://api.stripe.com/v1/subscriptions/" + encodeURIComponent(id), {
+    headers: { Authorization: "Bearer " + STRIPE_KEY },
+  });
+  if (!res.ok) throw new Error("subscription read " + res.status);
+  return await res.json();
+}
+
+async function currentBilling(companyId: string) {
+  const res = await fetch(
+    SUPABASE_URL + "/rest/v1/billing?select=subscription_id,status&company_id=eq." + companyId,
+    { headers: { apikey: SERVICE_KEY, Authorization: "Bearer " + SERVICE_KEY } },
+  );
+  if (!res.ok) throw new Error("billing read " + res.status);
+  const rows = await res.json();
+  return rows[0] || null;
+}
 // Stripe's own libraries refuse signatures older than 300 seconds; same here
 const TOLERANCE_S = 300;
 
@@ -80,28 +103,32 @@ Deno.serve(async (req) => {
       event.type === "customer.subscription.updated" ||
       event.type === "customer.subscription.deleted"
     ) {
-      const companyId = obj.metadata && obj.metadata.company_id;
+      const sub = await freshSubscription(String(obj.id));
+      const companyId = sub.metadata && sub.metadata.company_id;
       if (!companyId || !UUID.test(companyId))
         return new Response("no company", { status: 200 });
-      const plan = obj.metadata.plan === "standard" ? "standard" : "founding";
+      // a company deleted with its account: nothing to record, and a 500 would make Stripe retry
+      const co = await fetch(SUPABASE_URL + "/rest/v1/companies?select=id&id=eq." + companyId, {
+        headers: { apikey: SERVICE_KEY, Authorization: "Bearer " + SERVICE_KEY },
+      }).then((r) => r.json());
+      if (!Array.isArray(co) || !co.length) return new Response("company gone", { status: 200 });
+      // a second subscription that ended doesn't overwrite the one that's still running
+      const cur = await currentBilling(companyId);
+      if (cur && cur.subscription_id && cur.subscription_id !== sub.id && LIVE.includes(cur.status) && !LIVE.includes(sub.status))
+        return new Response("older subscription", { status: 200 });
+      const plan = sub.metadata.plan === "standard" ? "standard" : "founding";
       // newer Stripe versions keep the period end on the subscription item
-      const end =
-        obj.current_period_end ??
-        (obj.items &&
-          obj.items.data &&
-          obj.items.data[0] &&
-          obj.items.data[0].current_period_end);
+      const end = sub.current_period_end ??
+        (sub.items && sub.items.data && sub.items.data[0] && sub.items.data[0].current_period_end);
       await saveBilling({
         company_id: companyId,
-        stripe_customer_id: obj.customer,
-        subscription_id: obj.id,
-        status:
-          event.type === "customer.subscription.deleted"
-            ? "canceled"
-            : obj.status,
+        stripe_customer_id: sub.customer,
+        subscription_id: sub.id,
+        status: sub.status,
         plan,
         current_period_end: end ? new Date(end * 1000).toISOString() : null,
-        cancel_at_period_end: !!obj.cancel_at_period_end,
+        cancel_at_period_end: !!(sub.cancel_at_period_end || sub.cancel_at),
+        pending_checkout: null,
       });
     }
     return new Response("ok", { status: 200 });
