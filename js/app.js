@@ -203,11 +203,86 @@
     jobs = loadJobs();
     renderHome();
   });
+  /* ---------------- first-time tour ---------------- */
+  // Zach 2026-11-16: "a welcome screen for anyone logging into the app for the first time. it pulls
+  // up an example yard and shows all the features ... just simple pop ups with some text and an 'X'".
+  // One tip at a time, pointing at the tab it's about; X closes it and the next one comes up.
+  function tourSteps() {
+    const steps = [
+      { title: "Welcome to Head to Head", text: "This is a made-up yard so you can see everything the app does. Close each tip with the X to see the next one." },
+      { mode: "draw", tab: "draw", title: "Draw", text: "Trace the yard here on the satellite photo or grid paper: lawns, beds and fences. Tap to drop corners, drag one to move it, and pull the dot in the middle of a side to curve it. Add trees, the meter and the valve box as markers. A tree has a trunk size, and big ones keep heads away." },
+      { mode: "walk", tab: "walk", title: "Walk", text: "In the iPhone app, walk the edge of the lawn with the camera and the app traces it for you. Tap Corner at each corner." },
+      { mode: "measure", tab: "measure", title: "Measure", text: "Tap two spots to check a length. If it doesn't match your tape, enter the real number and the whole yard rescales." },
+      { mode: "heads", tab: "heads", title: "Heads", text: isHome()
+          ? "Tap Generate and the app lays out every head and zone. You'll see the head count, zones and about how much trench to dig. Unlock the yard to see where each head goes and get the parts list."
+          : "Tap Generate and the app lays out every head: rotors in the open, pop-ups in the narrow spots, strip nozzles on park strips, and zones that stay together. Tap a zone to light it up, or tap a head to move it, delete it or switch its nozzle." },
+      { tab: "plan", title: "Plan and parts", text: isHome()
+          ? "Once the yard is unlocked, Plan prints a full sprinkler map and Parts gives you the shopping list."
+          : "Plan prints a to-scale map for the customer or the crew. The Parts button on the Heads tab gives you the full parts list to copy, edit or print." },
+      { title: "You're set", text: "Go back to the home screen and tap " + (isHome() ? "Map my yard" : "New job") + " to start your own. You can watch this tour again from the home screen." },
+    ];
+    return steps;
+  }
+
+  function startTour() {
+    tourPending = true;
+    openExample();
+  }
+  let tourPending = false;
+
+  function runTour() {
+    tourPending = false;
+    const steps = tourSteps();
+    let i = 0;
+    const show = () => {
+      document.querySelectorAll(".tour, .tour-hl").forEach((el) =>
+        el.classList.contains("tour") ? el.remove() : el.classList.remove("tour-hl"),
+      );
+      if (!J || i >= steps.length) return;
+      const st = steps[i];
+      if (st.mode && J.mode !== st.mode) setMode(st.mode);
+      const tab = st.tab && app.querySelector('.tab[data-mode="' + st.tab + '"]');
+      const box = document.createElement("div");
+      box.className = "tour" + (tab ? " at-tab" : "");
+      box.setAttribute("role", "dialog");
+      box.innerHTML =
+        '<button class="tour-x" aria-label="Close tip">' + icon("x") + "</button>" +
+        "<b>" + esc(st.title) + "</b><p>" + esc(st.text) + "</p>" +
+        '<div class="tour-foot"><span>' + (i + 1) + " of " + steps.length + "</span>" +
+        (i < steps.length - 1 ? '<button class="tour-skip">Skip tour</button>' : "") + "</div>";
+      document.body.appendChild(box);
+      if (tab) {
+        tab.classList.add("tour-hl");
+        // sit just above the tab bar, the arrow over the tab
+        const tr = tab.getBoundingClientRect(), bar = tab.parentElement.getBoundingClientRect();
+        box.style.bottom = window.innerHeight - bar.top + 12 + "px";
+        box.style.setProperty("--arrow", Math.max(24, Math.min(box.offsetWidth - 24, tr.left + tr.width / 2 - box.getBoundingClientRect().left)) + "px");
+      }
+      box.querySelector(".tour-x").onclick = () => {
+        i++;
+        show();
+      };
+      const sk = box.querySelector(".tour-skip");
+      if (sk)
+        sk.onclick = () => {
+          i = steps.length;
+          show();
+        };
+    };
+    show();
+  }
+
   function route() {
     if (Cloud.enabled && !isHome() && !Cloud.session) return renderSignIn();
     if (Cloud.enabled && !isHome() && !Cloud.company)
       return renderMakeCompany();
     const m = location.hash.match(/^#\/job\/(\w+)/);
+    if (!m && !prefs.toured) {
+      prefs.toured = true;
+      savePrefs();
+      teardownJob();
+      return startTour();
+    }
     teardownJob();
     if (m) {
       const job = jobs.find((j) => j.id === m[1]);
@@ -312,6 +387,7 @@
           ", so they work with no signal."
         : "Jobs save on this " + DEVICE + ".") +
       " Address search and satellite photos come from Mapbox.</p>";
+    h += '<button class="btn small ghost" style="width:100%" id="tour">Take the tour</button>';
     if (isHome())
       h +=
         '<button class="btn small ghost" style="width:100%" id="mode">Installer? Use the contractor version</button>';
@@ -323,6 +399,7 @@
     app.querySelector("#new").onclick = newJobSheet;
     const md = app.querySelector("#mode");
     if (md) md.onclick = () => setHomeowner(!isHome());
+    app.querySelector("#tour").onclick = startTour;
     const co = app.querySelector("#co");
     if (co) co.onclick = companySheet;
     app.querySelectorAll("[data-f]").forEach(
@@ -485,6 +562,7 @@
           sh.pts.map((p) => [p.lat, p.lng]),
         );
         J.map.fitBounds(pts, { padding: [16, 16] });
+        if (tourPending) setTimeout(runTour, 300);
       }, 900);
     }, 300);
   }
@@ -731,6 +809,7 @@
   let J = null; // current job context
 
   function teardownJob() {
+    document.querySelectorAll(".tour").forEach((el) => el.remove());
     document.querySelectorAll(".overlay, .scrim").forEach((el) => el.remove());
     if (!J) return;
     if (J.map) J.map.remove();
