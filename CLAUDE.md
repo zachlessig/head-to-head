@@ -123,8 +123,10 @@ swings 10x, so compare old and new engines back to back before calling anything 
 - Pricing (Zach 2026-11-15): contractors pay about $35 a month. The first contractors on the app
   lock in $20 a month. Homeowners pay $10 once per yard. Nothing is charged yet. Crew (Zach
   2026-11-17): a contractor account includes 2 crew members free; each person after that is $5 a
-  month. He also wants a reward for a contractor who gets another contractor onto the app (reward
-  not decided yet). The card payment code is on the other branch (feat/wt2-work), so seat billing
+  month. Referrals (Zach 2026-11-17): every contractor company has a referral code to give another
+  contractor. The new contractor who enters it gets $5 off their first month. The contractor who
+  shared it gets one free month, only after the new contractor's first payment goes through; free
+  months stack. The card payment code is on the other branch (feat/wt2-work), so seat billing
   and referrals get built there or after the merge.
 - Trench (Zach 2026-11-16, `trenchPlan` in `js/engine.js`): zones (drip too) are grouped by
   closeness into valve boxes sized by `valveBoxes`; each box goes on the lawn edge at the spot
