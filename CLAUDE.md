@@ -124,12 +124,15 @@ swings 10x, so compare old and new engines back to back before calling anything 
   lock in $20 a month. Homeowners pay $10 once per yard. Nothing is charged yet.
 - Trench (Zach 2026-11-16, `trenchPlan` in `js/engine.js`): zones (drip too) are grouped by
   closeness into valve boxes sized by `valveBoxes`; each box goes on the lawn edge at the spot
-  closest on average to its zones; mainline runs meter, nearest box, next box, and so on; from each
-  box the shortest tree reaches the middle of each of its zones (shared trench "and split when it
-  gets close"); plus 50 ft inside each pop-up zone and 75 ft inside each rotor zone ("thats probably
+  closest on average to its zones; the meter, every box and the middle of every zone are joined by
+  one shared network (`trenchTree`: shortest tree, then split points wherever two trenches leave a
+  point under 120 degrees apart), so the mainline and different boxes' lines share trench too ("can
+  you combine the trenches so that multiple pipes can be in the same trench when they are close?";
+  the example yard went from 657 ft run separately to 464 shared); plus 50 ft inside each pop-up
+  zone and 75 ft inside each rotor zone ("thats probably
   close enough"). A drip zone's trench stops at the edge of its beds, nothing inside ("just get the
   pipe to the bed area"). The screen shows all three parts so they add up to the total. The boxes show on the map as VB pins
-  once the layout is visible. He wants the same method for pipe lengths on the parts list next.
+  and the network as dashed brown lines once the layout is visible. He wants the same method for pipe lengths on the parts list next.
 - Look (Zach picked look A of three, 2026-11-15): cream and green, soft shadows instead of outlines,
   springy button presses, a floating tab bar, and an opening animation where the logo's spray arcs
   draw in (`splash` in `js/app.js`). The home screen fades in only when you arrive at it, not when a

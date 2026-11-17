@@ -2195,9 +2195,23 @@
         }),
       ),
     );
-    // where the app would put the valve boxes, each with its zones closest together
-    if (!locked(J.job) && L0.heads.length)
-      trenchInfo(J.job).boxes.forEach((bx, i, all) =>
+    // where the app would put the valve boxes, each with its zones closest together, and the trench
+    // network joining the meter, the boxes and the zones
+    const tinfo = !locked(J.job) && L0.heads.length ? trenchInfo(J.job) : null;
+    if (tinfo)
+      tinfo.edges.forEach(([a, b]) =>
+        lay.addLayer(
+          L.polyline([P.toLL(a.x, a.y), P.toLL(b.x, b.y)], {
+            color: "#6b4f2a",
+            weight: 2.5,
+            opacity: 0.85,
+            dashArray: "6 5",
+            interactive: false,
+          }),
+        ),
+      );
+    if (tinfo)
+      tinfo.boxes.forEach((bx, i, all) =>
         lay.addLayer(
           L.marker(P.toLL(bx.x, bx.y), {
             icon: L.divIcon({ className: "vbox", html: "VB" + (all.length > 1 ? i + 1 : ""), iconSize: null }),
@@ -2973,13 +2987,10 @@
       t.ft +
       " ft</dd></dl>" +
       '<p class="note">That\'s the total: ' +
-      (t.hasMeter
-        ? Math.round(t.main) + " ft of mainline from the meter to the valve box" + (t.boxes.length > 1 ? "es" : "") + ", "
-        : "") +
-      Math.round(t.laterals) +
-      " ft from the valve box" +
-      (t.boxes.length > 1 ? "es" : "") +
-      " out to the zones and beds, and " +
+      Math.round(t.shared) +
+      " ft of trench " +
+      (t.hasMeter ? "from the meter to the valve box" + (t.boxes.length > 1 ? "es" : "") + " and " : "from the valve box" + (t.boxes.length > 1 ? "es" : "") + " ") +
+      "out to every zone and bed, with pipes sharing a trench wherever they run the same way, plus " +
       Math.round(t.inZone) +
       " ft inside the zones (about 50 ft for each pop-up zone and 75 ft for each rotor zone)." +
       (t.hasMeter ? "" : " Add the Meter on the Draw tab to count the mainline too.") +

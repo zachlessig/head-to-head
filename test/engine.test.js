@@ -626,15 +626,25 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(JSON.stringify(sets), JSON.stringify(["0,1,2", "3,4,5"]), "trench: each box gets the 3 zones closest together");
   eq(t.boxes.every((bx) => Math.abs(bx.y) < 1e-6 || Math.abs(bx.y - 30) < 1e-6 || Math.abs(bx.x) < 1e-6 || Math.abs(bx.x - 100) < 1e-6), true, "trench: boxes sit on the lawn edge");
   eq(t.inZone, 3 * 50 + 2 * 75, "trench: 50 ft per pop-up zone, 75 per rotor zone, none for drip");
+  // one shared network: never longer than running each line on its own (meter to box to box, box to
+  // each zone), and every point is joined
   const [b1, b2] = t.boxes.slice().sort((p, q) => Math.hypot(p.x - 50, p.y + 10) - Math.hypot(q.x - 50, q.y + 10));
-  const main = Math.hypot(b1.x - 50, b1.y + 10) + Math.hypot(b2.x - b1.x, b2.y - b1.y);
-  eq(Math.abs(t.main - main) < 1e-6, true, "trench: mainline runs meter, nearest box, then the next");
-  eq(t.ft, Math.ceil((t.main + t.laterals + t.inZone) / 10) * 10, "trench: total rounds up to 10 ft");
-  eq(E.trenchPlan(zones, null, [ring]).main, 0, "trench: no meter, no mainline counted");
+  const apart = Math.hypot(b1.x - 50, b1.y + 10) + Math.hypot(b2.x - b1.x, b2.y - b1.y) +
+    t.boxes.reduce((s, bx) => s + bx.zones.reduce((u, i) => u + Math.hypot(zones[i].x - bx.x, zones[i].y - bx.y), 0), 0);
+  eq(t.shared < apart, true, "trench: sharing beats separate runs (" + Math.round(t.shared) + " < " + Math.round(apart) + " ft)");
+  const seen = new Set(), key = (p) => p.x.toFixed(3) + "," + p.y.toFixed(3);
+  t.edges.forEach(([a, b]) => { seen.add(key(a)); seen.add(key(b)); });
+  eq([{ x: 50, y: -10 }].concat(t.boxes, zones.filter((z) => z.kind !== "drip")).every((p) => seen.has(key(p))), true, "trench: the meter, every box and every zone are on the network");
+  eq(t.ft, Math.ceil((t.shared + t.inZone) / 10) * 10, "trench: total rounds up to 10 ft");
+  eq(E.trenchPlan(zones, null, [ring]).shared < t.shared, true, "trench: no meter, no mainline counted");
+  // three zones in a row share one trench: the box lands mid-row 1 ft off it, so 20 ft along the row
+  // plus 1 ft to the box, not a separate run to each zone
+  const line = E.trenchPlan([{ x: 10, y: 0, kind: "spray" }, { x: 20, y: 0, kind: "spray" }, { x: 30, y: 0, kind: "spray" }], null, [[{ x: 0, y: -1 }, { x: 40, y: -1 }, { x: 40, y: 1 }, { x: 0, y: 1 }]]);
+  eq(Math.round(line.shared), 21, "trench: zones in a row share one trench (" + line.shared.toFixed(1) + " ft)");
   // a drip zone is reached at the edge of its bed, not its middle
   const bed = [{ x: 80, y: 18 }, { x: 90, y: 18 }, { x: 90, y: 22 }, { x: 80, y: 22 }];
   const withEdge = zones.map((z) => (z.kind === "drip" ? Object.assign({}, z, { edge: bed }) : z));
-  eq(E.trenchPlan(withEdge, { x: 50, y: -10 }, [ring]).laterals <= t.laterals, true, "trench: drip stops at the bed's edge");
+  eq(E.trenchPlan(withEdge, { x: 50, y: -10 }, [ring]).shared <= t.shared, true, "trench: drip stops at the bed's edge");
 }
 
 // Trees (Zach 2026-11-15): under 6 in of trunk the layout ignores it. A bigger trunk blocks spray,

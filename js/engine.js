@@ -2497,30 +2497,76 @@
   // Trench for a homeowner digging their own system (Zach 2026-11-16). Zones go in valve boxes by
   // closeness ("group the zones closest to each other"), sized by valveBoxes. Each box sits on the
   // lawn's edge at the spot closest on average to its zones. Mainline runs from the meter to the
-  // nearest box "and then the next and the next". From each box a trench runs to the middle of each
-  // of its zones, sharing a trench while they head the same way ("they can be in the same trench and
-  // split when it gets close"): the shortest tree over the box and its zones' middles. Inside a zone,
+  // nearest box "and then the next and the next", and from each box a trench runs to the middle of
+  // each of its zones; all of it is one network sharing trench wherever lines run together ("they
+  // can be in the same trench and split when it gets close"), see trenchTree. Inside a zone,
   // "for pop up zones, add like another 50 feet of trenching. for rotors add like 75 feet". A drip
   // zone's trench stops at the edge of its beds: "drip zones dont need trench footage once inside.
   // just get the pipe to the bed area."
   // zones: [{x, y, kind: "spray" | "rotor" | "drip", edge: [{x, y}] for a drip zone's bed outlines]},
   // meter: {x, y} or null, rings: lawn edges.
   const ZONE_TRENCH = { spray: 50, rotor: 75, drip: 0 };
-  function shortestTree(pts) {
-    if (pts.length < 2) return 0;
-    const best = pts.map(() => Infinity), done = pts.map(() => false);
-    best[0] = 0;
-    let total = 0;
-    for (let n = 0; n < pts.length; n++) {
-      let u = -1;
-      for (let i = 0; i < pts.length; i++) if (!done[i] && (u < 0 || best[i] < best[u])) u = i;
-      done[u] = true;
-      total += best[u];
-      for (let i = 0; i < pts.length; i++)
-        if (!done[i]) best[i] = Math.min(best[i], Math.hypot(pts[i].x - pts[u].x, pts[i].y - pts[u].y));
+  // The trench network: the shortest tree joining every point, then split points added wherever two
+  // trenches leave a point less than 120 degrees apart (the shortest way to reach two spots from one
+  // runs together and branches, at a Fermat point). Zach 2026-11-16: "can you combine the trenches so
+  // that multiple pipes can be in the same trench when they are close?" Returns {length, edges}.
+  function fermat(a, b, c) {
+    // Weiszfeld's iteration from the centroid
+    let x = (a.x + b.x + c.x) / 3, y = (a.y + b.y + c.y) / 3;
+    for (let it = 0; it < 60; it++) {
+      let nx = 0, ny = 0, w = 0;
+      for (const p of [a, b, c]) {
+        const d = Math.max(1e-6, Math.hypot(p.x - x, p.y - y));
+        nx += p.x / d; ny += p.y / d; w += 1 / d;
+      }
+      x = nx / w; y = ny / w;
     }
-    return total;
+    return { x, y };
   }
+  function trenchTree(pts) {
+    const nodes = pts.map((p) => ({ x: p.x, y: p.y }));
+    if (nodes.length < 2) return { length: 0, edges: [] };
+    const adj = nodes.map(() => new Set());
+    const best = nodes.map(() => Infinity), from = nodes.map(() => -1), done = nodes.map(() => false);
+    best[0] = 0;
+    for (let n = 0; n < nodes.length; n++) {
+      let u = -1;
+      for (let i = 0; i < nodes.length; i++) if (!done[i] && (u < 0 || best[i] < best[u])) u = i;
+      done[u] = true;
+      if (from[u] >= 0) { adj[u].add(from[u]); adj[from[u]].add(u); }
+      for (let i = 0; i < nodes.length; i++) {
+        const d = Math.hypot(nodes[i].x - nodes[u].x, nodes[i].y - nodes[u].y);
+        if (!done[i] && d < best[i]) { best[i] = d; from[i] = u; }
+      }
+    }
+    const len = (i, j) => Math.hypot(nodes[i].x - nodes[j].x, nodes[i].y - nodes[j].y);
+    // add split points until none saves more than half a foot
+    for (let pass = 0; pass < 200; pass++) {
+      let gain = 0.5, pick = null;
+      nodes.forEach((v, i) => {
+        const nb = [...adj[i]];
+        for (let a = 0; a < nb.length; a++)
+          for (let b = a + 1; b < nb.length; b++) {
+            const f = fermat(v, nodes[nb[a]], nodes[nb[b]]);
+            const now = len(i, nb[a]) + len(i, nb[b]);
+            const then = [v, nodes[nb[a]], nodes[nb[b]]].reduce((t, p) => t + Math.hypot(p.x - f.x, p.y - f.y), 0);
+            if (now - then > gain) { gain = now - then; pick = { i, a: nb[a], b: nb[b], f }; }
+          }
+      });
+      if (!pick) break;
+      const k = nodes.push(pick.f) - 1;
+      adj.push(new Set());
+      [pick.a, pick.b].forEach((j) => { adj[pick.i].delete(j); adj[j].delete(pick.i); adj[k].add(j); adj[j].add(k); });
+      adj[pick.i].add(k); adj[k].add(pick.i);
+    }
+    const edges = [];
+    let length = 0;
+    adj.forEach((set, i) => set.forEach((j) => {
+      if (j > i) { edges.push([nodes[i], nodes[j]]); length += len(i, j); }
+    }));
+    return { length, edges };
+  }
+
   function groupZones(zones, sizes) {
     const k = sizes.length;
     if (!k) return [];
@@ -2577,21 +2623,7 @@
       if (!best) best = { x: g.reduce((t, i) => t + zones[i].x, 0) / g.length, y: g.reduce((t, i) => t + zones[i].y, 0) / g.length };
       return { x: best.x, y: best.y, zones: g };
     });
-    // mainline: meter to the nearest box, then on to the next nearest, box after box
-    let main = 0;
-    if (meter && boxes.length) {
-      let at = meter;
-      const left = boxes.slice();
-      while (left.length) {
-        let bi = 0;
-        left.forEach((bx, i) => {
-          if (Math.hypot(bx.x - at.x, bx.y - at.y) < Math.hypot(left[bi].x - at.x, left[bi].y - at.y)) bi = i;
-        });
-        main += Math.hypot(left[bi].x - at.x, left[bi].y - at.y);
-        at = left.splice(bi, 1)[0];
-      }
-    }
-    // a drip zone is reached at the edge of its beds nearest the box
+    // a drip zone is reached at the edge of its beds nearest its box
     const target = (z, bx) => {
       if (!z.edge || !z.edge.length) return z;
       let best = z.edge[0];
@@ -2600,9 +2632,13 @@
       });
       return best;
     };
-    const laterals = boxes.reduce((t, bx) => t + shortestTree([bx].concat(bx.zones.map((i) => target(zones[i], bx)))), 0);
+    // one connected network: meter, boxes and every zone, sharing trench wherever lines run together
+    // (the mainline and each box's own zone lines used to be counted apart and never shared)
+    const net = trenchTree(
+      (meter ? [meter] : []).concat(boxes, ...boxes.map((bx) => bx.zones.map((i) => target(zones[i], bx)))),
+    );
     const inZone = zones.reduce((t, z) => t + (ZONE_TRENCH[z.kind] || 0), 0);
-    return { boxes, main, laterals, inZone, hasMeter: !!meter, ft: Math.ceil((main + laterals + inZone) / 10) * 10 };
+    return { boxes, shared: net.length, edges: net.edges, inZone, hasMeter: !!meter, ft: Math.ceil((net.length + inZone) / 10) * 10 };
   }
 
   // A lawn no wider than STRIP_MAX_W all the way along, measured across its narrowest bounding
