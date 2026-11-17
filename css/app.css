@@ -1111,3 +1111,10 @@ table.parts td.q {
   text-align: center;
   color: var(--flag);
 }
+
+/* links inside notes (Terms of Use) in the app's green, not browser blue */
+.note a,
+.parts-terms a {
+  color: var(--flag);
+  font-weight: 600;
+}
