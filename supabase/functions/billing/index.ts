@@ -8,8 +8,12 @@
 const STRIPE_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-// "founding" until Zach closes the founding price; then set PLAN_LOOKUP to "standard_monthly"
-const PLAN_LOOKUP = Deno.env.get("PLAN_LOOKUP") ?? "founding_monthly";
+// "founding" until Zach closes the founding price; then set the PLAN_TIER secret to "standard".
+// Prices (Zach 2026-11-16): founding $20 a month or $200 a year, standard $30 a month or $250 a
+// year, a contractor's single yard $15, a homeowner's yard $10. Lookup keys are <tier>_monthly and
+// <tier>_yearly. Which payment types checkout offers (cards, Apple Pay) is set on the Stripe
+// account, not here: Stripe stopped taking that per checkout.
+const PLAN_TIER = Deno.env.get("PLAN_TIER") === "standard" ? "standard" : "founding";
 const YARD_LOOKUP = "yard_unlock";
 
 // Stripe sends people back only to these sites, never to an address a request names
@@ -191,9 +195,14 @@ Deno.serve(async (req) => {
         mode: "subscription",
         customer: bill.stripe_customer_id,
         client_reference_id: companyId,
-        line_items: { 0: { price: await priceId(PLAN_LOOKUP), quantity: 1 } },
+        line_items: {
+          0: {
+            price: await priceId(PLAN_TIER + (input.interval === "year" ? "_yearly" : "_monthly")),
+            quantity: 1,
+          },
+        },
         subscription_data: {
-          metadata: { company_id: companyId, plan: PLAN_LOOKUP.split("_")[0] },
+          metadata: { company_id: companyId, plan: PLAN_TIER },
         },
         metadata: { company_id: companyId },
         success_url: backTo(origin, "?billing=done"),

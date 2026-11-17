@@ -4303,13 +4303,14 @@
   // account is a sandbox (test cards only); the test copy on this Mac uses the sandbox anyway.
   const PAYMENTS_ON = false;
   const PAY_HERE = !NATIVE && (PAYMENTS_ON || TEST_COPY);
+  // Zach 2026-11-16: "lets go with 30 for standard as of right now"
   const PLAN_PRICE = "$30 a month";
   // Zach 2026-11-16: "lets do $15 per yard and lets just say you can pay for the 'season' up front
   // and just give it to them for the year for a discounted price ... would 260 a year sound good?"
   const YARD_PRICE = "$15";
   // Zach 2026-11-16: "lets give founders 200 a year. 250 for the yearly for the 30 a month ones"
   const SEASON_PRICE = "$250";
-  const FOUNDING_SEASON_PRICE = "$200"; // Zach 2026-11-16: "lets go with 30 for standard as of right now"
+  const FOUNDING_SEASON_PRICE = "$200";
   const FOUNDING_PRICE = "$20 a month";
   function planBlock() {
     return '<label class="f" style="margin-top:14px">Plan</label><div class="plan" id="plan"><p class="note" style="margin:0">Loading your plan...</p></div>';
@@ -4349,7 +4350,7 @@
     const day = (iso) =>
       iso ? new Date(iso).toLocaleDateString(undefined, { month: "long", day: "numeric" }) : "";
     const price = b && b.plan === "standard" ? PLAN_PRICE : FOUNDING_PRICE;
-    let h, btn;
+    let h, btn, yearly = null;
     if (b && (b.status === "active" || b.status === "trialing")) {
       h =
         "<p><b>" +
@@ -4368,25 +4369,31 @@
     } else {
       h = offer;
       btn = owner ? ["subscribe", "Start the plan · " + FOUNDING_PRICE] : null;
+      if (owner) yearly = "Pay for the year · " + FOUNDING_SEASON_PRICE;
       if (!owner) h += '<p class="note">The company\'s owner starts the plan.</p>';
     }
     box.innerHTML =
-      h + (btn ? '<button class="btn primary small" style="width:100%" id="pb">' + btn[1] + "</button>" : "");
-    const pb = box.querySelector("#pb");
-    if (pb)
-      pb.onclick = async () => {
-        pb.disabled = true;
-        pb.textContent = "Opening Stripe...";
+      h +
+      (btn ? '<button class="btn primary small" style="width:100%" id="pb">' + btn[1] + "</button>" : "") +
+      (yearly ? '<button class="btn small" style="width:100%;margin-top:8px" id="py">' + yearly + "</button>" : "");
+    const wire = (el, action, label, interval) => {
+      if (!el) return;
+      el.onclick = async () => {
+        el.disabled = true;
+        el.textContent = "Opening Stripe...";
         try {
-          const r = await Cloud.pay(btn[0], { company_id: Cloud.company.id });
+          const r = await Cloud.pay(action, { company_id: Cloud.company.id, interval });
           location.assign(r.url);
         } catch (e) {
           console.warn("Billing page not opened", e);
           toast(e.message);
-          pb.disabled = false;
-          pb.textContent = btn[1];
+          el.disabled = false;
+          el.textContent = label;
         }
       };
+    };
+    if (btn) wire(box.querySelector("#pb"), btn[0], btn[1], "month");
+    if (yearly) wire(box.querySelector("#py"), "subscribe", yearly, "year");
   }
 
   // Coming back from Stripe's checkout page: confirm a yard payment with the server before
