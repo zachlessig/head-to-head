@@ -944,7 +944,7 @@ table.parts td.q {
   .l-steps li { grid-template-columns: 1fr; row-gap: 6px; }
   .l-steps li span:last-child { grid-column: 1; }
   .l-n { grid-row: auto; }
-  .l-prices { grid-template-columns: 1fr 1fr; max-width: 760px; }
+  .l-prices { grid-template-columns: repeat(3, 1fr); }
 }
 
 /* Walk tab on the website: where to get the camera walk */
@@ -1010,3 +1010,4 @@ table.parts td.q {
   .l-split .l-n { grid-row: span 2; }
   .walk-demo { width: 380px; }
 }
+.l-price a.btn:not(.primary) { color: var(--ink); }

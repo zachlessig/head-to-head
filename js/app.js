@@ -3701,8 +3701,8 @@
       '</div><figure class="l-demo">' + walkDemo() +
       '<figcaption>Camera walk is coming to the App Store. On the website you trace the yard on the satellite photo today.</figcaption></figure></section>' +
       '<section class="l-sec l-founder"><h2>Built on my own jobs</h2>' +
-      "<p>I'm a landscaper, and I used to work the counter at a sprinkler supply store. Every sprinkler job started the same way: measure the yard, sketch it out, figure out heads and zones, then write up the parts. I built Head to Head to save time on my own jobs.</p>" +
-      "<p>The layout follows the rules I'd use myself. Heads go head to head, there's no overspray on straight edges, and rotors only go where three or more fit a zone.</p>" +
+      "<p>I'm a landscaper, and I used to work the counter at a sprinkler supply store. Every sprinkler job started the same way: measure the yard, sketch it out, figure out heads and zones, then guess on a parts list once I got in the store. I built Head to Head to save time on my own jobs.</p>" +
+      "<p>The layout follows the rules I'd use myself. The yard gets double coverage, it's split into zones by pressure and flow rate, and the heads are strategically placed to make the install easy.</p>" +
       '<p class="l-sign">Zach, founder</p></section>' +
       '<section class="l-sec"><h2>The yard measures itself</h2><div class="l-vs">' +
       '<div class="l-old"><b>How mapping usually goes</b><ul>' +
@@ -3719,7 +3719,12 @@
       '<div class="l-price"><b>Contractors</b><div class="l-amt">$30<span>/month</span></div>' +
       "<p>The first contractors on Head to Head lock in <b>$20 a month</b>.</p>" +
       "<p>Jobs save online and your whole crew can open them.</p>" +
+      "<p>Or pay for the season up front: <b>" + SEASON_PRICE + " for the year</b>.</p>" +
       '<a href="#signin" class="btn primary" id="l-co">Start my company</a></div>' +
+      '<div class="l-price"><b>Contractors, a few yards a month</b><div class="l-amt">' + YARD_PRICE + '<span> per yard</span></div>' +
+      "<p>Only do a couple of sprinkler installs a month? Pay for each yard you lay out, nothing in the slow months.</p>" +
+      "<p>Three or more yards a month, and the monthly plan costs less.</p>" +
+      '<a href="#signin" class="btn" id="l-py">Start my company</a></div>' +
       '<div class="l-price"><b>Homeowners</b><div class="l-amt">$10<span> once per yard</span></div>' +
       "<p>Map your yard for free and see how many heads and zones it needs.</p>" +
       "<p>Pay once to see every head and get the parts list.</p>" +
@@ -3754,6 +3759,7 @@
     };
     app.querySelector("#l-in").onclick = toForm;
     app.querySelector("#l-co").onclick = toForm;
+    app.querySelector("#l-py").onclick = toForm;
     app.querySelector("#l-ho").onclick = () => setHomeowner(true);
   }
 
@@ -4215,7 +4221,11 @@
   // account is a sandbox (test cards only); the test copy on this Mac uses the sandbox anyway.
   const PAYMENTS_ON = false;
   const PAY_HERE = !NATIVE && (PAYMENTS_ON || TEST_COPY);
-  const PLAN_PRICE = "$30 a month"; // Zach 2026-11-16: "lets go with 30 for standard as of right now"
+  const PLAN_PRICE = "$30 a month";
+  // Zach 2026-11-16: "lets do $15 per yard and lets just say you can pay for the 'season' up front
+  // and just give it to them for the year for a discounted price ... would 260 a year sound good?"
+  const YARD_PRICE = "$15";
+  const SEASON_PRICE = "$260"; // Zach 2026-11-16: "lets go with 30 for standard as of right now"
   const FOUNDING_PRICE = "$20 a month";
   function planBlock() {
     return '<label class="f" style="margin-top:14px">Plan</label><div class="plan" id="plan"><p class="note" style="margin:0">Loading your plan...</p></div>';
