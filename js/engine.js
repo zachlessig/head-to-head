@@ -114,6 +114,22 @@
     }
     return true;
   }
+  // Park strip nozzles (Zach 2026-11-15): Rain Bird's 15 Strip Series throws a 4 ft wide band 15 ft
+  // long, "perfect for park strips in front of a house, or like a really narrow entrance to the
+  // backyard"; meant for 4 ft, fine at 5, stretched to 6, and used on a 3 ft strip too. Installers
+  // use RCS and LCS in the corners and SST along one side, head to head; EST and CST are for odd
+  // cases. GPM at 30 PSI from Rain Bird's chart (SST 1.21 confirmed by Zach). u runs along the
+  // strip from the head, v runs across into it.
+  const STRIP = {
+    RCS: { gpm: 0.49, u0: 0, u1: 15, v0: 0 }, // corner, throws to its right
+    LCS: { gpm: 0.49, u0: -15, u1: 0, v0: 0 }, // corner, throws to its left
+    SST: { gpm: 1.21, u0: -15, u1: 15, v0: 0 }, // side, both ways
+    EST: { gpm: 0.61, u0: 0, u1: 15, v0: -0.5 }, // end, centered, throws down the strip
+    CST: { gpm: 1.21, u0: -15, u1: 15, v0: -0.5 }, // center, both ways
+  };
+  const STRIP_MAX_W = 6; // his number
+  const STRIP_MIN_W = 3; // "3 foot id still use the park strip ones"; narrower keeps regular pop-ups
+  const STRIP_THROW = 15;
   const TOL = 0.2; // ft. Closer than this to the boundary counts as on the line
   const BSTEP = 0.25; // boundary sample spacing
   const CURVE_OVER = 0.3; // ft a curve head may reach past a curved edge; verify() flags past 0.35
@@ -876,6 +892,13 @@
   }
 
   function covers(h, x, y) {
+    if (h.strip) {
+      const q = h.strip,
+        u = (x - h.x) * q.ux + (y - h.y) * q.uy,
+        v = (x - h.x) * -q.uy + (y - h.y) * q.ux;
+      if (u < q.u0 - 1e-6 || u > q.u1 + 1e-6 || v < q.v0 - 1e-6 || v > q.v1 + 1e-6) return false;
+      return !TRUNKS.length || !shaded(h, x, y);
+    }
     const dx = x - h.x,
       dy = y - h.y;
     const d2 = dx * dx + dy * dy;
@@ -1384,6 +1407,7 @@
       worst = 0;
     const bad = [];
     for (const h of heads) {
+      if (h.strip) continue; // sized to the strip's own width and length
       let hWorst = 0;
       const full = h.arc >= 359.5;
       const a0 = full ? 0 : h.dir - h.arc / 2;
@@ -2504,6 +2528,126 @@
     return { ft: Math.ceil((raw * TRENCH_SLACK) / 10) * 10, laterals, feeders, main, hasBox: !!box };
   }
 
+  // A lawn no wider than STRIP_MAX_W all the way along, measured across its narrowest bounding
+  // rectangle. Returns its frame (along axis, the side the heads sit on, length, width) or null.
+  function stripFrame(G) {
+    const pts = G.rings[0];
+    if (pts.length < 3) return null;
+    let best = null;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i],
+        b = pts[(i + 1) % pts.length];
+      const L = Math.hypot(b.x - a.x, b.y - a.y);
+      if (L < 0.5) continue;
+      const ux = (b.x - a.x) / L,
+        uy = (b.y - a.y) / L;
+      let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+      for (const p of pts) {
+        const u = p.x * ux + p.y * uy,
+          v = -p.x * uy + p.y * ux;
+        u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v);
+      }
+      if (!best || v1 - v0 < best.w) best = { ux, uy, u0, u1, v0, v1, w: v1 - v0, L: u1 - u0 };
+    }
+    if (!best || best.w > STRIP_MAX_W + 0.25 || best.w < STRIP_MIN_W - 0.25 || best.L < 2 * best.w) return null;
+    // a rectangle's pattern only fits a rectangle: a strip cut off at a slant by a fence, or one that
+    // tapers, threw 1 to 5 ft past its edge in the random yards, so those keep regular pop-ups
+    if (Math.abs(G.area) < 0.97 * best.w * best.L) return null;
+    return best;
+  }
+
+  // throw: the nozzle's screw turned down to the spacing, so nothing throws past the strip's end (an
+  // SST throwing its full 15 ft on a 29 ft strip reached past both ends)
+  function stripHead(x, y, kind, f, throwFt) {
+    const n = STRIP[kind];
+    const k = (throwFt || STRIP_THROW) / STRIP_THROW;
+    const h = makeHead(x, y, { kind: "STRIP", model: "1804", series: 15, r: STRIP_THROW, gpm: n.gpm, scales: true, label: "15" + kind }, 0, 180, "strip");
+    // dir points into the strip, so the plan's sector fallback faces the right way
+    h.dir = ((Math.atan2(f.ux, -f.uy) / DEG) % 360 + 360) % 360;
+    // w: the strip's own width. Under 4 ft the 4 ft pattern lands past the far side; Zach accepts that
+    h.strip = { ux: f.ux, uy: f.uy, u0: n.u0 * k, u1: n.u1 * k, v0: n.v0, v1: Math.max(4, f.w) + 0.3, w: f.w };
+    h.r = STRIP_THROW * k;
+    return h;
+  }
+
+  // Narrow arms of a bigger lawn (Zach 2026-11-15: "a really narrow entrance to the backyard in the
+  // side of the house", "yes build the auto detect"): two straight, opposite edges STRIP_MIN_W to
+  // STRIP_MAX_W apart, running side by side for at least 8 ft (and twice the width), with lawn all
+  // the way between them. Where that corridor opens into more lawn it's cut off, square across, so
+  // the arm becomes its own strip and the rest of the lawn treats the cut as an edge. Returns the cut
+  // lines, for splitByFences.
+  function stripCuts(outer) {
+    const G = prepare({ outer });
+    const v = outer;
+    const n = v.length;
+    const cuts = [];
+    for (let i = 0; i < n; i++) {
+      const a1 = v[i], b1 = v[(i + 1) % n];
+      if (Math.abs(a1.b || 0) > 1e-6) continue;
+      const L1 = Math.hypot(b1.x - a1.x, b1.y - a1.y);
+      if (L1 < 4) continue;
+      const ux = (b1.x - a1.x) / L1, uy = (b1.y - a1.y) / L1;
+      for (let j = 0; j < n; j++) {
+        if (j === i || j === (i + 1) % n || (j + 1) % n === i) continue;
+        const a2 = v[j], b2 = v[(j + 1) % n];
+        if (Math.abs(a2.b || 0) > 1e-6) continue;
+        const L2 = Math.hypot(b2.x - a2.x, b2.y - a2.y);
+        if (L2 < 4) continue;
+        // opposite walls run the opposite way round the ring
+        if (((b2.x - a2.x) * ux + (b2.y - a2.y) * uy) / L2 > -Math.cos(5 * DEG)) continue;
+        const cross = (a2.x - a1.x) * -uy + (a2.y - a1.y) * ux;
+        const d = Math.abs(cross);
+        if (d < STRIP_MIN_W - 0.25 || d > STRIP_MAX_W + 0.25) continue;
+        const nx = -uy * Math.sign(cross), ny = ux * Math.sign(cross);
+        const s = (p) => (p.x - a1.x) * ux + (p.y - a1.y) * uy;
+        const lo = Math.max(0, Math.min(s(a2), s(b2))), hi = Math.min(L1, Math.max(s(a2), s(b2)));
+        if (hi - lo < Math.max(8, 2 * d)) continue;
+        // lawn all the way across, the whole length
+        const mid = (t) => ({ x: a1.x + ux * t + nx * (d / 2), y: a1.y + uy * t + ny * (d / 2) });
+        let ok = true;
+        // (a closed end wall is closer than half the width near the end, so the ends are skipped)
+        for (let t = lo + d / 2 + 0.5; t < hi - d / 2 - 0.5 && ok; t += 1) {
+          const m = mid(t);
+          if (!inLawn(G, m.x, m.y) || distB(G, m.x, m.y) < d / 2 - 0.3) ok = false;
+        }
+        if (!ok) continue;
+        // cut where the corridor runs into more lawn
+        [[lo, -1], [hi, 1]].forEach(([t, dir]) => {
+          const beyond = mid(t + dir * 1.5);
+          if (!inLawn(G, beyond.x, beyond.y)) return;
+          const tc = t - dir * 0.05;
+          const p0 = { x: a1.x + ux * tc - nx * 0.5, y: a1.y + uy * tc - ny * 0.5 };
+          const p1 = { x: a1.x + ux * tc + nx * (d + 0.5), y: a1.y + uy * tc + ny * (d + 0.5) };
+          if (!cuts.some((c) => Math.hypot(c[0].x - p0.x, c[0].y - p0.y) + Math.hypot(c[1].x - p1.x, c[1].y - p1.y) < 1 ||
+              Math.hypot(c[0].x - p1.x, c[0].y - p1.y) + Math.hypot(c[1].x - p0.x, c[1].y - p0.y) < 1))
+            cuts.push([p0, p1]);
+        });
+      }
+    }
+    return cuts;
+  }
+
+  // RCS in one corner, LCS in the other, SSTs along the same side between them, head to head.
+  // toward: a spot in the rest of the yard; the heads go on the long side facing it, the sidewalk
+  // side of a park strip (Zach 2026-11-15: "sidewalk side always")
+  function layoutStrip(G, f, toward) {
+    if (toward) {
+      const tv = -toward.x * f.uy + toward.y * f.ux;
+      if (tv > (f.v0 + f.v1) / 2)
+        f = Object.assign({}, f, { ux: -f.ux, uy: -f.uy, u0: -f.u1, u1: -f.u0, v0: -f.v1, v1: -f.v0 });
+    }
+    const n = Math.max(1, Math.ceil((f.L - 1e-6) / STRIP_THROW));
+    const heads = [];
+    for (let i = 0; i <= n; i++) {
+      const u = f.u0 + (f.L * i) / n,
+        v = f.v0;
+      const x = u * f.ux - v * f.uy,
+        y = u * f.uy + v * f.ux;
+      heads.push(stripHead(x, y, i === 0 ? "RCS" : i === n ? "LCS" : "SST", f, Math.min(STRIP_THROW, f.L / n + 0.05)));
+    }
+    return { heads, issues: [] };
+  }
+
   function layoutJob(job) {
     const factor = Math.sqrt((job.psi || 50) / 30);
     const allHeads = [];
@@ -2514,7 +2658,11 @@
       let tried = null;
       const width = 2 * maxInscribed(G);
       let res = null;
-      if (job.popupsOnly || area.mode === "spray") res = layoutArea(G, "spray");
+      const strip = stripFrame(G);
+      if (strip) {
+        res = layoutStrip(G, strip, area.toward);
+        tried = "a park strip " + fmtNum(Math.round(strip.w * 2) / 2) + " ft wide, so strip nozzles along one side";
+      } else if (job.popupsOnly || area.mode === "spray") res = layoutArea(G, "spray");
       else if (area.mode === "rotor-only") {
         // rotors only: the whole lawn on rotors, unless it can't even hold the minimum
         const r = layoutArea(G, "rotor");
@@ -2617,6 +2765,9 @@
     arcPoints,
     orient,
     trenchFeet,
+    STRIP,
+    stripHead,
+    stripCuts,
     BIG_TRUNK_IN,
     TREE_KEEP,
   };

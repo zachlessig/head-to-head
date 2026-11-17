@@ -679,6 +679,53 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(nf.length > 0 && nf.every((h) => Math.abs(h.y - 8) < 0.5), true, "strip: only heads on the fence line come closer (" + nf.length + ")");
 }
 
+// Park strips (Zach 2026-11-15): a lawn 3 to 6 ft wide gets Rain Bird strip nozzles, "the LCS RCS
+// and SST are the main ones installers use", head to head. Coverage is checked here with its own
+// model of the patterns: a band as wide as the strip (4 ft at least) and up to 15 ft long.
+{
+  const strip = (w, L) => E.layoutJob({ areas: [{ outer: P([[0, 0], [L, 0], [L, w], [0, w]]), mode: "auto" }], psi: 50, cap: 12 });
+  const o = strip(4.5, 47);
+  const labels = o.heads.map((h) => h.label);
+  eq(labels[0] === "15RCS" && labels[labels.length - 1] === "15LCS" && labels.slice(1, -1).every((l) => l === "15SST"), true, "strip: RCS and LCS in the corners, SSTs between (" + labels.join(" ") + ")");
+  eq(new Set(o.heads.map((h) => Math.round(h.y * 10))).size, 1, "strip: every head on the same side");
+  const xs = o.heads.map((h) => h.x).sort((a, b) => a - b);
+  eq(xs.every((x, i) => !i || x - xs[i - 1] <= 15 + 1e-6), true, "strip: no more than 15 ft between heads");
+  const reach = { "15RCS": [0, 1], "15LCS": [-1, 0], "15SST": [-1, 1] };
+  const sp = xs[1] - xs[0];
+  let n = 0, dbl = 0;
+  for (let x = 0.25; x < 47; x += 0.5)
+    for (let y = 0.25; y < 4.5; y += 0.5) {
+      n++;
+      const c = o.heads.filter((h) => {
+        const [a, b] = reach[h.label];
+        return x - h.x >= a * sp - 1e-6 && x - h.x <= b * sp + 1e-6;
+      }).length;
+      if (c >= 2) dbl++;
+    }
+  eq(dbl, n, "strip: every spot double covered, head to head");
+  eq(o.totals.overspray, 0, "strip: no overspray");
+  eq(o.parts.lines.some((l) => l.item === "15SST"), true, "strip: SSTs on the parts list");
+  eq(strip(3, 30).heads.every((h) => /^15(RCS|LCS|SST)$/.test(h.label)), true, "a 3 ft strip still gets strip nozzles");
+  eq(strip(2.5, 30).heads.some((h) => /^15(RCS|LCS|SST)$/.test(h.label)), false, "under 3 ft keeps regular pop-ups");
+  eq(strip(7, 40).heads.some((h) => /^15(RCS|LCS|SST)$/.test(h.label)), false, "over 6 ft keeps regular pop-ups");
+}
+
+// A narrow side entrance traced as part of the backyard (Zach 2026-11-15, "build the auto detect"):
+// the 5 ft arm is cut off where it opens into the yard and gets strip nozzles on the side facing the
+// yard ("sidewalk side always").
+{
+  const L = P([[0, 0], [60, 0], [60, -30], [65, -30], [65, 40], [0, 40]]);
+  const cuts = E.stripCuts(L);
+  eq(cuts.length, 1, "side entrance: one cut where the arm meets the yard");
+  const pieces = E.splitByFences(L, cuts);
+  const o = E.layoutJob({ areas: pieces.map((r) => ({ outer: r, mode: "auto", toward: { x: 30, y: 20 } })), psi: 50, cap: 12 });
+  const st = o.heads.filter((h) => h.strip);
+  eq(st.length >= 3 && st.every((h) => Math.abs(h.x - 60) < 0.2), true, "side entrance: strip heads along the side facing the yard");
+  eq(o.totals.overspray, 0, "side entrance: no overspray");
+  eq(o.totals.coverage >= 0.995, true, "side entrance: double covered (" + (o.totals.coverage * 100).toFixed(1) + "%)");
+  eq(E.stripCuts(P([[0, 0], [60, 0], [60, 40], [0, 40]])).length, 0, "a plain rectangle has no narrow arm");
+}
+
 // Zach 2026-11-10: a company can save its own backflow or filter parts once and every job uses them
 {
   const q = (p, item) => (p.lines.find((l) => l.item === item) || { qty: 0 }).qty;

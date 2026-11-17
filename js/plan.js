@@ -183,7 +183,18 @@
     d.heads.forEach((h) => {
       const col = zoneColor(h.zone || 1);
       ctx.beginPath();
-      if (h.arc >= 359.5) ctx.arc(X(h.x), Y(h.y), h.r * k, 0, Math.PI * 2);
+      if (h.strip) {
+        // a park strip nozzle throws a band along the strip
+        const q = h.strip,
+          v1 = Math.min(q.v1 - 0.3, Math.max(4, q.w || 4));
+        [[q.u0, q.v0], [q.u1, q.v0], [q.u1, v1], [q.u0, v1]].forEach(([u, v], i) => {
+          const px = X(h.x + u * q.ux - v * q.uy),
+            py = Y(h.y + u * q.uy + v * q.ux);
+          if (i) ctx.lineTo(px, py);
+          else ctx.moveTo(px, py);
+        });
+        ctx.closePath();
+      } else if (h.arc >= 359.5) ctx.arc(X(h.x), Y(h.y), h.r * k, 0, Math.PI * 2);
       else {
         // canvas y runs down, so angles flip sign
         const a0 = (-(h.dir + h.arc / 2) * Math.PI) / 180,
