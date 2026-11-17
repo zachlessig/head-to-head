@@ -797,6 +797,15 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   const line = (re) => pr.lines.find((l) => re.test(l.item));
   eq(!!line(/^1" mainline pipe, 100 ft roll/) && !!line(/^3\/4" lateral pipe, 100 ft roll/), true, "pipe: mainline and lateral on the parts list in their sizes");
   eq(E.pipePlan(zones, null, plan, []).main, 0, "pipe: no meter, no mainline");
+  // rolls (Zach 2026-11-17): mainline 100 and 300 ft, no extra; lateral 100 and 400 ft, plus 100 ft
+  // up to 1300, 200 over that, 400 over 3000; least pipe left over, then fewest rolls
+  eq(JSON.stringify(E.rollMix(290, [100, 300])), '{"100":0,"300":1}', "mainline 290 ft: one 300");
+  eq(JSON.stringify(E.rollMix(350, [100, 300])), '{"100":1,"300":1}', "mainline 350 ft: a 300 and a 100");
+  eq([E.lateralExtra(1300), E.lateralExtra(1301), E.lateralExtra(3001)].join(","), "100,200,400", "lateral extra: 100, then 200 over 1300, 400 over 3000");
+  eq(JSON.stringify(E.rollMix(1230 + 100, [100, 400])), '{"100":2,"400":3}', "lateral 1230 ft + 100: three 400s and two 100s");
+  const big = E.parts([], [], 0, "culinary", null, { main: '1"', lateral: '3/4"' }, { main: 350, lateral: 1230 });
+  const q2 = (re) => (big.lines.find((l) => re.test(l.item)) || { qty: 0 }).qty;
+  eq([q2(/mainline pipe, 300/), q2(/mainline pipe, 100/), q2(/lateral pipe, 400/), q2(/lateral pipe, 100/)].join(","), "1,1,3,2", "parts list rolls for 350 ft mainline, 1230 ft lateral");
 }
 
 // Zach 2026-11-10: a company can save its own backflow or filter parts once and every job uses them

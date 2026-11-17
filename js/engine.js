@@ -1989,6 +1989,22 @@
     return Array.from({ length: n }, (_, i) => Math.floor(valves / n) + (i < valves % n ? 1 : 0));
   }
 
+  const PIPE_ROLLS = { mainline: [100, 300], lateral: [100, 400] };
+  function lateralExtra(ft) {
+    return ft > 3000 ? 400 : ft > 1300 ? 200 : 100;
+  }
+  // the rolls that cover the feet with the least pipe left over, then the fewest rolls
+  function rollMix(ft, sizes) {
+    const [small, big] = sizes.slice().sort((a, b) => a - b);
+    let best = null;
+    for (let nb = 0; nb <= Math.ceil(ft / big); nb++) {
+      const ns = Math.max(0, Math.ceil((ft - nb * big) / small));
+      const total = nb * big + ns * small;
+      if (!best || total < best.total || (total === best.total && nb + ns < best.n)) best = { total, n: nb + ns, nb, ns };
+    }
+    return { [big]: best.nb, [small]: best.ns };
+  }
+
   function parts(heads, zones, drip, water, setups, sizes, pipe) {
     const lat = sizes && sizes.lateral ? sizes.lateral + " " : "";
     const main = sizes && sizes.main ? sizes.main + " " : "";
@@ -2037,18 +2053,28 @@
         qty: swingRolls(heads.length),
       });
     }
-    // mainline and lateral pipe from pipePlan, in 100 ft rolls rounded up like swing pipe (roll size
-    // and no extra for waste are assumptions, not his numbers yet)
+    // mainline and lateral pipe from pipePlan (Zach 2026-11-17): "mainline comes in 100 and 300 foot
+    // rolls. lateral line comes in 100 and 400 foot rolls." Mainline gets no extra ("id keep that
+    // pretty close"); lateral gets 100 ft extra up to 1300 ft, 200 ft over that, 400 ft over 3000.
     if (pipe) {
-      [["mainline", pipe.main, main], ["lateral", pipe.lateral, lat]].forEach(([what, ft, size]) => {
-        if (!(ft > 0)) return;
-        const need = Math.ceil(ft / 10) * 10;
-        lines.push({
-          group: "Pipe",
-          item: size + what + " pipe, " + SWING_ROLL_FT + " ft roll (" + need + " ft needed)",
-          qty: Math.max(1, Math.ceil(need / SWING_ROLL_FT)),
-        });
-      });
+      [["mainline", pipe.main, main, 0, PIPE_ROLLS.mainline], ["lateral", pipe.lateral, lat, lateralExtra(pipe.lateral), PIPE_ROLLS.lateral]].forEach(
+        ([what, ft, size, extra, rolls]) => {
+          if (!(ft > 0)) return;
+          const need = Math.ceil(ft) + extra;
+          const mix = rollMix(need, rolls);
+          rolls
+            .slice()
+            .sort((a, b) => b - a)
+            .forEach((r, k) => {
+              if (!mix[r]) return;
+              lines.push({
+                group: "Pipe",
+                item: size + what + " pipe, " + r + " ft roll" + (k === 0 || !mix[Math.max(...rolls)] ? " (" + need + " ft needed)" : ""),
+                qty: mix[r],
+              });
+            });
+        },
+      );
     }
     const elbows34 = rotorCount(rotors, "5004");
     const elbows12 = heads.length - elbows34;
@@ -2954,6 +2980,8 @@
     orient,
     trenchPlan,
     pipePlan,
+    rollMix,
+    lateralExtra,
     valveBoxes,
     STRIP,
     stripHead,

@@ -213,8 +213,10 @@ swings 10x, so compare old and new engines back to back before calling anything 
     Spigot pin gets mainline back to the nearest point on that run (and a trench); every zone gets
     its own lateral from its box out to each head, ending at the last one (shortest tree over the box
     and its heads); a drip zone's lateral stops at its bed's edge. Listed as '<size> mainline pipe'
-    and '<size> lateral pipe' in 100 ft rolls rounded up, with the feet needed; the roll size and no
-    waste allowance are assumptions waiting on him.
+    and '<size> lateral pipe' by roll (Zach 2026-11-17): mainline in 100 and 300 ft rolls with no
+    extra ("keep that pretty close"); lateral in 100 and 400 ft rolls plus 100 ft up to 1300 ft, 200
+    ft over that, 400 ft over 3000 (`lateralExtra`); `rollMix` picks the least pipe left over, then
+    the fewest rolls. Open: whether laterals branch (tees) or run head to head, and spigot pipe size.
   - Sizes (2026-11-10): the new job screen asks for the supply line from the street (3/4" or 1",
     required). Job settings has a lateral line size (3/4" or 1", past the valves),
     starting at the supply size. Saddles, couplings, tees, elbows and LD clamps carry the lateral
