@@ -1993,6 +1993,10 @@
     return Array.from({ length: n }, (_, i) => Math.floor(valves / n) + (i < valves % n ? 1 : 0));
   }
 
+  // Zach 2026-11-17: "a way im not liable for if someones map is wrong because in reality, this is
+  // just a tool for contractors, we aren't actually installing the yard." On every plan and parts list.
+  const DISCLAIMER =
+    "This is an estimate from the map it was drawn on. Check measurements, water pressure and local codes, and call 811 before you dig. Head to Head doesn't install systems and isn't responsible for errors in the map, layout or parts list. See the Terms of Use.";
   const PIPE_ROLLS = { mainline: [100, 300], lateral: [100, 400] };
   function lateralExtra(ft) {
     return ft > 3000 ? 400 : ft > 1300 ? 200 : 100;
@@ -2986,6 +2990,7 @@
     arcPoints,
     orient,
     trenchPlan,
+    DISCLAIMER,
     pipePlan,
     rollMix,
     lateralExtra,

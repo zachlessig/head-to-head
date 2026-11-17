@@ -390,6 +390,7 @@
         : "Jobs save on this " + DEVICE + ".") +
       " Address search and satellite photos come from Mapbox.</p>";
     h += '<button class="btn small ghost" style="width:100%" id="tour">Take the tour</button>';
+    h += '<p class="note" style="text-align:center"><a href="terms.html">Terms of Use</a></p>';
     if (isHome())
       h +=
         '<button class="btn small ghost" style="width:100%" id="mode">Installer? Use the contractor version</button>';
@@ -3035,6 +3036,7 @@
         '<p class="hint">One payment of ' +
         UNLOCK_PRICE +
         ", no subscription. You get every head on the map with its nozzle, a printable plan, and the full parts list to take to the store.</p>" +
+        '<p class="note">It\'s an estimate from your map. By unlocking you agree to the <a href="terms.html">Terms of Use</a>.</p>' +
         (TEST_COPY
           ? '<button class="btn primary" style="width:100%" id="tu">Unlock (test copy, no charge)</button>'
           : '<button class="btn primary" style="width:100%" disabled>Payments open soon</button>') +
@@ -3280,6 +3282,7 @@
         const t = MARKERS[m.tag] || MARKERS.note;
         return { x: q.x, y: q.y, letter: t.letter, color: t.color };
       }),
+      disclaimer: E.DISCLAIMER,
     };
   }
 
@@ -3375,7 +3378,14 @@
         esc(String(l.qty)) +
         "</td></tr>";
     });
-    return h + "</table>" + (parts.footer ? '<p class="parts-foot">' + esc(parts.footer) + "</p>" : "");
+    return (
+      h +
+      "</table>" +
+      (parts.footer ? '<p class="parts-foot">' + esc(parts.footer) + "</p>" : "") +
+      '<p class="note parts-terms">' +
+      esc(E.DISCLAIMER) +
+      ' <a href="terms.html">Terms of Use</a></p>'
+    );
   }
 
   function partsText(parts) {
@@ -3391,6 +3401,7 @@
       t += l.qty + "  " + l.item + "\n";
     });
     if (parts.footer) t += "\n" + parts.footer + "\n";
+    t += "\n" + E.DISCLAIMER + "\n";
     return t;
   }
 
@@ -3882,7 +3893,7 @@
       '<p class="note">Payments open soon. Nothing is charged yet.</p></section>' +
       '<footer class="l-foot">Built by a landscaper who ran a sprinkler supply counter. © ' +
       new Date().getFullYear() +
-      " Head to Head</footer>" +
+      ' Head to Head · <a href="terms.html">Terms of Use</a></footer>' +
       "</main>"
     );
   }
@@ -3945,6 +3956,7 @@
               .join("") +
             '<label class="f" for="em">Email</label><input class="t" id="em" type="email" inputmode="email" autocomplete="email" placeholder="you@company.com">' +
             '<button class="btn primary" style="width:100%;margin-top:12px" id="go">Email me a code</button>' +
+            '<p class="note" style="margin-top:10px">By signing in you agree to the <a href="terms.html">Terms of Use</a>.</p>' +
             '<button class="btn small ghost" style="width:100%;margin-top:18px" id="mode">Homeowner? Map your own yard, no account needed</button>'
           : '<p class="lede">We sent a 6-digit code to <b>' +
             esc(email) +

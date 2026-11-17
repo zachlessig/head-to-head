@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "web": "rm -rf www && mkdir www && cp -R index.html manifest.webmanifest css js icons www/",
+    "web": "rm -rf www && mkdir www && cp -R index.html terms.html manifest.webmanifest css js icons www/",
     "ios": "npm run web && npx cap sync ios"
   },
   "dependencies": {
