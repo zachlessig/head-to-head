@@ -6,7 +6,7 @@ irrigation rules come from him. Every rule below has a test in `test/engine.test
 yards with every feature, runs them the way the app does, and checks the rules independently; run
 seeds 1 to 3 after engine changes. Coverage under 98% is flagged: Zach accepts single coverage
 in strips a couple of feet wide (a bed 2.4 ft from a fence) rather than adding 4VANs there
-(2026-11-10). The one known flag is a fence running lengthwise down a narrow strip lawn (95.6%). Timing on a loaded Mac
+(2026-11-10). The one known flag is a fence running lengthwise down a narrow strip lawn (random yard 41, seed 3: 96.8%, single coverage along the fence only, no dry ground since the 4VAN sliver fill; Zach 2026-11-17: "thats fine"). Timing on a loaded Mac
 swings 10x, so compare old and new engines back to back before calling anything slow.
 
 ## Never
