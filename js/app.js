@@ -3696,7 +3696,7 @@
       "<div><h2>Walk the yard with your camera</h2>" +
       "<p>The iPhone app measures the lawn as you walk its edge, no tape needed. Coming soon to the App Store. Everything else works right here in your browser, and your company's jobs show up in both.</p></div></section>" +
       '<section class="l-sec"><h2>Pricing</h2><div class="l-prices">' +
-      '<div class="l-price"><b>Contractors</b><div class="l-amt">$35<span>/month</span></div>' +
+      '<div class="l-price"><b>Contractors</b><div class="l-amt">$30<span>/month</span></div>' +
       "<p>The first contractors on Head to Head lock in <b>$20 a month</b>.</p>" +
       "<p>Jobs save online and your whole crew can open them.</p>" +
       '<a href="#signin" class="btn primary" id="l-co">Start my company</a></div>' +
@@ -4195,7 +4195,7 @@
   // account is a sandbox (test cards only); the test copy on this Mac uses the sandbox anyway.
   const PAYMENTS_ON = false;
   const PAY_HERE = !NATIVE && (PAYMENTS_ON || TEST_COPY);
-  const PLAN_PRICE = "$35 a month";
+  const PLAN_PRICE = "$30 a month"; // Zach 2026-11-16: "lets go with 30 for standard as of right now"
   const FOUNDING_PRICE = "$20 a month";
   function planBlock() {
     return '<label class="f" style="margin-top:14px">Plan</label><div class="plan" id="plan"><p class="note" style="margin:0">Loading your plan...</p></div>';

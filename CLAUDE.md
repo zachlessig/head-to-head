@@ -122,7 +122,7 @@ swings 10x, so compare old and new engines back to back before calling anything 
   else. `NATIVE` in `js/app.js` tells them apart; inside the app, links that leave the phone use
   `SITE_URL` (the app's own address is capacitor://localhost). The front page shows no reviews or
   customer counts until real ones exist. `img/app-layout.jpg` is a capture of the example yard.
-- Pricing (Zach 2026-11-15): contractors pay about $35 a month. The first contractors on the app
+- Pricing (Zach 2026-11-15, standard changed to $30 on 2026-11-16): contractors pay $30 a month (Stripe lookup key standard_monthly). The first contractors on the app
   lock in $20 a month. Homeowners pay $10 once per yard. Nothing is charged yet.
 - Trench estimate: Zach is still working out how he wants trenching counted ("ill work out the
   trenching system later"). Don't tune `trenchFeet` without his rule.

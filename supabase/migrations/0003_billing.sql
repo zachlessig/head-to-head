@@ -7,7 +7,7 @@ create table public.billing (
   subscription_id text,
   -- Stripe's own subscription status: active, trialing, past_due, canceled, unpaid, incomplete...
   status text,
-  -- which price they're on: founding ($20 a month, locked in) or standard ($35 a month)
+  -- which price they're on: founding ($20 a month, locked in) or standard ($30 a month)
   plan text check (plan in ('founding', 'standard')),
   current_period_end timestamptz,
   cancel_at_period_end boolean not null default false,
