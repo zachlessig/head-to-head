@@ -3795,7 +3795,7 @@
       '<div class="l-price"><b>Contractors</b><div class="l-amt">$30<span>/month</span></div>' +
       "<p>The first contractors on Head to Head lock in <b>$20 a month</b>.</p>" +
       "<p>Jobs save online and your whole crew can open them.</p>" +
-      "<p>Or pay for the season up front: <b>" + SEASON_PRICE + " for the year</b>.</p>" +
+      "<p>Or pay for the year up front: <b>" + SEASON_PRICE + "</b>, or <b>" + FOUNDING_SEASON_PRICE + "</b> for founding contractors.</p>" +
       '<a href="#signin" class="btn primary" id="l-co">Start my company</a></div>' +
       '<div class="l-price"><b>Contractors, a few yards a month</b><div class="l-amt">' + YARD_PRICE + '<span> per yard</span></div>' +
       "<p>Only do a couple of sprinkler installs a month? Pay for each yard you lay out, nothing in the slow months.</p>" +
@@ -4301,7 +4301,9 @@
   // Zach 2026-11-16: "lets do $15 per yard and lets just say you can pay for the 'season' up front
   // and just give it to them for the year for a discounted price ... would 260 a year sound good?"
   const YARD_PRICE = "$15";
-  const SEASON_PRICE = "$260"; // Zach 2026-11-16: "lets go with 30 for standard as of right now"
+  // Zach 2026-11-16: "lets give founders 200 a year. 250 for the yearly for the 30 a month ones"
+  const SEASON_PRICE = "$250";
+  const FOUNDING_SEASON_PRICE = "$200"; // Zach 2026-11-16: "lets go with 30 for standard as of right now"
   const FOUNDING_PRICE = "$20 a month";
   function planBlock() {
     return '<label class="f" style="margin-top:14px">Plan</label><div class="plan" id="plan"><p class="note" style="margin:0">Loading your plan...</p></div>';
