@@ -816,6 +816,20 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq([q2(/mainline pipe, 300/), q2(/mainline pipe, 100/), q2(/lateral pipe, 400/), q2(/lateral pipe, 100/)].join(","), "1,1,3,2", "parts list rolls for 350 ft mainline, 1230 ft lateral");
 }
 
+// A sliver between a slanted fence and the lawn edge, 0 to 2 ft wide (random yard 41) was left dry.
+// Zach 2026-11-17: "just put 4 vans in there": 4VANs on the fence line, aimed away from it.
+{
+  const fence = [{ x: 3.9, y: 7 }, { x: 8.9, y: 71.9 }];
+  const wedge = P([[4.1, 9], [10.6, 9], [9.9, 69.9], [8.7, 69.9]]);
+  const o = E.layoutJob({ areas: [{ outer: wedge, fences: [fence], mode: "auto" }], psi: 50, cap: 12 });
+  const dry = o.areas[0].check.gapPts.filter((g) => g.c === 0).length;
+  eq(dry, 0, "fence sliver: no dry ground");
+  const vans = o.heads.filter((h) => h.sliver);
+  eq(vans.length > 0 && vans.every((h) => h.label === "4VAN"), true, "fence sliver: filled with 4VANs (" + vans.length + ")");
+  // each sits on the fence and faces away from it (toward +x here)
+  eq(vans.every((h) => Math.cos((h.dir * Math.PI) / 180) > 0.9), true, "fence sliver: 4VANs aimed away from the fence");
+}
+
 // Zach 2026-11-10: a company can save its own backflow or filter parts once and every job uses them
 {
   const q = (p, item) => (p.lines.find((l) => l.item === item) || { qty: 0 }).qty;

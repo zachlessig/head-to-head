@@ -402,7 +402,7 @@ function buildAreas(y) {
         .flatMap((b) => E.splitByFences(b.ring, fences))
         .map((h) => E.offFence(h, fences))
         .filter((h) => ptInRing(E.pointInside(h), ring));
-      areas.push({ outer, holes: holes.concat(slit.holes), mode: l.mode });
+      areas.push({ outer, holes: holes.concat(slit.holes), fences, mode: l.mode });
     });
   });
   return areas;
@@ -490,6 +490,9 @@ function check(y) {
     o.heads
       .filter((h) => h.area === ai)
       .forEach((h) => {
+        // a sliver 4VAN lands a little past the open side by design (Zach: "just put 4 vans in there");
+        // spray across a fence is still checked below
+        if (h.sliver) return;
         sectorPoints(h, 0.5).forEach((p) => {
           if (inLawn(p)) return;
           // past a curve when a curved edge is as close as any straight one (within 0.05 ft): where a

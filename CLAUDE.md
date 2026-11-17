@@ -57,6 +57,11 @@ swings 10x, so compare old and new engines back to back before calling anything 
 
 - Overspray: zero on straight edges. Up to 1 ft past a curve, "nothing over a foot ever".
   A spot past the corner where a curve meets a straight edge counts as straight.
+- Fence slivers (Zach 2026-11-17, random yard 41): a sliver under 2.3 ft wide between a fence and an
+  open lawn edge gets 4VANs ("just put 4 vans in there"), turned all the way down, on the fence
+  line aimed away from it, head to head along it. Found by walking the edge, since the tip of a
+  wedge can be narrower than the 1 ft coverage grid. The little past the open side is accepted;
+  never across the fence or into a bed.
 - Curves: "overspray is better than a bunch of small heads". Use 8VAN and up first, and add
   4VAN or 6VAN only where a tight curve is still dry.
 - Rotors: 3504 throws 18 to 23 ft, 5004 throws 24 to 30 ft. Use rotors only where 3 or more fit
