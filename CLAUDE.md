@@ -134,6 +134,19 @@ swings 10x, so compare old and new engines back to back before calling anything 
   else. `NATIVE` in `js/app.js` tells them apart; inside the app, links that leave the phone use
   `SITE_URL` (the app's own address is capacitor://localhost). The front page shows no reviews or
   customer counts until real ones exist. `img/app-layout.jpg` is a capture of the example yard.
+- Plans, locks and accounts (Zach 2026-11-17). A contractor company with no active plan (never
+  started, or cancelled) keeps its account and every job, crew included, and can map new yards,
+  but a yard's heads stay blurred and Plan and Parts stay shut until it's paid for ($15, Stripe
+  lookup contractor_yard). Yards laid out while the plan was active stay open after a cancel. A
+  paid yard (contractor or homeowner) locks again if its lawns move more than 500 ft ("lets say it
+  needs to move more than 500 feet") or, on grid paper, if the lawn area changes by more than half
+  (`inPlace`, `MOVE_LIMIT_FT`, `AREA_LIMIT` in `js/app.js`). Locks only apply when `ENFORCE`
+  (payments on, or the localhost test copy). Locks run on the phone, so a determined person could
+  get around them; moving the layout engine to the server is the only real fix. Company screen:
+  Deactivate the plan (stops at the end of the paid period, keeps everything) and Delete my account
+  (an owner's company and all its jobs go with it; typed DELETE to confirm). Both go through the
+  `billing` function. Stripe sandbox only takes cards and Apple Pay (set on the account: Stripe no
+  longer takes payment types per checkout).
 - Pricing (Zach 2026-11-15, standard changed to $30 on 2026-11-16): contractors pay $30 a month (Stripe lookup key standard_monthly). The first contractors on the app
   lock in $20 a month. Homeowners pay $10 once per yard. Nothing is charged yet.
 - Trench estimate: Zach is still working out how he wants trenching counted ("ill work out the
