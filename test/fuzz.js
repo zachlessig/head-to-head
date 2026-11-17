@@ -409,6 +409,18 @@ function buildAreas(y) {
 
 function sectorPoints(h, step) {
   const out = [];
+  // a park strip nozzle throws a rectangle: along the strip u, across it v, as wide as the strip
+  // (4 ft at least; the engine's extra 0.3 ft only reaches its own edge samples)
+  if (h.strip) {
+    // on a strip under 4 ft the pattern lands past the far side by design (Zach: "3 foot id still
+    // use the park strip ones"), so only spray beyond that is judged
+    const q = h.strip,
+      v1 = Math.min(q.v1 - 0.3, q.w);
+    for (let u = q.u0; u <= q.u1 + 1e-9; u += step)
+      for (let v = Math.max(q.v0, 0.05); v <= v1 + 1e-9; v += step)
+        out.push({ x: h.x + u * q.ux - v * q.uy, y: h.y + u * q.uy + v * q.ux });
+    return out;
+  }
   const full = h.arc >= 359.5,
     a0 = full ? 0 : h.dir - h.arc / 2,
     span = full ? 360 : h.arc;

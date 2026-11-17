@@ -138,6 +138,16 @@ swings 10x, so compare old and new engines back to back before calling anything 
   still throw its 18 ft minimum. Ground within `TREE_POPUPS` (15 ft, guess) of a big trunk is
   pop-up ground from the start. Big trees show a dashed 7 ft ring on the map. Tests: "Trees" in
   `test/engine.test.js`, checked by tracing spray lines past the trunk independently.
+- Park strips (Zach 2026-11-15): a lawn 3 to 6 ft wide (`STRIP_MIN_W`, `STRIP_MAX_W`, his numbers),
+  close to a rectangle (97% of its narrowest bounding rectangle; slanted or tapered strips threw past
+  their edges in the random yards and keep regular pop-ups), gets Rain Bird 15 Strip Series nozzles:
+  15RCS and 15LCS in the two corners of one long side, 15SSTs along that side between them, head to
+  head, no more than 15 ft apart. "the LCS RCS and SST are the main ones installers use"; 15EST and
+  15CST are in `STRIP` for odd cases and can be picked by hand on a strip head ("Switch nozzle").
+  Each nozzle's throw is screwed down to the spacing so nothing throws past the strip's ends. GPM at
+  30 PSI: RCS/LCS 0.49, SST and CST 1.21 (SST confirmed by Zach), EST 0.61. A strip head covers a
+  band (`h.strip`), 4 ft wide at least; on a 3 ft strip that lands past the far side, which he
+  accepts. The example yard has a 5 ft park strip.
 - Example yard: "Try an example yard" on the home screen builds a made-up yard with every
   feature, on a plain background (no satellite photo of a real place), and lays it out.
   When a feature is added, add it to `exampleJob()` in `js/app.js` too.

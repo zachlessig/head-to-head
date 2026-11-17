@@ -359,6 +359,13 @@
         [70, -12],
         [0, -12, -6 / 38],
       ]),
+      // park strip between the sidewalk and the street, 5 ft wide: strip nozzles
+      shape("lawn", [
+        [0, -60],
+        [70, -60],
+        [70, -55],
+        [0, -55],
+      ]),
       // fence bed behind the backyard, 12 to 20 ft deep: two and three rows of drip
       shape("bed", [
         [0, 110.5, -8 / 90],
@@ -1876,6 +1883,7 @@
       gpm: h.gpm,
       area: h.area,
       zone: h.zone,
+      strip: h.strip,
     };
   }
 
@@ -1930,6 +1938,15 @@
 
   function sectorLatLngs(h, P) {
     const pts = [];
+    if (h.strip) {
+      // a park strip nozzle throws a band, not a pie slice
+      const q = h.strip,
+        v1 = Math.min(q.v1 - 0.3, Math.max(4, q.w || 4));
+      [[q.u0, q.v0], [q.u1, q.v0], [q.u1, v1], [q.u0, v1]].forEach(([u, v]) =>
+        pts.push(P.toLL(h.x + u * q.ux - v * q.uy, h.y + u * q.uy + v * q.ux)),
+      );
+      return pts;
+    }
     if (h.arc >= 359.5) {
       for (let a = 0; a < 360; a += 6)
         pts.push(
@@ -2513,6 +2530,21 @@
       };
   }
 
+  // Park strip nozzles you can switch to by hand; RCS, LCS and SST are what the app picks, EST and
+  // CST are for the odd case (Zach 2026-11-15)
+  function stripSwapRow(hd) {
+    return (
+      '<p class="note" style="margin:0 0 6px">Switch nozzle:</p><div class="chips">' +
+      Object.keys(E.STRIP)
+        .map(
+          (k) =>
+            '<button class="chip" data-sn="' + k + '" aria-pressed="' + (hd.label === "15" + k) + '">15' + k + "</button>",
+        )
+        .join("") +
+      "</div>"
+    );
+  }
+
   function panelHeads(el) {
     const job = J.job;
     const L0 = job.layout;
@@ -2523,7 +2555,9 @@
       const what =
         hd.kind === "R"
           ? "Rain Bird " + hd.model + " rotor"
-          : hd.kind === "VAN"
+          : hd.kind === "STRIP"
+            ? "park strip nozzle on an 1804"
+            : hd.kind === "VAN"
             ? hd.series + " series VAN on an 1804"
             : hd.series + hd.kind + " on an 1804";
       h +=
@@ -2532,20 +2566,27 @@
         " · " +
         esc(what) +
         "</dd><dt>Throw</dt><dd>" +
-        hd.r.toFixed(1) +
-        " ft" +
-        (hd.kind === "R"
-          ? " (screw set, " +
-            (hd.model === "5004" ? "24 to 30" : "18 to 23") +
-            " ft range)"
-          : "") +
-        ", " +
-        Math.round(hd.arc) +
-        "°</dd><dt>Flow</dt><dd>" +
+        (hd.strip
+          ? Math.max(4, hd.strip.w || 4).toFixed(1) +
+            " ft wide, " +
+            (hd.strip.u1 - hd.strip.u0).toFixed(1) +
+            " ft along the strip"
+          : hd.r.toFixed(1) +
+            " ft" +
+            (hd.kind === "R"
+              ? " (screw set, " +
+                (hd.model === "5004" ? "24 to 30" : "18 to 23") +
+                " ft range)"
+              : "") +
+            ", " +
+            Math.round(hd.arc) +
+            "°") +
+        "</dd><dt>Flow</dt><dd>" +
         hd.gpm.toFixed(2) +
         " GPM</dd><dt>Zone</dt><dd>" +
         esc(String(hd.zone)) +
-        "</dd></dl>";
+        "</dd></dl>" +
+        (hd.strip ? stripSwapRow(hd) : "");
       h +=
         '<div class="row"><button class="btn grow" id="mv">' +
         icon("move") +
@@ -2556,6 +2597,18 @@
         icon("check") +
         "Done</button></div>";
       el.innerHTML = h;
+      el.querySelectorAll("[data-sn]").forEach(
+        (b) =>
+          (b.onclick = () => {
+            // swap the strip nozzle in place, same spot, same direction along the strip
+            const q = hd.strip;
+            const len = Math.max(Math.abs(q.u0), Math.abs(q.u1));
+            const nh = E.stripHead(hd.x, hd.y, b.dataset.sn, { ux: q.ux, uy: q.uy, w: q.w || 4 }, len);
+            Object.assign(hd, { label: nh.label, gpmBase: nh.gpmBase, strip: nh.strip, r: nh.r, dir: nh.dir });
+            recheckLayout();
+            redraw();
+          }),
+      );
       el.querySelector("#mv").onclick = () => {
         J.moving = !J.moving;
         renderHeads();
