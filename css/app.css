@@ -957,3 +957,56 @@ table.parts td.q {
 .plan { background: var(--card); border-radius: 14px; box-shadow: var(--soft); padding: 12px 14px; }
 .plan p { margin: 0 0 6px; }
 .plan .btn { text-decoration: none; }
+
+/* Front page, walk-first version (Zach 2026-11-16: market the camera walk and that it's built by
+   a landscaper). The walk animation loops every 9 s: the trail draws in as the phone goes around
+   (0-45%), the lawn's heads pop in (50-62%), spray fills (55-75%), holds, then fades for the next lap. */
+.l-kicker { display: inline-block; margin: 0 0 6px; padding: 4px 10px; border-radius: 999px; background: var(--flag-soft); color: var(--flag); font-weight: 700; font-size: 14px; }
+.l-demo { margin: 0; justify-self: center; text-align: center; }
+.l-demo figcaption { color: var(--muted); font-size: 14px; max-width: 320px; margin: 10px auto 0; }
+.walk-demo { display: block; width: min(340px, 86vw); height: auto; filter: drop-shadow(0 20px 40px rgba(20, 48, 32, 0.16)); }
+.wd-ground { fill: #e9e4d6; }
+.wd-lawn { fill: #cfe5c2; stroke: none; }
+.wd-trail { fill: none; stroke: var(--flag); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: wd-trail 9s linear infinite; }
+.wd-walker { offset-rotate: 0deg; animation: wd-walk 9s linear infinite; }
+.wd-walker circle { fill: #fff; stroke: var(--flag); stroke-width: 3; }
+.wd-walker .wd-dot { fill: var(--flag); stroke: none; }
+.wd-head { fill: #fff; stroke: #143020; stroke-width: 2.5; opacity: 0; animation: wd-head 9s ease-out infinite; animation-delay: calc(var(--i) * 60ms); }
+.wd-spray circle { fill: rgba(47, 143, 94, 0.16); stroke: rgba(29, 110, 71, 0.45); stroke-width: 1; opacity: 0; animation: wd-spray 9s ease-out infinite; animation-delay: calc(var(--i) * 60ms); }
+.wd-cap { font: 700 17px "DM Sans", sans-serif; fill: var(--ink); text-anchor: middle; }
+.wd-cap1 { animation: wd-cap1 9s linear infinite; }
+.wd-cap2 { opacity: 0; animation: wd-cap2 9s linear infinite; }
+@keyframes wd-trail { 0% { stroke-dashoffset: 100; opacity: 1; } 45% { stroke-dashoffset: 0; } 88% { stroke-dashoffset: 0; opacity: 1; } 96%, 100% { stroke-dashoffset: 0; opacity: 0; } }
+@keyframes wd-walk { 0% { offset-distance: 0%; opacity: 1; } 45% { offset-distance: 100%; opacity: 1; } 50%, 100% { offset-distance: 100%; opacity: 0; } }
+@keyframes wd-head { 0%, 50% { opacity: 0; transform: scale(0.4); } 56% { opacity: 1; transform: scale(1); } 88% { opacity: 1; } 96%, 100% { opacity: 0; } }
+@keyframes wd-spray { 0%, 55% { opacity: 0; } 70% { opacity: 1; } 88% { opacity: 1; } 96%, 100% { opacity: 0; } }
+@keyframes wd-cap1 { 0%, 44% { opacity: 1; } 48%, 100% { opacity: 0; } }
+@keyframes wd-cap2 { 0%, 52% { opacity: 0; } 58%, 88% { opacity: 1; } 96%, 100% { opacity: 0; } }
+.wd-head { transform-box: fill-box; transform-origin: center; }
+@media (prefers-reduced-motion: reduce) {
+  /* the finished layout, still */
+  .wd-trail { animation: none; stroke-dashoffset: 0; }
+  .wd-walker, .wd-cap1 { display: none; }
+  .wd-head, .wd-spray circle, .wd-cap2 { animation: none; opacity: 1; }
+}
+.l-founder { background: var(--card); border-radius: var(--radius); box-shadow: var(--soft); padding: 22px; max-width: 760px; }
+.l-founder p { font-size: 17px; margin: 0 0 12px; }
+.l-sign { font-family: Fraunces, Georgia, serif; font-weight: 700; font-size: 19px !important; margin: 4px 0 0 !important; }
+.l-vs { display: grid; gap: 14px; }
+.l-vs > div { border-radius: var(--radius); padding: 18px 20px; }
+.l-vs ul { margin: 10px 0 0; padding-left: 20px; }
+.l-vs li { margin: 6px 0; }
+.l-old { background: #ece7da; color: var(--muted); }
+.l-old li { text-decoration: line-through; text-decoration-color: rgba(100, 116, 106, 0.6); }
+.l-new { background: var(--flag-soft); }
+.l-new b { color: var(--flag); }
+.l-split { display: grid; gap: 24px; align-items: center; }
+@media (min-width: 820px) {
+  .l-vs { grid-template-columns: 1fr 1fr; max-width: 900px; }
+  .l-split { grid-template-columns: 1.3fr 0.7fr; }
+  .l-split .l-steps { grid-template-columns: 1fr; }
+  .l-split .l-steps li { grid-template-columns: auto 1fr; }
+  .l-split .l-steps li span:last-child { grid-column: 2; }
+  .l-split .l-n { grid-row: span 2; }
+  .walk-demo { width: 380px; }
+}

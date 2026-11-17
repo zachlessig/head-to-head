@@ -3653,48 +3653,68 @@
     return '<div class="brand"><img class="mark" src="icons/logo.svg" alt=""><h1>Head to Head</h1></div>';
   }
 
-  // The website's front page (Zach 2026-11-16). Says what it does for whom in the first line, shows
-  // the real app (img/app-layout.jpg is a capture of "Try an example yard"), puts the price on the
-  // page, and has one form. No reviews or customer counts: there aren't any yet, so none are shown.
+  // The website's front page. Zach 2026-11-16: "lets really capitalize on the fact that this is
+  // built by a landscaper so that i could save time on my own jobs. and lets really market the
+  // camera idea ... it takes like 5 minutes to map an entire yard by literally just walking around.
+  // No measuring wheels, no tapes, no mapping on their end." The 5 minutes is his estimate, not a
+  // timed walk. The camera walk is iPhone-only and not on the App Store yet, so the page says so and
+  // the website itself starts on satellite tracing. No reviews or customer counts: there aren't
+  // any yet. img/app-layout.jpg is a capture of "Try an example yard".
+  function walkDemo() {
+    // a lawn with one curved side; the walker goes around it, then heads pop in at the corners and
+    // along the edges, spraying head to head (drawing only, made for the page, not an engine run)
+    const lawn = "M40 330 L40 92 Q160 34 280 92 L280 330 Z";
+    const heads = [
+      [40, 330], [280, 330], [40, 92], [280, 92],
+      [40, 211], [280, 211], [160, 330], [160, 63],
+    ];
+    return (
+      '<svg class="walk-demo" viewBox="0 0 320 400" role="img" aria-label="A phone walking the edge of a lawn, then sprinkler heads appearing head to head around it">' +
+      '<defs><clipPath id="wd-clip"><path d="' + lawn + '"/></clipPath></defs>' +
+      '<rect x="8" y="8" width="304" height="384" rx="22" class="wd-ground"/>' +
+      '<path class="wd-lawn" d="' + lawn + '"/>' +
+      '<g class="wd-spray" clip-path="url(#wd-clip)">' +
+      heads.map(([x, y], i) => '<circle cx="' + x + '" cy="' + y + '" r="128" style="--i:' + i + '"/>').join("") +
+      "</g>" +
+      '<path class="wd-trail" pathLength="100" d="' + lawn + '"/>' +
+      heads.map(([x, y], i) => '<circle class="wd-head" cx="' + x + '" cy="' + y + '" r="6" style="--i:' + i + '"/>').join("") +
+      '<g class="wd-walker" style="offset-path:path(\'' + lawn + '\')"><circle r="11"/><circle r="4" class="wd-dot"/></g>' +
+      '<text x="160" y="372" class="wd-cap wd-cap1">Walk the edge</text>' +
+      '<text x="160" y="372" class="wd-cap wd-cap2">Heads, zones and parts: done</text>' +
+      "</svg>"
+    );
+  }
+
   function landingPage() {
     const step = (n, t, d) =>
-      '<li><span class="l-n">' +
-      n +
-      "</span><b>" +
-      t +
-      "</b><span>" +
-      d +
-      "</span></li>";
+      '<li><span class="l-n">' + n + "</span><b>" + t + "</b><span>" + d + "</span></li>";
     return (
       '<main class="landing">' +
       '<header class="l-top"><img src="icons/logo.svg" alt=""><b>Head to Head</b>' +
       '<a href="#signin" class="btn small ghost" id="l-in">Sign in</a></header>' +
       '<section class="l-hero"><div class="l-copy">' +
-      "<h1>Draw the yard. Get the sprinkler layout.</h1>" +
-      '<p class="l-sub">Trace a lawn on the satellite photo. Head to Head places every head, splits the zones to fit your water, and writes the parts list for the supply counter.</p>' +
+      '<p class="l-kicker">Built by a landscaper</p>' +
+      "<h1>Walk the yard. Get the sprinkler layout.</h1>" +
+      '<p class="l-sub">Walk the edge of the lawn with your iPhone and Head to Head maps it as you go. About 5 minutes for a whole yard. No measuring wheel, no tape, no drawing it up later.</p>' +
+      '<p class="l-sub">Then it places every head, splits the zones to fit your water, and writes the parts list for the counter.</p>' +
       '<div class="l-card" id="signin"></div>' +
-      '</div><figure class="l-shot"><img src="img/app-layout.jpg" width="508" height="1100" alt="A laid-out yard in Head to Head: sprinkler heads, spray patterns and zones on a lawn, with a list of zones and their GPM"></figure></section>' +
-      '<section class="l-sec"><h2>How it works</h2><ol class="l-steps">' +
-      step(
-        1,
-        "Trace it",
-        "On the satellite photo, on grid paper, or by walking it with your iPhone's camera.",
-      ) +
-      step(
-        2,
-        "Lay it out",
-        "Heads and nozzles placed head to head, with zero overspray on straight edges and zones sized to your GPM and pressure.",
-      ) +
-      step(
-        3,
-        "Print and buy",
-        "A plan for the customer, a plan for the crew, and a parts list ready for the counter.",
-      ) +
-      "</ol></section>" +
-      '<section class="l-sec l-app">' +
-      icon("walk") +
-      "<div><h2>Walk the yard with your camera</h2>" +
-      "<p>The iPhone app measures the lawn as you walk its edge, no tape needed. Coming soon to the App Store. Everything else works right here in your browser, and your company's jobs show up in both.</p></div></section>" +
+      '</div><figure class="l-demo">' + walkDemo() +
+      '<figcaption>Camera walk is coming to the App Store. On the website you trace the yard on the satellite photo today.</figcaption></figure></section>' +
+      '<section class="l-sec l-founder"><h2>Built on my own jobs</h2>' +
+      "<p>I'm a landscaper, and I used to work the counter at a sprinkler supply store. Every sprinkler job started the same way: measure the yard, sketch it out, figure out heads and zones, then write up the parts. I built Head to Head to save time on my own jobs.</p>" +
+      "<p>The layout follows the rules I'd use myself. Heads go head to head, there's no overspray on straight edges, and rotors only go where three or more fit a zone.</p>" +
+      '<p class="l-sign">Zach, founder</p></section>' +
+      '<section class="l-sec"><h2>The yard measures itself</h2><div class="l-vs">' +
+      '<div class="l-old"><b>How mapping usually goes</b><ul>' +
+      "<li>Roll a measuring wheel down every side</li><li>Pull tape to the house corners</li><li>Sketch it on paper in the truck</li><li>Redraw it and count heads at home</li></ul></div>" +
+      '<div class="l-new"><b>With Head to Head</b><ul>' +
+      "<li>Walk the edge of the lawn with your phone</li><li>Tap Corner at each corner</li><li>Heads, zones and parts list come out the other end</li></ul></div>" +
+      "</div></section>" +
+      '<section class="l-sec l-split"><div><h2>Then it lays it out</h2><ol class="l-steps">' +
+      step(1, "Map it", "Walk it with the iPhone camera, or trace it on the satellite photo or grid paper.") +
+      step(2, "Lay it out", "Heads and nozzles placed head to head, with zones sized to your GPM and pressure.") +
+      step(3, "Print and buy", "A plan for the customer, a plan for the crew, and a parts list ready for the counter.") +
+      '</ol></div><figure class="l-shot"><img src="img/app-layout.jpg" width="508" height="1100" loading="lazy" alt="A laid-out yard in Head to Head: sprinkler heads, spray patterns and zones on a lawn, with a list of zones and their GPM"></figure></section>' +
       '<section class="l-sec"><h2>Pricing</h2><div class="l-prices">' +
       '<div class="l-price"><b>Contractors</b><div class="l-amt">$30<span>/month</span></div>' +
       "<p>The first contractors on Head to Head lock in <b>$20 a month</b>.</p>" +
