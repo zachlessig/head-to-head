@@ -3727,6 +3727,7 @@
       '<a href="#signin" class="btn primary" id="l-co">Start my company</a></div>' +
       '<div class="l-price"><b>Contractors, a few yards a month</b><div class="l-amt">' + YARD_PRICE + '<span> per yard</span></div>' +
       "<p>Only do a couple of sprinkler installs a month? Pay for each yard you lay out, nothing in the slow months.</p>" +
+      "<p>You still keep a log of every job you've done, and your crew can open them too.</p>" +
       "<p>Three or more yards a month, and the monthly plan costs less.</p>" +
       '<a href="#signin" class="btn" id="l-py">Start my company</a></div>' +
       '<div class="l-price"><b>Homeowners</b><div class="l-amt">$10<span> once per yard</span></div>' +
