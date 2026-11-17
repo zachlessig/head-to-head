@@ -174,6 +174,11 @@ Deno.serve(async (req) => {
           { error: "This company already has a plan. Use Manage billing." },
           409,
         );
+      // a customer deleted on Stripe's side (or a leftover from a sandbox test) starts fresh
+      if (bill && bill.stripe_customer_id) {
+        const c = await stripe("customers/" + bill.stripe_customer_id).catch(() => null);
+        if (!c || c.deleted) bill = { ...bill, stripe_customer_id: null };
+      }
       if (!bill || !bill.stripe_customer_id) {
         const names = await db("companies?select=name&id=eq." + companyId);
         const c = await stripe("customers", {
