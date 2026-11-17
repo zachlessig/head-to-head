@@ -1121,3 +1121,10 @@ table.parts td.q {
 .psi-needle { stroke: var(--flag); stroke-width: 3.2; stroke-linecap: round; }
 .psi-hub { fill: var(--flag); }
 .psi-wrap .stepper { width: 100%; max-width: 260px; }
+
+/* links inside notes (Terms of Use) in the app's green, not browser blue */
+.note a,
+.parts-terms a {
+  color: var(--flag);
+  font-weight: 600;
+}
