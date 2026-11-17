@@ -48,7 +48,7 @@ swings 10x, so compare old and new engines back to back before calling anything 
   timed walk, and the camera walk is iPhone-only and not on the App Store yet: say both plainly.
 - Never use a price that isn't the latest one he gave. The standard contractor price went from
   about $35 to $30 on 2026-11-16 ("lets go with 30 for standard as of right now"); founding is $20
-  and a yard is $10. Prices live in `PLAN_PRICE`/`FOUNDING_PRICE`/`UNLOCK_PRICE` in `js/app.js`, the
+  and a yard is $15 for homeowners and contractors alike (Zach 2026-11-17: "both are the same"). Prices live in `PLAN_PRICE`/`FOUNDING_PRICE`/`UNLOCK_PRICE` in `js/app.js`, the
   front page, and the Stripe sandbox lookup keys (standard_monthly, founding_monthly, yard_unlock):
   change all three together.
 - Never list rotor nozzles on the parts list. Rotors come with every nozzle (Zach, 2026-11-08).
@@ -120,7 +120,7 @@ swings 10x, so compare old and new engines back to back before calling anything 
   nothing, and Plan and Parts open the unlock sheet. They do see the head count, zones and a rough
   trench length (`trenchFeet` in `js/engine.js`: each zone's shortest tree, one shared trench from
   the valve box to every zone, the meter-to-valve mainline, plus 15%; not checked against a real
-  job). Price is $10 one time (`UNLOCK_PRICE`). Payments aren't hooked up: only the http localhost
+  job). Price is $15 one time (`UNLOCK_PRICE`, $10 until 2026-11-17). Payments aren't hooked up: only the http localhost
   test copy shows a no-charge unlock; the iPhone app is capacitor://localhost and must never get it.
   Installers near them show with their Google rating; installers pay $49 a month on top of the
   subscription to be listed. That list stays off (`SHOW_INSTALLERS`) until lots of homeowners use
@@ -148,7 +148,7 @@ swings 10x, so compare old and new engines back to back before calling anything 
   `billing` function. Stripe sandbox only takes cards and Apple Pay (set on the account: Stripe no
   longer takes payment types per checkout).
 - Pricing (Zach 2026-11-15, standard changed to $30 on 2026-11-16): contractors pay $30 a month (Stripe lookup key standard_monthly). The first contractors on the app
-  lock in $20 a month. Homeowners pay $10 once per yard. Nothing is charged yet.
+  lock in $20 a month. Homeowners pay $15 once per yard (was $10; Zach 2026-11-17: "each yard is $15 for a homeowner/contractor"). Nothing is charged yet.
 - Trench estimate: Zach is still working out how he wants trenching counted ("ill work out the
   trenching system later"). Don't tune `trenchFeet` without his rule.
 - Look (Zach picked look A of three, 2026-11-15): cream and green, soft shadows instead of outlines,
