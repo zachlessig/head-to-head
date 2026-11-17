@@ -271,6 +271,27 @@ swings 10x, so compare old and new engines back to back before calling anything 
    because in reality, this is just a tool for contractors, we aren't actually installing the yard."
 6. A sod calculator (added 2026-11-17).
 
+## Payments and server scripts
+
+Keys live in the Mac's keychain (account head-to-head): supabase-access-token,
+stripe-secret-key-test, stripe-webhook-secret-test. Scripts read them from env vars and never print
+them. Run with Node 18+:
+
+- `scripts/supabase.mjs` (env SUPA_TOKEN): `query "<sql>"`, `sqlfile <migration>`, `deploy <slug>
+  supabase/functions/<slug> <verify_jwt>`, `secrets NAME=ENVVAR`, `list-functions`. Migrations are
+  run by hand with `sqlfile`, in order; 0001 to 0006 are on the live project.
+- `scripts/stripe-prices.mjs` (env STRIPE_KEY): makes the products and lookup-key prices; leaves
+  existing ones alone (changing a price means a new price with `transfer_lookup_key`).
+- `scripts/stripe-webhook-setup.mjs hook|portal` (env STRIPE_KEY): creates the webhook (prints its
+  signing secret once, pipe it into the keychain) and sets up the billing portal.
+- End-to-end tests against the Stripe sandbox and the live Supabase project, with the site served
+  on http://localhost:8742 (`python3 -m http.server 8742`) and playwright-core installed:
+  `test/pay-homeowner.e2e.js` (4242 card through Stripe checkout, yard unlocks),
+  `test/yard-lock.e2e.js` (500 ft and grid area rules), `test/account.e2e.mjs` (throwaway account:
+  checkout, $15 price by sign-in, deactivate, delete leaves nothing; env ANON, SUPA_TOKEN,
+  STRIPE_KEY), `test/subscription.e2e.mjs` (webhook writes billing for the oldest company, then
+  cleans up).
+
 ## Shipping
 
 The site is GitHub Pages from `main` (zachlessig/head-to-head). Push and it's live in about
