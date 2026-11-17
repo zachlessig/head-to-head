@@ -118,9 +118,7 @@ swings 10x, so compare old and new engines back to back before calling anything 
   (`prefs.homeowner`, no account, jobs stay on the phone). They map and generate like a contractor,
   but until a yard is paid for (`job.unlocked`) the heads on the map are blurred, tapping them does
   nothing, and Plan and Parts open the unlock sheet. They do see the head count, zones and a rough
-  trench length (`trenchFeet` in `js/engine.js`: each zone's shortest tree, one shared trench from
-  the valve box to every zone, the meter-to-valve mainline, plus 15%; not checked against a real
-  job). Price is $15 one time (`UNLOCK_PRICE`, $10 until 2026-11-17). Payments aren't hooked up: only the http localhost
+  trench length (`trenchPlan`, see Trench below). Price is $15 one time (`UNLOCK_PRICE`, $10 until 2026-11-17). Payments aren't hooked up: only the http localhost
   test copy shows a no-charge unlock; the iPhone app is capacitor://localhost and must never get it.
   Installers near them show with their Google rating; installers pay $49 a month on top of the
   subscription to be listed. That list stays off (`SHOW_INSTALLERS`) until lots of homeowners use
@@ -149,8 +147,17 @@ swings 10x, so compare old and new engines back to back before calling anything 
   longer takes payment types per checkout).
 - Pricing (Zach 2026-11-15, standard changed to $30 on 2026-11-16): contractors pay $30 a month (Stripe lookup key standard_monthly). The first contractors on the app
   lock in $20 a month. Homeowners pay $15 once per yard (was $10; Zach 2026-11-17: "each yard is $15 for a homeowner/contractor"). Nothing is charged yet.
-- Trench estimate: Zach is still working out how he wants trenching counted ("ill work out the
-  trenching system later"). Don't tune `trenchFeet` without his rule.
+- Trench (Zach 2026-11-16, `trenchPlan` in `js/engine.js`): zones (drip too) are grouped by
+  closeness into valve boxes sized by `valveBoxes`; each box goes on the lawn edge at the spot
+  closest on average to its zones; the meter, every box and the middle of every zone are joined by
+  one shared network (`trenchTree`: shortest tree, then split points wherever two trenches leave a
+  point under 120 degrees apart), so the mainline and different boxes' lines share trench too ("can
+  you combine the trenches so that multiple pipes can be in the same trench when they are close?";
+  the example yard went from 657 ft run separately to 464 shared); plus 50 ft inside each pop-up
+  zone and 75 ft inside each rotor zone ("thats probably
+  close enough"). A drip zone's trench stops at the edge of its beds, nothing inside ("just get the
+  pipe to the bed area"). Homeowners see only the total, "Estimated trenching: About N ft" (Zach 2026-11-17: "keep it simple"). The boxes show on the map as VB pins
+  and the network as dashed brown lines once the layout is visible. He wants the same method for pipe lengths on the parts list next.
 - Look (Zach picked look A of three, 2026-11-15): cream and green, soft shadows instead of outlines,
   springy button presses, a floating tab bar, and an opening animation where the logo's spray arcs
   draw in (`splash` in `js/app.js`). The home screen fades in only when you arrive at it, not when a
@@ -202,7 +209,11 @@ swings 10x, so compare old and new engines back to back before calling anything 
   - Rotors: a total per model only.
   - Swing joints: a 1/2" elbow for each pop-up and 3504, a 3/4" elbow for each 5004. Swing pipe
     is 3 ft per head, in whole 100 ft rolls rounded up, never fewer than 1.
-  - Manifold: one zone valve per zone.
+  - Manifold: one zone valve per zone. Valve boxes (Zach 2026-11-16): 4 valves fit in a box, and
+    they're spread evenly over the fewest boxes ("6 zones i would do 3 and 3"; `valveBoxes`). Drip
+    zone valves count too (an assumption, not confirmed). The line is "Standard valve box" or
+    "Jumbo valve box", picked on the parts list and remembered as the company's default
+    (`prefs.boxSize`, `job.boxSize`). The Heads tab notes the split, e.g. "2 valve boxes: 3, 3 valves".
   - Drip (2026-11-08): every bed is drip. A row runs the length of the bed. The width is
     checked all over the bed, and wherever it's over 7 ft the bed gets an extra row (7 ft or
     less is one row). A drip zone carries 250 ft at most, and the line from the valve box
@@ -221,12 +232,26 @@ swings 10x, so compare old and new engines back to back before calling anything 
     list is what gets copied and printed.
   - Lateral and mainline fittings (2026-11-10): per sprinkler zone 1 coupling, 2 tees, 1 swing
     adapter; per yard 2 elbows and 30 mainline pinch clamps; 1 bag of LD pinch clamps per 10 zones,
-    rounded up, and a saddle for every head. Pipe lengths aren't counted yet: Zach is working out
-    his rules for them.
+    rounded up, and a saddle for every head. Wire isn't counted: the list ends with "Don't forget
+    your low voltage wire!" (Zach 2026-11-17: "who knows where they will put the timer").
+  - Pipe (Zach 2026-11-17, `pipePlan`, on trenchPlan's valve boxes): mainline is the shortest run
+    joining the meter and every box, through a box or teed off partway, whichever is shorter; each
+    Spigot pin gets mainline back to the nearest point on that run (and a trench); every zone gets
+    its own lateral from its box out to each head, ending at the last one (shortest tree over the box
+    and its heads); a drip zone's lateral stops at its bed's edge. Listed as '<size> mainline pipe'
+    and '<size> lateral pipe' by roll (Zach 2026-11-17): mainline in 100 and 300 ft rolls with no
+    extra ("keep that pretty close"); lateral in 100 and 400 ft rolls plus 100 ft up to 1300 ft, 200
+    ft over that, 400 ft over 3000 (`lateralExtra`); `rollMix` picks the least pipe left over, then
+    the fewest rolls. Laterals may split ("lateral lines can split too"), and spigot pipe is 1"
+    mainline, counted in with it (Zach 2026-11-17).
   - Sizes (2026-11-10): the new job screen asks for the supply line from the street (3/4" or 1",
     required). Job settings has a lateral line size (3/4" or 1", past the valves),
     starting at the supply size. Saddles, couplings, tees, elbows and LD clamps carry the lateral
-    size; mainline pinch clamps the supply size; swing elbows and swing adapters no size. A 3/4"
+    size; mainline pipe and mainline pinch clamps are 1" on every yard (Zach 2026-11-17: "the mainline
+    from the meter to each of the boxes and spigot should be 1 inch on every yard"); swing elbows and
+    swing adapters no size. The lateral starts at the supply size and can be switched on the parts
+    list too ("Lateral line" 3/4" or 1"); picking 1" is remembered for the company's new jobs
+    (`prefs.lateral`), since "some landscapers only use 1 inch everywhere". A 3/4"
     lateral on a bigger supply shows a warning and caps zones at 12 GPM, as if the supply were 3/4".
   - Water: every job is culinary or secondary, picked on the new job screen. Culinary gets "Backflow setup"
     and secondary "Filter setup" (brands vary too much to list), each with a stainless steel ball
@@ -236,11 +261,15 @@ swings 10x, so compare old and new engines back to back before calling anything 
 
 ## Zach's list before he feels good about the app (2026-11-15)
 
-1. Trenching for homeowners: `trenchFeet` is a placeholder until he gives his rule.
+1. Trenching for homeowners: built 2026-11-16 to his method (see Trench). Next: pipe lengths on the
+   parts list the same way.
 2. Rework tree mechanics: built 2026-11-15 (see Trees under His rules). Open: TREE_POPUPS (15 ft)
    is still a guess.
 3. Google ratings for the installer list, for when that list is switched on (`SHOW_INSTALLERS`).
 4. The website vs the app: decided and built 2026-11-16 (see Website and iPhone app under His rules).
+5. Security and liability (added 2026-11-17): "a way im not liable for if someones map is wrong
+   because in reality, this is just a tool for contractors, we aren't actually installing the yard."
+6. A sod calculator (added 2026-11-17).
 
 ## Shipping
 

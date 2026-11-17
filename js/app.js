@@ -19,6 +19,8 @@
   const MARKERS = {
     tree: { letter: "T", color: "#7bc96f", name: "Tree" },
     meter: { letter: "M", color: "#5bc8e6", name: "Meter" },
+    // Zach 2026-11-17: "a spigot feature that allows the user to add a spigot somewhere in the yard"
+    spigot: { letter: "S", color: "#f4a261", name: "Spigot" },
     valve: { letter: "V", color: "#c9a7f5", name: "Valve box" },
     note: { letter: "!", color: "#ffd166", name: "Note" },
   };
@@ -442,6 +444,7 @@
         : "Jobs save on this " + DEVICE + ".") +
       " Address search and satellite photos come from Mapbox.</p>";
     h += '<button class="btn small ghost" style="width:100%" id="tour">Take the tour</button>';
+    h += '<p class="note" style="text-align:center"><a href="terms.html">Terms of Use</a></p>';
     if (isHome())
       h +=
         '<button class="btn small ghost" style="width:100%" id="mode">Installer? Use the contractor version</button>';
@@ -590,6 +593,7 @@
       markers: [
         marker("meter", -8, -52),
         marker("valve", -4, 34),
+        marker("spigot", 40, 30),
         Object.assign(marker("tree", 60, 70), { trunk: 14 }),
       ],
       layout: null,
@@ -872,8 +876,10 @@
 
   // Lateral line (past the valves): 3/4" or 1", starting at the supply size. Zach 2026-11-10: a
   // 3/4" lateral on a 1" supply cuts pressure, so the job is designed as if the supply were 3/4".
+  // Zach 2026-11-17: the lateral matches the supply from the street, but "some landscapers only use
+  // 1 inch everywhere for simplicity sake", so a company that picks 1" gets it on every new job.
   function lateralOf(job) {
-    return job.lateral || (job.line === "34" ? "34" : "1");
+    return job.lateral || (prefs.lateral === "1" ? "1" : job.line === "34" ? "34" : "1");
   }
   function capOf(job) {
     const supply =
@@ -887,8 +893,14 @@
     return sup === lat ? sup + " line" : sup + " supply, " + lat + " lateral";
   }
   const sizeName = (k) => (k === "34" ? '3/4"' : k === "1" ? '1"' : null);
+  // valve box size: the contractor's pick on the parts list, remembered as the company's default
+  function boxSize(job) {
+    return job.boxSize || prefs.boxSize || "standard";
+  }
+  // mainline (meter to the valve boxes, spigots, its pinch clamps) is 1" on every yard (Zach
+  // 2026-11-17); the supply size only sets the lateral's default and the GPM cap
   function pipeSizes(job) {
-    return { lateral: sizeName(lateralOf(job)), main: sizeName(job.line) };
+    return { lateral: sizeName(lateralOf(job)), main: sizeName("1"), box: boxSize(job) };
   }
 
   function proj(job) {
@@ -2105,6 +2117,7 @@
       job.water,
       prefs.setups,
       pipeSizes(job),
+      L0.heads.length ? trenchInfo(job).pipe : null,
     );
     L0.totals = {
       points: totals.points,
@@ -2248,6 +2261,31 @@
         }),
       ),
     );
+    // where the app would put the valve boxes, each with its zones closest together, and the trench
+    // network joining the meter, the boxes and the zones
+    const tinfo = !locked(J.job) && L0.heads.length ? trenchInfo(J.job) : null;
+    if (tinfo)
+      tinfo.edges.forEach(([a, b]) =>
+        lay.addLayer(
+          L.polyline([P.toLL(a.x, a.y), P.toLL(b.x, b.y)], {
+            color: "#6b4f2a",
+            weight: 2.5,
+            opacity: 0.85,
+            dashArray: "6 5",
+            interactive: false,
+          }),
+        ),
+      );
+    if (tinfo)
+      tinfo.boxes.forEach((bx, i, all) =>
+        lay.addLayer(
+          L.marker(P.toLL(bx.x, bx.y), {
+            icon: L.divIcon({ className: "vbox", html: "VB" + (all.length > 1 ? i + 1 : ""), iconSize: null }),
+            interactive: false,
+            keyboard: false,
+          }),
+        ),
+      );
     if (J.moving && J.selHead != null) {
       const h = L0.heads[J.selHead];
       const m = L.marker(P.toLL(h.x, h.y), {
@@ -2895,6 +2933,13 @@
           " for the beds, " +
           drip.ft +
           " ft of drip pipe.</p>";
+      const vb = parts.boxes || [];
+      if (vb.length)
+        h +=
+          '<p class="note">' +
+          vb.length +
+          (vb.length > 1 ? " valve boxes: " + vb.join(", ") + " valves" : " valve box") +
+          ".</p>";
       const smallRotor = L0.zones.filter(
         (z) => z.family === "rotor" && z.count < 3,
       );
@@ -2962,22 +3007,55 @@
 
   // What a homeowner sees before paying: the layout is done, the map is blurred, and the numbers
   // that tell them what they're in for are shown
-  function trenchLine(job) {
+  // Where the valve boxes go and how much trench it takes (Zach's method, trenchPlan in the engine)
+  function trenchInfo(job) {
     const P = proj(job);
-    const at = (tag) => {
-      const m = job.markers.find((k) => k.tag === tag);
-      return m ? P.toXY(m) : null;
-    };
-    const t = E.trenchFeet(job.layout.heads, at("valve"), at("meter"));
+    const L0 = job.layout;
+    const zones = [];
+    const byZone = new Map();
+    L0.heads.forEach((h) => {
+      if (!byZone.has(h.zone)) byZone.set(h.zone, []);
+      byZone.get(h.zone).push(h);
+    });
+    byZone.forEach((hs) =>
+      zones.push({
+        x: hs.reduce((t, h) => t + h.x, 0) / hs.length,
+        y: hs.reduce((t, h) => t + h.y, 0) / hs.length,
+        kind: hs.some((h) => h.kind === "R") ? "rotor" : "spray",
+        heads: hs.map((h) => ({ x: h.x, y: h.y })),
+      }),
+    );
+    // a drip zone's trench goes to the edge of its beds
+    const drip = dripFor(job);
+    drip.zones.forEach((z) => {
+      const pts = job.shapes
+        .filter((sh) => z.beds.includes(sh.id))
+        .flatMap((sh) => sh.pts.map((p) => P.toXY(p)));
+      if (pts.length)
+        zones.push({
+          x: pts.reduce((t, p) => t + p.x, 0) / pts.length,
+          y: pts.reduce((t, p) => t + p.y, 0) / pts.length,
+          kind: "drip",
+          // the trench only has to reach the bed
+          edge: job.shapes
+            .filter((sh) => z.beds.includes(sh.id))
+            .flatMap((sh) => densify(shapeLocal(sh, P), true)),
+        });
+    });
+    const meter = job.markers.find((k) => k.tag === "meter");
+    const rings = buildAreas(job).map((a) => densify(a.outer, true));
+    const spigots = job.markers.filter((k) => k.tag === "spigot").map((k) => P.toXY(k));
+    const plan = E.trenchPlan(zones, meter ? P.toXY(meter) : null, rings, spigots);
+    plan.pipe = E.pipePlan(zones, meter ? P.toXY(meter) : null, plan, spigots);
+    return plan;
+  }
+
+  // homeowners see just the total (Zach 2026-11-17: "keep it simple. just tell them the total")
+  function trenchLine(job) {
     return (
-      '<dl class="kv"><dt>Trench to dig</dt><dd>About ' +
-      t.ft +
-      " ft</dd></dl>" +
-      '<p class="note">A rough number for digging it yourself: the pipe between the heads, back to the valve box' +
-      (t.hasBox
-        ? ""
-        : " (add a Meter and a Valve box on the Draw tab to count those runs)") +
-      ", plus some extra for going around things. Drip in the beds lies on top, so it isn't counted.</p>"
+      '<dl class="kv"><dt>Estimated trenching</dt><dd>About ' +
+      trenchInfo(job).ft +
+      " ft</dd></dl>"
     );
   }
 
@@ -3031,6 +3109,7 @@
             price +
             ", no subscription. You get every head on the map with its nozzle, a printable plan, and the full parts list to take to the store.") +
         "</p>" +
+        '<p class="note">It\'s an estimate from your map. By paying you agree to the <a href="terms.html">Terms of Use</a>.</p>' +
         (PAY_HERE
           ? '<button class="btn primary" style="width:100%" id="pay">Pay ' + price + "</button>" +
             '<p class="note">Stripe takes the card. Head to Head never sees it.</p>'
@@ -3314,6 +3393,7 @@
         const t = MARKERS[m.tag] || MARKERS.note;
         return { x: q.x, y: q.y, letter: t.letter, color: t.color };
       }),
+      disclaimer: E.DISCLAIMER,
     };
   }
 
@@ -3379,13 +3459,14 @@
       J.job.water,
       prefs.setups,
       pipeSizes(J.job),
+      L0.heads.length ? trenchInfo(J.job).pipe : null,
     );
   }
   // The list the crew sees: the company's edited copy if there is one, else the app's.
   function shownParts(L0) {
     const fresh = freshParts(L0);
     return J.job.partsEdit
-      ? { lines: J.job.partsEdit.lines, notes: fresh.notes }
+      ? { lines: J.job.partsEdit.lines, notes: fresh.notes, footer: fresh.footer }
       : fresh;
   }
   function partsTable(parts) {
@@ -3408,7 +3489,14 @@
         esc(String(l.qty)) +
         "</td></tr>";
     });
-    return h + "</table>";
+    return (
+      h +
+      "</table>" +
+      (parts.footer ? '<p class="parts-foot">' + esc(parts.footer) + "</p>" : "") +
+      '<p class="note parts-terms">' +
+      esc(E.DISCLAIMER) +
+      ' <a href="terms.html">Terms of Use</a></p>'
+    );
   }
 
   function partsText(parts) {
@@ -3423,6 +3511,8 @@
       }
       t += l.qty + "  " + l.item + "\n";
     });
+    if (parts.footer) t += "\n" + parts.footer + "\n";
+    t += "\n" + E.DISCLAIMER + "\n";
     return t;
   }
 
@@ -3632,8 +3722,26 @@
               : "This is your edited list. The layout changed after you edited it, so it may be out of date. Reset to get the app's new list.") +
             "</div>";
         body +=
+          '<label class="f">Lateral line</label><div class="seg" id="vlat" style="margin-bottom:12px">' +
+          ["34", "1"]
+            .map(
+              (k) =>
+                '<button data-lt="' + k + '" aria-pressed="' + (lateralOf(job) === k) + '">' + sizeName(k) + "</button>",
+            )
+            .join("") +
+          "</div>" +
+          '<label class="f">Valve boxes</label><div class="seg" id="vbox" style="margin-bottom:12px">' +
+          ["standard", "jumbo"]
+            .map(
+              (k) =>
+                '<button data-vb="' + k + '" aria-pressed="' + (boxSize(job) === k) + '">' +
+                (k === "jumbo" ? "Jumbo" : "Standard") +
+                "</button>",
+            )
+            .join("") +
+          "</div>" +
           partsTable(shownParts(L0)) +
-          '<p class="note">Drip covers the beds only, not the line from the valve box to each bed. Mainline pipe, lateral pipe and wire are not counted yet.</p>' +
+          '<p class="note">Drip covers the beds; the line from the valve box to each bed is in the lateral pipe. Mainline pipe is counted from the meter to each valve box and each spigot (add the Meter on the Draw tab), lateral pipe from each box out to every head.</p>' +
           (job.water
             ? '<div class="row"><button class="btn grow" id="psetup">' +
               icon("sliders") +
@@ -3670,6 +3778,26 @@
         '<div class="body">' +
         body +
         "</div>";
+      ov.querySelectorAll("[data-lt]").forEach(
+        (b) =>
+          (b.onclick = () => {
+            job.lateral = b.dataset.lt;
+            // 1" is remembered for the company's next jobs; 3/4" stays this job's
+            prefs.lateral = b.dataset.lt === "1" ? "1" : null;
+            savePrefs();
+            touch(job);
+            render();
+          }),
+      );
+      ov.querySelectorAll("[data-vb]").forEach(
+        (b) =>
+          (b.onclick = () => {
+            job.boxSize = prefs.boxSize = b.dataset.vb;
+            savePrefs();
+            touch(job);
+            render();
+          }),
+      );
       wire();
     }
 
@@ -3903,7 +4031,7 @@
       '<p class="note">Payments open soon. Nothing is charged yet.</p></section>' +
       '<footer class="l-foot">Built by a landscaper who ran a sprinkler supply counter. © ' +
       new Date().getFullYear() +
-      " Head to Head</footer>" +
+      ' Head to Head · <a href="terms.html">Terms of Use</a></footer>' +
       "</main>"
     );
   }
@@ -3967,6 +4095,7 @@
               .join("") +
             '<label class="f" for="em">Email</label><input class="t" id="em" type="email" inputmode="email" autocomplete="email" placeholder="you@company.com">' +
             '<button class="btn primary" style="width:100%;margin-top:12px" id="go">Email me a code</button>' +
+            '<p class="note" style="margin-top:10px">By signing in you agree to the <a href="terms.html">Terms of Use</a>.</p>' +
             '<button class="btn small ghost" style="width:100%;margin-top:18px" id="mode">Homeowner? Map your own yard, no account needed</button>'
           : '<p class="lede">We sent a 6-digit code to <b>' +
             esc(email) +

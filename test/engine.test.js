@@ -611,16 +611,40 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(o.totals.overspray, 0, "short curved end: no overspray");
 }
 
-// DIY trench estimate: each zone's heads joined by the shortest tree, one shared trench from the valve
-// box out to every zone, and the meter-to-valve mainline, plus 15% and rounded up to 10 ft.
+// DIY trench (Zach 2026-11-16): zones grouped by closeness into valve boxes (6 zones: 3 and 3), each
+// box on the lawn edge closest on average to its zones, mainline meter -> nearest box -> next box,
+// a shared trench tree from each box to its zones' middles, plus 50 ft per pop-up zone, 75 per rotor.
 {
-  const hs = [{ x: 0, y: 0, zone: 1 }, { x: 20, y: 0, zone: 1 }, { x: 40, y: 0, zone: 1 }, { x: 0, y: 30, zone: 2 }, { x: 25, y: 30, zone: 2 }];
-  const t = E.trenchFeet(hs, { x: 0, y: -10 }, { x: 0, y: -40 });
-  eq(t.laterals, 65, "trench: zone 1 is 40 ft of lateral, zone 2 is 25");
-  eq(t.feeders, 40, "trench: one shared trench from the valve box, 10 ft to zone 1 and 30 more to zone 2");
-  eq(t.main, 30, "trench: 30 ft of mainline from meter to valve box");
-  eq(t.ft, 160, "trench: 135 ft plus 15%, rounded up to 160");
-  eq(E.trenchFeet(hs, null, null).ft, 80, "trench: no markers counts laterals only");
+  const zones = [
+    { x: 10, y: 10, kind: "spray" }, { x: 20, y: 10, kind: "spray" }, { x: 15, y: 20, kind: "rotor" },
+    { x: 90, y: 10, kind: "rotor" }, { x: 80, y: 10, kind: "spray" }, { x: 85, y: 20, kind: "drip" },
+  ];
+  const ring = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 30 }, { x: 0, y: 30 }];
+  const t = E.trenchPlan(zones, { x: 50, y: -10 }, [ring]);
+  eq(t.boxes.length, 2, "trench: 6 zones go in 2 boxes");
+  const sets = t.boxes.map((bx) => bx.zones.slice().sort().join(",")).sort();
+  eq(JSON.stringify(sets), JSON.stringify(["0,1,2", "3,4,5"]), "trench: each box gets the 3 zones closest together");
+  eq(t.boxes.every((bx) => Math.abs(bx.y) < 1e-6 || Math.abs(bx.y - 30) < 1e-6 || Math.abs(bx.x) < 1e-6 || Math.abs(bx.x - 100) < 1e-6), true, "trench: boxes sit on the lawn edge");
+  eq(t.inZone, 3 * 50 + 2 * 75, "trench: 50 ft per pop-up zone, 75 per rotor zone, none for drip");
+  // one shared network: never longer than running each line on its own (meter to box to box, box to
+  // each zone), and every point is joined
+  const [b1, b2] = t.boxes.slice().sort((p, q) => Math.hypot(p.x - 50, p.y + 10) - Math.hypot(q.x - 50, q.y + 10));
+  const apart = Math.hypot(b1.x - 50, b1.y + 10) + Math.hypot(b2.x - b1.x, b2.y - b1.y) +
+    t.boxes.reduce((s, bx) => s + bx.zones.reduce((u, i) => u + Math.hypot(zones[i].x - bx.x, zones[i].y - bx.y), 0), 0);
+  eq(t.shared < apart, true, "trench: sharing beats separate runs (" + Math.round(t.shared) + " < " + Math.round(apart) + " ft)");
+  const seen = new Set(), key = (p) => p.x.toFixed(3) + "," + p.y.toFixed(3);
+  t.edges.forEach(([a, b]) => { seen.add(key(a)); seen.add(key(b)); });
+  eq([{ x: 50, y: -10 }].concat(t.boxes, zones.filter((z) => z.kind !== "drip")).every((p) => seen.has(key(p))), true, "trench: the meter, every box and every zone are on the network");
+  eq(t.ft, Math.ceil((t.shared + t.inZone) / 10) * 10, "trench: total rounds up to 10 ft");
+  eq(E.trenchPlan(zones, null, [ring]).shared < t.shared, true, "trench: no meter, no mainline counted");
+  // three zones in a row share one trench: the box lands mid-row 1 ft off it, so 20 ft along the row
+  // plus 1 ft to the box, not a separate run to each zone
+  const line = E.trenchPlan([{ x: 10, y: 0, kind: "spray" }, { x: 20, y: 0, kind: "spray" }, { x: 30, y: 0, kind: "spray" }], null, [[{ x: 0, y: -1 }, { x: 40, y: -1 }, { x: 40, y: 1 }, { x: 0, y: 1 }]]);
+  eq(Math.round(line.shared), 21, "trench: zones in a row share one trench (" + line.shared.toFixed(1) + " ft)");
+  // a drip zone is reached at the edge of its bed, not its middle
+  const bed = [{ x: 80, y: 18 }, { x: 90, y: 18 }, { x: 90, y: 22 }, { x: 80, y: 22 }];
+  const withEdge = zones.map((z) => (z.kind === "drip" ? Object.assign({}, z, { edge: bed }) : z));
+  eq(E.trenchPlan(withEdge, { x: 50, y: -10 }, [ring]).shared <= t.shared, true, "trench: drip stops at the bed's edge");
 }
 
 // Trees (Zach 2026-11-15): under 6 in of trunk the layout ignores it. A bigger trunk blocks spray,
@@ -677,6 +701,13 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(near(strip(false)).length, 0, "strip: heads stay 7 ft off the trunk");
   const nf = near(strip(true));
   eq(nf.length > 0 && nf.every((h) => Math.abs(h.y - 8) < 0.5), true, "strip: only heads on the fence line come closer (" + nf.length + ")");
+  // a 60x30 front lawn with an 18 in tree keeps rotors where they fit (Zach 2026-11-17: "id do rotors
+  // where needed"); it went all pop-ups when ground rotors couldn't reach past the tree counted
+  // against them
+  const front = E.layoutJob({ areas: [{ outer: P([[0, 0], [60, 0], [60, 30], [0, 30]]), trees: [{ x: 22, y: 14, trunk: 18 }], mode: "auto" }], psi: 50, cap: 12 });
+  eq(front.heads.filter((h) => h.kind === "R").length >= 3, true, "front lawn with a tree keeps its rotors (" + front.heads.filter((h) => h.kind === "R").length + ")");
+  eq(front.totals.overspray, 0, "front lawn with a tree: no overspray");
+  eq(front.totals.coverage >= 0.99, true, "front lawn with a tree: double covered (" + (front.totals.coverage * 100).toFixed(1) + "%)");
 }
 
 // Park strips (Zach 2026-11-15): a lawn 3 to 6 ft wide gets Rain Bird strip nozzles, "the LCS RCS
@@ -729,6 +760,60 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   const yard = E.splitStrips(P([[0, 0], [65, 0], [65, -35], [70, -35], [70, 45], [0, 45]]));
   const oy = E.layoutJob({ areas: yard.map((r) => ({ outer: r, fences: [[{ x: -1, y: 45 }, { x: 71, y: 45 }]], trees: [{ x: 35, y: 42, trunk: 14 }], mode: "auto" })), psi: 50, cap: 12 });
   eq(oy.heads.filter((h) => h.kind === "R").length >= 6, true, "side entrance + tree: the backyard keeps its rotors");
+}
+
+// Valve boxes (Zach 2026-11-16): 4 valves fit in a box, spread evenly ("6 zones i would do 3 and 3").
+{
+  eq(JSON.stringify(E.valveBoxes(6)), "[3,3]", "6 valves: two boxes of 3");
+  eq(JSON.stringify(E.valveBoxes(9)), "[3,3,3]", "9 valves: three boxes of 3");
+  eq(JSON.stringify(E.valveBoxes(5)), "[3,2]", "5 valves: 3 and 2");
+  eq(JSON.stringify(E.valveBoxes(4)), "[4]", "4 valves: one box");
+  eq(JSON.stringify(E.valveBoxes(0)), "[]", "no valves, no box");
+  eq(E.parts([], [{ n: 1, family: "spray", heads: [] }], 0, "culinary").footer, "Don't forget your low voltage wire!", "parts list ends with the wire reminder");
+  const zones = Array.from({ length: 4 }, (_, i) => ({ n: i + 1, family: "spray", heads: [] }));
+  const q = (p, item) => (p.lines.find((l) => l.item === item) || { qty: 0 }).qty;
+  eq(q(E.parts([], zones, { zones: [1, 2], ft: 80 }, "culinary"), "Standard valve box"), 2, "4 zone valves and 2 drip valves: 2 standard boxes");
+  eq(q(E.parts([], zones, 0, "culinary", null, { box: "jumbo" }), "Jumbo valve box"), 1, "jumbo when the contractor picks it");
+}
+
+// Pipe (Zach 2026-11-17): mainline joins the meter and every box (through a box or teed off,
+// whichever is shorter), each spigot gets mainline back to the nearest point on it, and each zone
+// gets its own lateral from its box out to every head, ending at the last one.
+{
+  const zones = [
+    { x: 10, y: 5, kind: "spray", heads: [{ x: 5, y: 5 }, { x: 10, y: 5 }, { x: 15, y: 5 }] },
+    { x: 90, y: 5, kind: "rotor", heads: [{ x: 85, y: 5 }, { x: 95, y: 5 }] },
+  ];
+  const plan = { boxes: [{ x: 0, y: 5, zones: [0] }, { x: 100, y: 5, zones: [1] }] };
+  const meter = { x: 50, y: -20 };
+  const pp = E.pipePlan(zones, meter, plan, [{ x: 50, y: 30 }]);
+  const chain = Math.hypot(50, 25) + 100; // meter to one box, straight on to the other
+  const teed = pp.main - pp.spigots[0];
+  eq(teed < chain - 1, true, "pipe: boxes at opposite ends get a teed mainline (" + Math.round(teed) + " < " + Math.round(chain) + " ft)");
+  eq(teed >= 100 - 1e-6, true, "pipe: the mainline still reaches both boxes");
+  // from the meter the mainline runs out to each box (126.9 degrees apart, so no tee helps); the
+  // spigot at (50, 30) is nearest to the run toward (0, 5)
+  const seg = (p, a, b) => {
+    const dx = b.x - a.x, dy = b.y - a.y, t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy)));
+    return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
+  };
+  const want = Math.min(seg({ x: 50, y: 30 }, meter, plan.boxes[0]), seg({ x: 50, y: 30 }, meter, plan.boxes[1]));
+  eq(Math.abs(pp.spigots[0] - want) < 0.5, true, "pipe: spigot pipe runs to the nearest point on the mainline (" + pp.spigots[0].toFixed(1) + " ft)");
+  eq(Math.abs(pp.perZone[0] - 15) < 0.5, true, "pipe: a zone's lateral runs from its box to its last head (" + pp.perZone[0].toFixed(1) + " ft)");
+  eq(Math.abs(pp.perZone[1] - 15) < 0.5, true, "pipe: the other zone's own lateral (" + pp.perZone[1].toFixed(1) + " ft)");
+  const pr = E.parts([], [{ n: 1, family: "spray", heads: [] }], 0, "culinary", null, { main: '1"', lateral: '3/4"' }, pp);
+  const line = (re) => pr.lines.find((l) => re.test(l.item));
+  eq(!!line(/^1" mainline pipe, 100 ft roll/) && !!line(/^3\/4" lateral pipe, 100 ft roll/), true, "pipe: mainline and lateral on the parts list in their sizes");
+  eq(E.pipePlan(zones, null, plan, []).main, 0, "pipe: no meter, no mainline");
+  // rolls (Zach 2026-11-17): mainline 100 and 300 ft, no extra; lateral 100 and 400 ft, plus 100 ft
+  // up to 1300, 200 over that, 400 over 3000; least pipe left over, then fewest rolls
+  eq(JSON.stringify(E.rollMix(290, [100, 300])), '{"100":0,"300":1}', "mainline 290 ft: one 300");
+  eq(JSON.stringify(E.rollMix(350, [100, 300])), '{"100":1,"300":1}', "mainline 350 ft: a 300 and a 100");
+  eq([E.lateralExtra(1300), E.lateralExtra(1301), E.lateralExtra(3001)].join(","), "100,200,400", "lateral extra: 100, then 200 over 1300, 400 over 3000");
+  eq(JSON.stringify(E.rollMix(1230 + 100, [100, 400])), '{"100":2,"400":3}', "lateral 1230 ft + 100: three 400s and two 100s");
+  const big = E.parts([], [], 0, "culinary", null, { main: '1"', lateral: '3/4"' }, { main: 350, lateral: 1230 });
+  const q2 = (re) => (big.lines.find((l) => re.test(l.item)) || { qty: 0 }).qty;
+  eq([q2(/mainline pipe, 300/), q2(/mainline pipe, 100/), q2(/lateral pipe, 400/), q2(/lateral pipe, 100/)].join(","), "1,1,3,2", "parts list rolls for 350 ft mainline, 1230 ft lateral");
 }
 
 // Zach 2026-11-10: a company can save its own backflow or filter parts once and every job uses them

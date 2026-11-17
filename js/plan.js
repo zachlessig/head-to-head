@@ -57,7 +57,7 @@
       { key: "3504", name: "3504 rotor, 18 to 23 ft", count: d.heads.filter((h) => h.kind === "R" && h.model === "3504").length },
     ].filter((t) => t.count);
     const head = 130 + Math.max(1, kinds.length) * 32,
-      foot = d.legendRows ? 70 + Math.ceil(d.legendRows / 2) * 34 : 90,
+      foot = (d.legendRows ? 70 + Math.ceil(d.legendRows / 2) * 34 : 90) + 64,
       side = 70;
     const k = Math.min(
       (W - 2 * side) / Math.max(1, x1 - x0),
@@ -278,6 +278,25 @@
     ctx.textAlign = "center";
     ctx.fillText(barFt + " ft", 48 + barFt * k, by + 30);
     drawNorth(ctx, 48 + barFt * k + 70, by + 2);
+
+    // the estimate note along the bottom edge (Zach 2026-11-17, liability)
+    if (d.disclaimer) {
+      ctx.font = "500 15px Inter, sans-serif";
+      ctx.fillStyle = "#5d6f62";
+      ctx.textAlign = "left";
+      const words = d.disclaimer.split(" ");
+      const rows = [];
+      let row = "";
+      words.forEach((w) => {
+        const t = row ? row + " " + w : w;
+        if (ctx.measureText(t).width > W - 96 && row) {
+          rows.push(row);
+          row = w;
+        } else row = t;
+      });
+      if (row) rows.push(row);
+      rows.forEach((r, i) => ctx.fillText(r, 48, H - 20 - (rows.length - 1 - i) * 20));
+    }
 
     // zone legend
     if (d.zones && d.zones.length) {
