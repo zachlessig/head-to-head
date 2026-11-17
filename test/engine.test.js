@@ -631,6 +631,10 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(Math.abs(t.main - main) < 1e-6, true, "trench: mainline runs meter, nearest box, then the next");
   eq(t.ft, Math.ceil((t.main + t.laterals + t.inZone) / 10) * 10, "trench: total rounds up to 10 ft");
   eq(E.trenchPlan(zones, null, [ring]).main, 0, "trench: no meter, no mainline counted");
+  // a drip zone is reached at the edge of its bed, not its middle
+  const bed = [{ x: 80, y: 18 }, { x: 90, y: 18 }, { x: 90, y: 22 }, { x: 80, y: 22 }];
+  const withEdge = zones.map((z) => (z.kind === "drip" ? Object.assign({}, z, { edge: bed }) : z));
+  eq(E.trenchPlan(withEdge, { x: 50, y: -10 }, [ring]).laterals <= t.laterals, true, "trench: drip stops at the bed's edge");
 }
 
 // Trees (Zach 2026-11-15): under 6 in of trunk the layout ignores it. A bigger trunk blocks spray,

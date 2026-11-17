@@ -2501,8 +2501,10 @@
   // of its zones, sharing a trench while they head the same way ("they can be in the same trench and
   // split when it gets close"): the shortest tree over the box and its zones' middles. Inside a zone,
   // "for pop up zones, add like another 50 feet of trenching. for rotors add like 75 feet". A drip
-  // zone gets the trench to its beds only; the drip lies on top (an assumption).
-  // zones: [{x, y, kind: "spray" | "rotor" | "drip"}], meter: {x, y} or null, rings: lawn edges.
+  // zone's trench stops at the edge of its beds: "drip zones dont need trench footage once inside.
+  // just get the pipe to the bed area."
+  // zones: [{x, y, kind: "spray" | "rotor" | "drip", edge: [{x, y}] for a drip zone's bed outlines]},
+  // meter: {x, y} or null, rings: lawn edges.
   const ZONE_TRENCH = { spray: 50, rotor: 75, drip: 0 };
   function shortestTree(pts) {
     if (pts.length < 2) return 0;
@@ -2589,7 +2591,16 @@
         at = left.splice(bi, 1)[0];
       }
     }
-    const laterals = boxes.reduce((t, bx) => t + shortestTree([bx].concat(bx.zones.map((i) => zones[i]))), 0);
+    // a drip zone is reached at the edge of its beds nearest the box
+    const target = (z, bx) => {
+      if (!z.edge || !z.edge.length) return z;
+      let best = z.edge[0];
+      z.edge.forEach((p) => {
+        if (Math.hypot(p.x - bx.x, p.y - bx.y) < Math.hypot(best.x - bx.x, best.y - bx.y)) best = p;
+      });
+      return best;
+    };
+    const laterals = boxes.reduce((t, bx) => t + shortestTree([bx].concat(bx.zones.map((i) => target(zones[i], bx)))), 0);
     const inZone = zones.reduce((t, z) => t + (ZONE_TRENCH[z.kind] || 0), 0);
     return { boxes, main, laterals, inZone, hasMeter: !!meter, ft: Math.ceil((main + laterals + inZone) / 10) * 10 };
   }

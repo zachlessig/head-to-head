@@ -2944,7 +2944,7 @@
         kind: hs.some((h) => h.kind === "R") ? "rotor" : "spray",
       }),
     );
-    // a drip zone's trench goes to the middle of its beds
+    // a drip zone's trench goes to the edge of its beds
     const drip = dripFor(job);
     drip.zones.forEach((z) => {
       const pts = job.shapes
@@ -2955,6 +2955,10 @@
           x: pts.reduce((t, p) => t + p.x, 0) / pts.length,
           y: pts.reduce((t, p) => t + p.y, 0) / pts.length,
           kind: "drip",
+          // the trench only has to reach the bed
+          edge: job.shapes
+            .filter((sh) => z.beds.includes(sh.id))
+            .flatMap((sh) => densify(shapeLocal(sh, P), true)),
         });
     });
     const meter = job.markers.find((k) => k.tag === "meter");
@@ -2968,14 +2972,16 @@
       '<dl class="kv"><dt>Trench to dig</dt><dd>About ' +
       t.ft +
       " ft</dd></dl>" +
-      '<p class="note">A rough number: ' +
+      '<p class="note">That\'s the total: ' +
       (t.hasMeter
         ? Math.round(t.main) + " ft of mainline from the meter to the valve box" + (t.boxes.length > 1 ? "es" : "") + ", "
         : "") +
       Math.round(t.laterals) +
       " ft from the valve box" +
       (t.boxes.length > 1 ? "es" : "") +
-      " out to the zones, and about 50 ft inside each pop-up zone and 75 ft inside each rotor zone." +
+      " out to the zones and beds, and " +
+      Math.round(t.inZone) +
+      " ft inside the zones (about 50 ft for each pop-up zone and 75 ft for each rotor zone)." +
       (t.hasMeter ? "" : " Add the Meter on the Draw tab to count the mainline too.") +
       "</p>"
     );
