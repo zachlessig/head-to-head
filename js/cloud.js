@@ -91,9 +91,13 @@
     });
     if (error) throw error;
   }
-  async function signOut() {
-    await pushNow();
-    await sb.auth.signOut();
+  // gone: the account was just deleted, so there's nothing left to send up first
+  async function signOut(gone) {
+    if (gone) {
+      state.dirty = [];
+      state.gone = [];
+    } else await pushNow();
+    await sb.auth.signOut({ scope: gone ? "local" : "global" }).catch(() => {});
     session = null;
     company = null;
     state.companyId = null;

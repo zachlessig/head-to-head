@@ -14,7 +14,8 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 // <tier>_yearly. Which payment types checkout offers (cards, Apple Pay) is set on the Stripe
 // account, not here: Stripe stopped taking that per checkout.
 const PLAN_TIER = Deno.env.get("PLAN_TIER") === "standard" ? "standard" : "founding";
-const YARD_LOOKUP = "yard_unlock";
+const YARD_LOOKUP = "yard_unlock"; // homeowner, $10
+const PRO_YARD_LOOKUP = "contractor_yard"; // contractor with no plan, $15 (Zach 2026-11-16)
 
 // Stripe sends people back only to these sites, never to an address a request names
 const RETURN_ORIGINS = [
@@ -216,13 +217,59 @@ Deno.serve(async (req) => {
       return reply({ url: s.url });
     }
 
+    // Deactivate (Zach 2026-11-17): stop the plan at the end of the paid time; the account and
+    // every job stay, read-only past that point.
+    if (input.action === "cancel") {
+      const user = await whoIs(req);
+      if (!user) return reply({ error: "Sign in first." }, 401);
+      const companyId = String(input.company_id || "");
+      if (!(await ownerOf(companyId, user.id)))
+        return reply({ error: "Only the company's owner can change the plan." }, 403);
+      const rows = await db("billing?select=subscription_id,status&company_id=eq." + companyId);
+      const bill = Array.isArray(rows) && rows[0] ? rows[0] : null;
+      if (!bill || !bill.subscription_id || bill.status === "canceled")
+        return reply({ error: "There's no active plan to stop." }, 400);
+      const sub = await stripe("subscriptions/" + bill.subscription_id, { cancel_at_period_end: "true" });
+      return reply({ ok: true, ends: sub.cancel_at || null });
+    }
+
+    // Delete account (Zach 2026-11-17; Apple also requires it in the app). An owner's company goes
+    // with them: its plan is cancelled now, then the company and every job, folder and invite in it
+    // are deleted. Someone who isn't an owner just leaves. Then the sign-in itself is deleted.
+    if (input.action === "delete-account") {
+      const user = await whoIs(req);
+      if (!user) return reply({ error: "Sign in first." }, 401);
+      const owned = await db("companies?select=id&owner_id=eq." + user.id);
+      for (const c of Array.isArray(owned) ? owned : []) {
+        const rows = await db("billing?select=subscription_id,status&company_id=eq." + c.id);
+        const bill = Array.isArray(rows) && rows[0] ? rows[0] : null;
+        if (bill && bill.subscription_id && bill.status !== "canceled")
+          await stripe("subscriptions/" + bill.subscription_id, undefined, "DELETE").catch((e) =>
+            console.error("cancel on delete", e)
+          );
+        await db("companies?id=eq." + c.id, { method: "DELETE" });
+      }
+      await db("members?user_id=eq." + user.id, { method: "DELETE" });
+      const res = await fetch(SUPABASE_URL + "/auth/v1/admin/users/" + user.id, {
+        method: "DELETE",
+        headers: { apikey: SERVICE_KEY, Authorization: "Bearer " + SERVICE_KEY },
+      });
+      if (!res.ok) throw new Error("auth delete " + res.status + " " + (await res.text()));
+      return reply({ ok: true });
+    }
+
     if (input.action === "unlock") {
       const jobId = String(input.job_id || "");
       if (!JOB_ID.test(jobId)) return reply({ error: "Bad job" }, 400);
       const s = await stripe("checkout/sessions", {
         mode: "payment",
-        line_items: { 0: { price: await priceId(YARD_LOOKUP), quantity: 1 } },
-        metadata: { job_id: jobId, kind: "yard_unlock" },
+        line_items: {
+          0: {
+            price: await priceId(input.kind === "contractor" ? PRO_YARD_LOOKUP : YARD_LOOKUP),
+            quantity: 1,
+          },
+        },
+        metadata: { job_id: jobId, kind: input.kind === "contractor" ? "contractor_yard" : "yard_unlock" },
         // Stripe fills in {CHECKOUT_SESSION_ID}; the app checks it on the way back
         success_url: backTo(
           origin,
@@ -243,7 +290,7 @@ Deno.serve(async (req) => {
         s.payment_status === "paid" &&
         s.metadata &&
         s.metadata.job_id === jobId &&
-        s.metadata.kind === "yard_unlock";
+        (s.metadata.kind === "yard_unlock" || s.metadata.kind === "contractor_yard");
       return reply({ paid });
     }
 
