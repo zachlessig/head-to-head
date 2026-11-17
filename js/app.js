@@ -799,7 +799,13 @@
     const fences = fenceLines(job, P);
     const areas = [];
     lawns.forEach((s) => {
-      E.splitByFences(shapeLocal(s, P), fences).forEach((piece) => {
+      E.splitByFences(shapeLocal(s, P), fences)
+        // a narrow arm of a bigger lawn (a side entrance) is cut off to get park strip nozzles
+        .flatMap((piece) => {
+          const cuts = E.stripCuts(piece);
+          return cuts.length ? E.splitByFences(piece, cuts) : [piece];
+        })
+        .forEach((piece) => {
         // a fence that stops partway in is still a wall: the lawn wraps around it as a slit
         const slit = E.fenceSlits(piece, fences);
         const outer = slit.outer;
@@ -825,6 +831,24 @@
           shapeId: s.id,
         });
       });
+    });
+    // the rest of the yard, as seen from each piece: a park strip's heads go on the side facing it
+    // (the sidewalk side)
+    const mids = areas.map((a) => {
+      const r = densify(a.outer, true);
+      const w = Math.abs(ringArea(r));
+      const c = r.reduce((t, p) => ({ x: t.x + p.x / r.length, y: t.y + p.y / r.length }), { x: 0, y: 0 });
+      return { x: c.x, y: c.y, w };
+    });
+    areas.forEach((a, i) => {
+      let x = 0, y = 0, w = 0;
+      mids.forEach((m, k) => {
+        if (k === i) return;
+        x += m.x * m.w;
+        y += m.y * m.w;
+        w += m.w;
+      });
+      if (w > 0) a.toward = { x: x / w, y: y / w };
     });
     return areas;
   }

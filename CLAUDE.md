@@ -148,6 +148,12 @@ swings 10x, so compare old and new engines back to back before calling anything 
   30 PSI: RCS/LCS 0.49, SST and CST 1.21 (SST confirmed by Zach), EST 0.61. A strip head covers a
   band (`h.strip`), 4 ft wide at least; on a 3 ft strip that lands past the far side, which he
   accepts. The example yard has a 5 ft park strip.
+  The heads go on the long side facing the rest of the yard ("sidewalk side always"; `toward` in
+  `buildAreas`, the area-weighted middle of the other lawn pieces). A narrow arm of a bigger lawn (a
+  side entrance traced with the backyard) is found by `stripCuts`: two straight opposite edges 3 to
+  6 ft apart, side by side for 8 ft and twice the width, lawn all the way between; it's cut off
+  square where it opens into more lawn, and the rest of the lawn treats the cut as an edge.
+  `test/fuzz.js` builds areas the same way.
 - Example yard: "Try an example yard" on the home screen builds a made-up yard with every
   feature, on a plain background (no satellite photo of a real place), and lays it out.
   When a feature is added, add it to `exampleJob()` in `js/app.js` too.

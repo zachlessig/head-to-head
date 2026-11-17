@@ -710,6 +710,22 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(strip(7, 40).heads.some((h) => /^15(RCS|LCS|SST)$/.test(h.label)), false, "over 6 ft keeps regular pop-ups");
 }
 
+// A narrow side entrance traced as part of the backyard (Zach 2026-11-15, "build the auto detect"):
+// the 5 ft arm is cut off where it opens into the yard and gets strip nozzles on the side facing the
+// yard ("sidewalk side always").
+{
+  const L = P([[0, 0], [60, 0], [60, -30], [65, -30], [65, 40], [0, 40]]);
+  const cuts = E.stripCuts(L);
+  eq(cuts.length, 1, "side entrance: one cut where the arm meets the yard");
+  const pieces = E.splitByFences(L, cuts);
+  const o = E.layoutJob({ areas: pieces.map((r) => ({ outer: r, mode: "auto", toward: { x: 30, y: 20 } })), psi: 50, cap: 12 });
+  const st = o.heads.filter((h) => h.strip);
+  eq(st.length >= 3 && st.every((h) => Math.abs(h.x - 60) < 0.2), true, "side entrance: strip heads along the side facing the yard");
+  eq(o.totals.overspray, 0, "side entrance: no overspray");
+  eq(o.totals.coverage >= 0.995, true, "side entrance: double covered (" + (o.totals.coverage * 100).toFixed(1) + "%)");
+  eq(E.stripCuts(P([[0, 0], [60, 0], [60, 40], [0, 40]])).length, 0, "a plain rectangle has no narrow arm");
+}
+
 // Zach 2026-11-10: a company can save its own backflow or filter parts once and every job uses them
 {
   const q = (p, item) => (p.lines.find((l) => l.item === item) || { qty: 0 }).qty;

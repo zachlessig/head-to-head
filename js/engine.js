@@ -2570,8 +2570,72 @@
     return h;
   }
 
-  // RCS in one corner, LCS in the other, SSTs along the same side between them, head to head
-  function layoutStrip(G, f) {
+  // Narrow arms of a bigger lawn (Zach 2026-11-15: "a really narrow entrance to the backyard in the
+  // side of the house", "yes build the auto detect"): two straight, opposite edges STRIP_MIN_W to
+  // STRIP_MAX_W apart, running side by side for at least 8 ft (and twice the width), with lawn all
+  // the way between them. Where that corridor opens into more lawn it's cut off, square across, so
+  // the arm becomes its own strip and the rest of the lawn treats the cut as an edge. Returns the cut
+  // lines, for splitByFences.
+  function stripCuts(outer) {
+    const G = prepare({ outer });
+    const v = outer;
+    const n = v.length;
+    const cuts = [];
+    for (let i = 0; i < n; i++) {
+      const a1 = v[i], b1 = v[(i + 1) % n];
+      if (Math.abs(a1.b || 0) > 1e-6) continue;
+      const L1 = Math.hypot(b1.x - a1.x, b1.y - a1.y);
+      if (L1 < 4) continue;
+      const ux = (b1.x - a1.x) / L1, uy = (b1.y - a1.y) / L1;
+      for (let j = 0; j < n; j++) {
+        if (j === i || j === (i + 1) % n || (j + 1) % n === i) continue;
+        const a2 = v[j], b2 = v[(j + 1) % n];
+        if (Math.abs(a2.b || 0) > 1e-6) continue;
+        const L2 = Math.hypot(b2.x - a2.x, b2.y - a2.y);
+        if (L2 < 4) continue;
+        // opposite walls run the opposite way round the ring
+        if (((b2.x - a2.x) * ux + (b2.y - a2.y) * uy) / L2 > -Math.cos(5 * DEG)) continue;
+        const cross = (a2.x - a1.x) * -uy + (a2.y - a1.y) * ux;
+        const d = Math.abs(cross);
+        if (d < STRIP_MIN_W - 0.25 || d > STRIP_MAX_W + 0.25) continue;
+        const nx = -uy * Math.sign(cross), ny = ux * Math.sign(cross);
+        const s = (p) => (p.x - a1.x) * ux + (p.y - a1.y) * uy;
+        const lo = Math.max(0, Math.min(s(a2), s(b2))), hi = Math.min(L1, Math.max(s(a2), s(b2)));
+        if (hi - lo < Math.max(8, 2 * d)) continue;
+        // lawn all the way across, the whole length
+        const mid = (t) => ({ x: a1.x + ux * t + nx * (d / 2), y: a1.y + uy * t + ny * (d / 2) });
+        let ok = true;
+        // (a closed end wall is closer than half the width near the end, so the ends are skipped)
+        for (let t = lo + d / 2 + 0.5; t < hi - d / 2 - 0.5 && ok; t += 1) {
+          const m = mid(t);
+          if (!inLawn(G, m.x, m.y) || distB(G, m.x, m.y) < d / 2 - 0.3) ok = false;
+        }
+        if (!ok) continue;
+        // cut where the corridor runs into more lawn
+        [[lo, -1], [hi, 1]].forEach(([t, dir]) => {
+          const beyond = mid(t + dir * 1.5);
+          if (!inLawn(G, beyond.x, beyond.y)) return;
+          const tc = t - dir * 0.05;
+          const p0 = { x: a1.x + ux * tc - nx * 0.5, y: a1.y + uy * tc - ny * 0.5 };
+          const p1 = { x: a1.x + ux * tc + nx * (d + 0.5), y: a1.y + uy * tc + ny * (d + 0.5) };
+          if (!cuts.some((c) => Math.hypot(c[0].x - p0.x, c[0].y - p0.y) + Math.hypot(c[1].x - p1.x, c[1].y - p1.y) < 1 ||
+              Math.hypot(c[0].x - p1.x, c[0].y - p1.y) + Math.hypot(c[1].x - p0.x, c[1].y - p0.y) < 1))
+            cuts.push([p0, p1]);
+        });
+      }
+    }
+    return cuts;
+  }
+
+  // RCS in one corner, LCS in the other, SSTs along the same side between them, head to head.
+  // toward: a spot in the rest of the yard; the heads go on the long side facing it, the sidewalk
+  // side of a park strip (Zach 2026-11-15: "sidewalk side always")
+  function layoutStrip(G, f, toward) {
+    if (toward) {
+      const tv = -toward.x * f.uy + toward.y * f.ux;
+      if (tv > (f.v0 + f.v1) / 2)
+        f = Object.assign({}, f, { ux: -f.ux, uy: -f.uy, u0: -f.u1, u1: -f.u0, v0: -f.v1, v1: -f.v0 });
+    }
     const n = Math.max(1, Math.ceil((f.L - 1e-6) / STRIP_THROW));
     const heads = [];
     for (let i = 0; i <= n; i++) {
@@ -2596,7 +2660,7 @@
       let res = null;
       const strip = stripFrame(G);
       if (strip) {
-        res = layoutStrip(G, strip);
+        res = layoutStrip(G, strip, area.toward);
         tried = "a park strip " + fmtNum(Math.round(strip.w * 2) / 2) + " ft wide, so strip nozzles along one side";
       } else if (job.popupsOnly || area.mode === "spray") res = layoutArea(G, "spray");
       else if (area.mode === "rotor-only") {
@@ -2703,6 +2767,7 @@
     trenchFeet,
     STRIP,
     stripHead,
+    stripCuts,
     BIG_TRUNK_IN,
     TREE_KEEP,
   };
