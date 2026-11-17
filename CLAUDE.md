@@ -39,6 +39,18 @@ swings 10x, so compare old and new engines back to back before calling anything 
   way up." The north edge there went R1, 12VAN, 15VAN, R1, 12VAN, 10H, R0.5, 12VAN, 10VAN, R1.5.
   Being on separate zones isn't enough. Asked him how he'd lay that lawn out (all rotors, all
   pop-ups, or split down the middle) before building the rule; use his answer.
+- Never market Head to Head as a generic layout tool. On 2026-11-16 the first front page led with
+  "Draw the yard" and satellite tracing, and Zach said: "lets really capitalize on the fact that
+  this is built by a landscaper so that i could save time on my own jobs. and lets really market
+  the camera idea ... it takes like 5 minutes to map an entire yard by literally just walking
+  around. No measuring wheels, no tapes, no mapping on their end." Lead with the camera walk and
+  the landscaper who built it (`landingPage` in `js/app.js`). The 5 minutes is his estimate, not a
+  timed walk, and the camera walk is iPhone-only and not on the App Store yet: say both plainly.
+- Never use a price that isn't the latest one he gave. The standard contractor price went from
+  about $35 to $30 on 2026-11-16 ("lets go with 30 for standard as of right now"); founding is $20
+  and a yard is $10. Prices live in `PLAN_PRICE`/`FOUNDING_PRICE`/`UNLOCK_PRICE` in `js/app.js`, the
+  front page, and the Stripe sandbox lookup keys (standard_monthly, founding_monthly, yard_unlock):
+  change all three together.
 - Never list rotor nozzles on the parts list. Rotors come with every nozzle (Zach, 2026-11-08).
 
 ## His rules
