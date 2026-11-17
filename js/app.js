@@ -128,7 +128,8 @@
   // Homeowner mode (Zach 2026-11-15): a homeowner maps their own yard with no account. The heads
   // and parts list stay blurred until they pay once for that yard. Payments aren't hooked up yet, so
   // only a test copy on this Mac (localhost) shows a no-charge unlock button.
-  const UNLOCK_PRICE = "$10";
+  // Zach 2026-11-17: "lets say each yard is $15 for a homeowner/contractor. both are the same."
+  const UNLOCK_PRICE = "$15";
   const isHome = () => !!prefs.homeowner;
   // Who pays for a yard (Zach 2026-11-17). Homeowners always pay per yard. A contractor company
   // with no active plan (never started, or cancelled) also pays per yard: they keep every job and
@@ -3298,7 +3299,7 @@
       fences: fenceLines(job, P),
       copy,
       // Zach 2026-11-17: a homeowner's plan says "Homeowner plan" and carries no company name, and a
-      // contractor's carries theirs, so the $10 homeowner side is no use for handing plans to customers
+      // contractor's carries theirs, so the homeowner side is no use for handing plans to customers
       homeowner: isHome(),
       company: !isHome() && Cloud.enabled && Cloud.company ? Cloud.company.name : "",
       title: job.name,
@@ -3893,7 +3894,7 @@
       "<p>You still keep a log of every job you've done, and your crew can open them too.</p>" +
       "<p>Three or more yards a month, and the monthly plan costs less.</p>" +
       '<a href="#signin" class="btn" id="l-py">Start my company</a></div>' +
-      '<div class="l-price"><b>Homeowners</b><div class="l-amt">$10<span> once per yard</span></div>' +
+      '<div class="l-price"><b>Homeowners</b><div class="l-amt">$15<span> once per yard</span></div>' +
       "<p>Map your yard for free and see how many heads and zones it needs.</p>" +
       // Zach's words, 2026-11-17
       "<p>Only pay once the yard and part list has been generated.</p>" +
