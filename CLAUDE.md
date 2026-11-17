@@ -163,6 +163,12 @@ swings 10x, so compare old and new engines back to back before calling anything 
   6 ft apart, side by side for 8 ft and twice the width, lawn all the way between; it's cut off
   square where it opens into more lawn, and the rest of the lawn treats the cut as an edge.
   `test/fuzz.js` builds areas the same way.
+- First-time tour (Zach 2026-11-16): the first time the home screen would show on a phone
+  (`prefs.toured`), the app opens the example yard and shows 7 tips one at a time (`tourSteps`),
+  each pointing at its tab with an X to close it and a "Skip tour" link: welcome, Draw, Walk,
+  Measure, Heads, Plan and parts, and how to start a job. Homeowners get their own wording for
+  Heads and Plan. "Take the tour" on the home screen runs it again. When a feature is added, add a
+  line to the tip for its tab.
 - Example yard: "Try an example yard" on the home screen builds a made-up yard with every
   feature, on a plain background (no satellite photo of a real place), and lays it out.
   When a feature is added, add it to `exampleJob()` in `js/app.js` too.

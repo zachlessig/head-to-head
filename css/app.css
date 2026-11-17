@@ -1010,3 +1010,87 @@ table.parts td.q {
   .l-split .l-n { grid-row: span 2; }
   .walk-demo { width: 380px; }
 }
+
+/* first-time tour: one tip at a time, an X to close it */
+.tour {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: 420px;
+  margin: 0 auto;
+  z-index: 1500;
+  background: var(--card);
+  border-radius: 18px;
+  padding: 16px 44px 12px 16px;
+  box-shadow: 0 12px 36px rgba(20, 48, 32, 0.22);
+  animation: tourIn 260ms cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+.tour.at-tab {
+  top: auto;
+  transform: none;
+}
+.tour.at-tab::after {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  left: var(--arrow, 50%);
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
+  background: var(--card);
+  transform: rotate(45deg);
+  border-radius: 3px;
+}
+.tour b {
+  display: block;
+  font: 700 18px Fraunces, Georgia, serif;
+  margin-bottom: 6px;
+}
+.tour p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.tour-x {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--chip);
+  display: grid;
+  place-items: center;
+}
+.tour-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.tour-skip {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  text-decoration: underline;
+  padding: 6px 0;
+}
+.tab.tour-hl {
+  color: var(--flag);
+  box-shadow: 0 0 0 2px var(--flag) inset;
+  border-radius: 14px;
+}
+@keyframes tourIn {
+  from { opacity: 0; translate: 0 10px; }
+  to { opacity: 1; translate: 0 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tour { animation: none; }
+}

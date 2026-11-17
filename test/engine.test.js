@@ -717,13 +717,18 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   const L = P([[0, 0], [60, 0], [60, -30], [65, -30], [65, 40], [0, 40]]);
   const cuts = E.stripCuts(L);
   eq(cuts.length, 1, "side entrance: one cut where the arm meets the yard");
-  const pieces = E.splitByFences(L, cuts);
+  const pieces = E.splitStrips(L);
   const o = E.layoutJob({ areas: pieces.map((r) => ({ outer: r, mode: "auto", toward: { x: 30, y: 20 } })), psi: 50, cap: 12 });
   const st = o.heads.filter((h) => h.strip);
   eq(st.length >= 3 && st.every((h) => Math.abs(h.x - 60) < 0.2), true, "side entrance: strip heads along the side facing the yard");
   eq(o.totals.overspray, 0, "side entrance: no overspray");
   eq(o.totals.coverage >= 0.995, true, "side entrance: double covered (" + (o.totals.coverage * 100).toFixed(1) + "%)");
   eq(E.stripCuts(P([[0, 0], [60, 0], [60, 40], [0, 40]])).length, 0, "a plain rectangle has no narrow arm");
+  // the backyard keeps its rotors with a big tree by the back fence (a 0.05 ft jog left by the cut
+  // once dropped them all)
+  const yard = E.splitStrips(P([[0, 0], [65, 0], [65, -35], [70, -35], [70, 45], [0, 45]]));
+  const oy = E.layoutJob({ areas: yard.map((r) => ({ outer: r, fences: [[{ x: -1, y: 45 }, { x: 71, y: 45 }]], trees: [{ x: 35, y: 42, trunk: 14 }], mode: "auto" })), psi: 50, cap: 12 });
+  eq(oy.heads.filter((h) => h.kind === "R").length >= 6, true, "side entrance + tree: the backyard keeps its rotors");
 }
 
 // Zach 2026-11-10: a company can save its own backflow or filter parts once and every job uses them
