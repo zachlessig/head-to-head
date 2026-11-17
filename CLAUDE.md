@@ -177,7 +177,11 @@ swings 10x, so compare old and new engines back to back before calling anything 
   - Rotors: a total per model only.
   - Swing joints: a 1/2" elbow for each pop-up and 3504, a 3/4" elbow for each 5004. Swing pipe
     is 3 ft per head, in whole 100 ft rolls rounded up, never fewer than 1.
-  - Manifold: one zone valve per zone.
+  - Manifold: one zone valve per zone. Valve boxes (Zach 2026-11-16): 4 valves fit in a box, and
+    they're spread evenly over the fewest boxes ("6 zones i would do 3 and 3"; `valveBoxes`). Drip
+    zone valves count too (an assumption, not confirmed). The line is "Standard valve box" or
+    "Jumbo valve box", picked on the parts list and remembered as the company's default
+    (`prefs.boxSize`, `job.boxSize`). The Heads tab notes the split, e.g. "2 valve boxes: 3, 3 valves".
   - Drip (2026-11-08): every bed is drip. A row runs the length of the bed. The width is
     checked all over the bed, and wherever it's over 7 ft the bed gets an extra row (7 ft or
     less is one row). A drip zone carries 250 ft at most, and the line from the valve box

@@ -1979,6 +1979,16 @@
   // save its breakdown once and every job uses it in place of the one generic line.
   // sizes: {lateral: '3/4"' | '1"', main: '3/4"' | '1"' | null}. Zach 2026-11-10: lateral fittings
   // carry the lateral size, so the list says which to buy; swing elbows and swing adapters don't.
+  // Valve boxes (Zach 2026-11-16): "you can fit 4 zones in a valve box. if someones yard had 6
+  // zones i would do 3 and 3 so that each box is a little less crowded." Returns the valves in each
+  // box, spread as evenly as the fewest boxes allow (6 -> 3, 3; 9 -> 3, 3, 3; 5 -> 3, 2).
+  const VALVES_PER_BOX = 4;
+  function valveBoxes(valves) {
+    if (valves <= 0) return [];
+    const n = Math.ceil(valves / VALVES_PER_BOX);
+    return Array.from({ length: n }, (_, i) => Math.floor(valves / n) + (i < valves % n ? 1 : 0));
+  }
+
   function parts(heads, zones, drip, water, setups, sizes) {
     const lat = sizes && sizes.lateral ? sizes.lateral + " " : "";
     const main = sizes && sizes.main ? sizes.main + " " : "";
@@ -2066,6 +2076,13 @@
     const valves = zones.length;
     if (valves) lines.push({ group: "Manifold", item: "Zone valve", qty: valves });
     if (dz) lines.push({ group: "Manifold", item: "Drip zone valve", qty: dz });
+    const boxes = valveBoxes(valves + dz);
+    if (boxes.length)
+      lines.push({
+        group: "Manifold",
+        item: (sizes && sizes.box === "jumbo" ? "Jumbo" : "Standard") + " valve box",
+        qty: boxes.length,
+      });
     const stations = valves + dz;
     if (stations)
       lines.push({ group: "Controller", item: "Controller with at least " + stations + " stations", qty: 1 });
@@ -2074,7 +2091,7 @@
     (WATER_SOURCE_PARTS[water] ? own || WATER_SOURCE_PARTS[water] : []).forEach((p) => {
       if (p.item && p.qty > 0) lines.push({ group: WATER_SOURCE_GROUP[water], item: p.item, qty: p.qty });
     });
-    return { lines, notes, stations, overLimit: stations > 16, waterSet: !!WATER_SOURCE_PARTS[water] };
+    return { lines, notes, stations, boxes, overLimit: stations > 16, waterSet: !!WATER_SOURCE_PARTS[water] };
   }
 
   /* ---------------- fences ---------------- */
@@ -2782,6 +2799,7 @@
     arcPoints,
     orient,
     trenchFeet,
+    valveBoxes,
     STRIP,
     stripHead,
     stripCuts,

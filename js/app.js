@@ -833,8 +833,12 @@
     return sup === lat ? sup + " line" : sup + " supply, " + lat + " lateral";
   }
   const sizeName = (k) => (k === "34" ? '3/4"' : k === "1" ? '1"' : null);
+  // valve box size: the contractor's pick on the parts list, remembered as the company's default
+  function boxSize(job) {
+    return job.boxSize || prefs.boxSize || "standard";
+  }
   function pipeSizes(job) {
-    return { lateral: sizeName(lateralOf(job)), main: sizeName(job.line) };
+    return { lateral: sizeName(lateralOf(job)), main: sizeName(job.line), box: boxSize(job) };
   }
 
   function proj(job) {
@@ -2838,6 +2842,13 @@
           " for the beds, " +
           drip.ft +
           " ft of drip pipe.</p>";
+      const vb = parts.boxes || [];
+      if (vb.length)
+        h +=
+          '<p class="note">' +
+          vb.length +
+          (vb.length > 1 ? " valve boxes: " + vb.join(", ") + " valves" : " valve box") +
+          ".</p>";
       const smallRotor = L0.zones.filter(
         (z) => z.family === "rotor" && z.count < 3,
       );
@@ -3521,6 +3532,16 @@
               : "This is your edited list. The layout changed after you edited it, so it may be out of date. Reset to get the app's new list.") +
             "</div>";
         body +=
+          '<label class="f">Valve boxes</label><div class="seg" id="vbox" style="margin-bottom:12px">' +
+          ["standard", "jumbo"]
+            .map(
+              (k) =>
+                '<button data-vb="' + k + '" aria-pressed="' + (boxSize(job) === k) + '">' +
+                (k === "jumbo" ? "Jumbo" : "Standard") +
+                "</button>",
+            )
+            .join("") +
+          "</div>" +
           partsTable(shownParts(L0)) +
           '<p class="note">Drip covers the beds only, not the line from the valve box to each bed. Mainline pipe, lateral pipe and wire are not counted yet.</p>' +
           (job.water
@@ -3559,6 +3580,15 @@
         '<div class="body">' +
         body +
         "</div>";
+      ov.querySelectorAll("[data-vb]").forEach(
+        (b) =>
+          (b.onclick = () => {
+            job.boxSize = prefs.boxSize = b.dataset.vb;
+            savePrefs();
+            touch(job);
+            render();
+          }),
+      );
       wire();
     }
 

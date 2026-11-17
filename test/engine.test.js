@@ -731,6 +731,19 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(oy.heads.filter((h) => h.kind === "R").length >= 6, true, "side entrance + tree: the backyard keeps its rotors");
 }
 
+// Valve boxes (Zach 2026-11-16): 4 valves fit in a box, spread evenly ("6 zones i would do 3 and 3").
+{
+  eq(JSON.stringify(E.valveBoxes(6)), "[3,3]", "6 valves: two boxes of 3");
+  eq(JSON.stringify(E.valveBoxes(9)), "[3,3,3]", "9 valves: three boxes of 3");
+  eq(JSON.stringify(E.valveBoxes(5)), "[3,2]", "5 valves: 3 and 2");
+  eq(JSON.stringify(E.valveBoxes(4)), "[4]", "4 valves: one box");
+  eq(JSON.stringify(E.valveBoxes(0)), "[]", "no valves, no box");
+  const zones = Array.from({ length: 4 }, (_, i) => ({ n: i + 1, family: "spray", heads: [] }));
+  const q = (p, item) => (p.lines.find((l) => l.item === item) || { qty: 0 }).qty;
+  eq(q(E.parts([], zones, { zones: [1, 2], ft: 80 }, "culinary"), "Standard valve box"), 2, "4 zone valves and 2 drip valves: 2 standard boxes");
+  eq(q(E.parts([], zones, 0, "culinary", null, { box: "jumbo" }), "Jumbo valve box"), 1, "jumbo when the contractor picks it");
+}
+
 // Zach 2026-11-10: a company can save its own backflow or filter parts once and every job uses them
 {
   const q = (p, item) => (p.lines.find((l) => l.item === item) || { qty: 0 }).qty;
