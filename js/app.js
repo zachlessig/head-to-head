@@ -2195,6 +2195,17 @@
         }),
       ),
     );
+    // where the app would put the valve boxes, each with its zones closest together
+    if (!locked(J.job) && L0.heads.length)
+      trenchInfo(J.job).boxes.forEach((bx, i, all) =>
+        lay.addLayer(
+          L.marker(P.toLL(bx.x, bx.y), {
+            icon: L.divIcon({ className: "vbox", html: "VB" + (all.length > 1 ? i + 1 : ""), iconSize: null }),
+            interactive: false,
+            keyboard: false,
+          }),
+        ),
+      );
     if (J.moving && J.selHead != null) {
       const h = L0.heads[J.selHead];
       const m = L.marker(P.toLL(h.x, h.y), {
@@ -2916,22 +2927,57 @@
 
   // What a homeowner sees before paying: the layout is done, the map is blurred, and the numbers
   // that tell them what they're in for are shown
-  function trenchLine(job) {
+  // Where the valve boxes go and how much trench it takes (Zach's method, trenchPlan in the engine)
+  function trenchInfo(job) {
     const P = proj(job);
-    const at = (tag) => {
-      const m = job.markers.find((k) => k.tag === tag);
-      return m ? P.toXY(m) : null;
-    };
-    const t = E.trenchFeet(job.layout.heads, at("valve"), at("meter"));
+    const L0 = job.layout;
+    const zones = [];
+    const byZone = new Map();
+    L0.heads.forEach((h) => {
+      if (!byZone.has(h.zone)) byZone.set(h.zone, []);
+      byZone.get(h.zone).push(h);
+    });
+    byZone.forEach((hs) =>
+      zones.push({
+        x: hs.reduce((t, h) => t + h.x, 0) / hs.length,
+        y: hs.reduce((t, h) => t + h.y, 0) / hs.length,
+        kind: hs.some((h) => h.kind === "R") ? "rotor" : "spray",
+      }),
+    );
+    // a drip zone's trench goes to the middle of its beds
+    const drip = dripFor(job);
+    drip.zones.forEach((z) => {
+      const pts = job.shapes
+        .filter((sh) => z.beds.includes(sh.id))
+        .flatMap((sh) => sh.pts.map((p) => P.toXY(p)));
+      if (pts.length)
+        zones.push({
+          x: pts.reduce((t, p) => t + p.x, 0) / pts.length,
+          y: pts.reduce((t, p) => t + p.y, 0) / pts.length,
+          kind: "drip",
+        });
+    });
+    const meter = job.markers.find((k) => k.tag === "meter");
+    const rings = buildAreas(job).map((a) => densify(a.outer, true));
+    return E.trenchPlan(zones, meter ? P.toXY(meter) : null, rings);
+  }
+
+  function trenchLine(job) {
+    const t = trenchInfo(job);
     return (
       '<dl class="kv"><dt>Trench to dig</dt><dd>About ' +
       t.ft +
       " ft</dd></dl>" +
-      '<p class="note">A rough number for digging it yourself: the pipe between the heads, back to the valve box' +
-      (t.hasBox
-        ? ""
-        : " (add a Meter and a Valve box on the Draw tab to count those runs)") +
-      ", plus some extra for going around things. Drip in the beds lies on top, so it isn't counted.</p>"
+      '<p class="note">A rough number: ' +
+      (t.hasMeter
+        ? Math.round(t.main) + " ft of mainline from the meter to the valve box" + (t.boxes.length > 1 ? "es" : "") + ", "
+        : "") +
+      Math.round(t.laterals) +
+      " ft from the valve box" +
+      (t.boxes.length > 1 ? "es" : "") +
+      " out to the zones, and about 50 ft inside each pop-up zone and 75 ft inside each rotor zone." +
+      (t.hasMeter ? "" : " Add the Meter on the Draw tab to count the mainline too.") +
+      "</p>"
     );
   }
 

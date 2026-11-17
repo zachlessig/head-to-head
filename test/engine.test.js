@@ -611,16 +611,26 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(o.totals.overspray, 0, "short curved end: no overspray");
 }
 
-// DIY trench estimate: each zone's heads joined by the shortest tree, one shared trench from the valve
-// box out to every zone, and the meter-to-valve mainline, plus 15% and rounded up to 10 ft.
+// DIY trench (Zach 2026-11-16): zones grouped by closeness into valve boxes (6 zones: 3 and 3), each
+// box on the lawn edge closest on average to its zones, mainline meter -> nearest box -> next box,
+// a shared trench tree from each box to its zones' middles, plus 50 ft per pop-up zone, 75 per rotor.
 {
-  const hs = [{ x: 0, y: 0, zone: 1 }, { x: 20, y: 0, zone: 1 }, { x: 40, y: 0, zone: 1 }, { x: 0, y: 30, zone: 2 }, { x: 25, y: 30, zone: 2 }];
-  const t = E.trenchFeet(hs, { x: 0, y: -10 }, { x: 0, y: -40 });
-  eq(t.laterals, 65, "trench: zone 1 is 40 ft of lateral, zone 2 is 25");
-  eq(t.feeders, 40, "trench: one shared trench from the valve box, 10 ft to zone 1 and 30 more to zone 2");
-  eq(t.main, 30, "trench: 30 ft of mainline from meter to valve box");
-  eq(t.ft, 160, "trench: 135 ft plus 15%, rounded up to 160");
-  eq(E.trenchFeet(hs, null, null).ft, 80, "trench: no markers counts laterals only");
+  const zones = [
+    { x: 10, y: 10, kind: "spray" }, { x: 20, y: 10, kind: "spray" }, { x: 15, y: 20, kind: "rotor" },
+    { x: 90, y: 10, kind: "rotor" }, { x: 80, y: 10, kind: "spray" }, { x: 85, y: 20, kind: "drip" },
+  ];
+  const ring = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 30 }, { x: 0, y: 30 }];
+  const t = E.trenchPlan(zones, { x: 50, y: -10 }, [ring]);
+  eq(t.boxes.length, 2, "trench: 6 zones go in 2 boxes");
+  const sets = t.boxes.map((bx) => bx.zones.slice().sort().join(",")).sort();
+  eq(JSON.stringify(sets), JSON.stringify(["0,1,2", "3,4,5"]), "trench: each box gets the 3 zones closest together");
+  eq(t.boxes.every((bx) => Math.abs(bx.y) < 1e-6 || Math.abs(bx.y - 30) < 1e-6 || Math.abs(bx.x) < 1e-6 || Math.abs(bx.x - 100) < 1e-6), true, "trench: boxes sit on the lawn edge");
+  eq(t.inZone, 3 * 50 + 2 * 75, "trench: 50 ft per pop-up zone, 75 per rotor zone, none for drip");
+  const [b1, b2] = t.boxes.slice().sort((p, q) => Math.hypot(p.x - 50, p.y + 10) - Math.hypot(q.x - 50, q.y + 10));
+  const main = Math.hypot(b1.x - 50, b1.y + 10) + Math.hypot(b2.x - b1.x, b2.y - b1.y);
+  eq(Math.abs(t.main - main) < 1e-6, true, "trench: mainline runs meter, nearest box, then the next");
+  eq(t.ft, Math.ceil((t.main + t.laterals + t.inZone) / 10) * 10, "trench: total rounds up to 10 ft");
+  eq(E.trenchPlan(zones, null, [ring]).main, 0, "trench: no meter, no mainline counted");
 }
 
 // Trees (Zach 2026-11-15): under 6 in of trunk the layout ignores it. A bigger trunk blocks spray,

@@ -2494,55 +2494,104 @@
     return dropped;
   }
 
-  // Rough trench length for a homeowner digging their own system (Zach 2026-11-15: "a rough estimate
-  // for the number of feet a DIY homeowner might have to trench"). Each zone's heads are joined by
-  // the shortest straight-line tree (its lateral), one shared trench reaches from the valve box to
-  // the nearest head of every zone, and the mainline runs from the meter to the valve box. Straight lines undercount a
-  // real dig, so it adds TRENCH_SLACK and rounds up to 10 ft. Not checked against a real job yet.
-  // Drip in beds isn't counted: it lies on top under mulch.
-  const TRENCH_SLACK = 1.15;
-  function trenchFeet(heads, valve, meter) {
-    const zones = new Map();
-    heads.forEach((h) => {
-      if (!zones.has(h.zone)) zones.set(h.zone, []);
-      zones.get(h.zone).push(h);
-    });
-    const tree = (pts) => {
-      // Prim's shortest tree over straight-line distances
-      if (pts.length < 2) return 0;
-      const best = pts.map(() => Infinity);
-      const done = pts.map(() => false);
-      best[0] = 0;
-      let total = 0;
-      for (let n = 0; n < pts.length; n++) {
-        let u = -1;
-        for (let i = 0; i < pts.length; i++) if (!done[i] && (u < 0 || best[i] < best[u])) u = i;
-        done[u] = true;
-        total += best[u];
-        for (let i = 0; i < pts.length; i++)
-          if (!done[i]) best[i] = Math.min(best[i], Math.hypot(pts[i].x - pts[u].x, pts[i].y - pts[u].y));
+  // Trench for a homeowner digging their own system (Zach 2026-11-16). Zones go in valve boxes by
+  // closeness ("group the zones closest to each other"), sized by valveBoxes. Each box sits on the
+  // lawn's edge at the spot closest on average to its zones. Mainline runs from the meter to the
+  // nearest box "and then the next and the next". From each box a trench runs to the middle of each
+  // of its zones, sharing a trench while they head the same way ("they can be in the same trench and
+  // split when it gets close"): the shortest tree over the box and its zones' middles. Inside a zone,
+  // "for pop up zones, add like another 50 feet of trenching. for rotors add like 75 feet". A drip
+  // zone gets the trench to its beds only; the drip lies on top (an assumption).
+  // zones: [{x, y, kind: "spray" | "rotor" | "drip"}], meter: {x, y} or null, rings: lawn edges.
+  const ZONE_TRENCH = { spray: 50, rotor: 75, drip: 0 };
+  function shortestTree(pts) {
+    if (pts.length < 2) return 0;
+    const best = pts.map(() => Infinity), done = pts.map(() => false);
+    best[0] = 0;
+    let total = 0;
+    for (let n = 0; n < pts.length; n++) {
+      let u = -1;
+      for (let i = 0; i < pts.length; i++) if (!done[i] && (u < 0 || best[i] < best[u])) u = i;
+      done[u] = true;
+      total += best[u];
+      for (let i = 0; i < pts.length; i++)
+        if (!done[i]) best[i] = Math.min(best[i], Math.hypot(pts[i].x - pts[u].x, pts[i].y - pts[u].y));
+    }
+    return total;
+  }
+  function groupZones(zones, sizes) {
+    const k = sizes.length;
+    if (!k) return [];
+    // seeds spread out: the zone farthest from everything picked so far
+    const seeds = [zones[0]];
+    while (seeds.length < k) {
+      let far = null, fd = -1;
+      zones.forEach((z) => {
+        const d = Math.min(...seeds.map((c) => Math.hypot(z.x - c.x, z.y - c.y)));
+        if (d > fd) { fd = d; far = z; }
+      });
+      seeds.push(far);
+    }
+    let centers = seeds.map((c) => ({ x: c.x, y: c.y }));
+    let groups = [];
+    for (let iter = 0; iter < 25; iter++) {
+      // fill each box to its size, nearest pairs first
+      const pairs = [];
+      zones.forEach((z, i) => centers.forEach((c, j) => pairs.push({ i, j, d: Math.hypot(z.x - c.x, z.y - c.y) })));
+      pairs.sort((p, q) => p.d - q.d);
+      const room = sizes.slice(), taken = zones.map(() => false);
+      groups = sizes.map(() => []);
+      for (const pr of pairs) {
+        if (taken[pr.i] || !room[pr.j]) continue;
+        taken[pr.i] = true;
+        room[pr.j]--;
+        groups[pr.j].push(pr.i);
       }
-      return total;
-    };
-    let laterals = 0;
-    const box = valve || meter;
-    const entries = [];
-    zones.forEach((zh) => {
-      laterals += tree(zh);
-      if (box) {
-        let e = zh[0];
-        zh.forEach((h) => {
-          if (Math.hypot(h.x - box.x, h.y - box.y) < Math.hypot(e.x - box.x, e.y - box.y)) e = h;
+      const next = groups.map((g, j) =>
+        g.length ? { x: g.reduce((t, i) => t + zones[i].x, 0) / g.length, y: g.reduce((t, i) => t + zones[i].y, 0) / g.length } : centers[j],
+      );
+      if (next.every((c, j) => Math.hypot(c.x - centers[j].x, c.y - centers[j].y) < 0.01)) break;
+      centers = next;
+    }
+    return groups;
+  }
+  function trenchPlan(zones, meter, rings) {
+    const groups = groupZones(zones, valveBoxes(zones.length));
+    const edge = [];
+    (rings || []).forEach((r) =>
+      r.forEach((p, i) => {
+        const q = r[(i + 1) % r.length];
+        const L = Math.hypot(q.x - p.x, q.y - p.y);
+        for (let t = 0; t < L; t += 1) edge.push({ x: p.x + ((q.x - p.x) * t) / L, y: p.y + ((q.y - p.y) * t) / L });
+      }),
+    );
+    const boxes = groups.map((g) => {
+      const avg = (pt) => g.reduce((t, i) => t + Math.hypot(pt.x - zones[i].x, pt.y - zones[i].y), 0) / g.length;
+      let best = null, bd = Infinity;
+      for (const pt of edge) {
+        const d = avg(pt);
+        if (d < bd) { bd = d; best = pt; }
+      }
+      if (!best) best = { x: g.reduce((t, i) => t + zones[i].x, 0) / g.length, y: g.reduce((t, i) => t + zones[i].y, 0) / g.length };
+      return { x: best.x, y: best.y, zones: g };
+    });
+    // mainline: meter to the nearest box, then on to the next nearest, box after box
+    let main = 0;
+    if (meter && boxes.length) {
+      let at = meter;
+      const left = boxes.slice();
+      while (left.length) {
+        let bi = 0;
+        left.forEach((bx, i) => {
+          if (Math.hypot(bx.x - at.x, bx.y - at.y) < Math.hypot(left[bi].x - at.x, left[bi].y - at.y)) bi = i;
         });
-        entries.push(e);
+        main += Math.hypot(left[bi].x - at.x, left[bi].y - at.y);
+        at = left.splice(bi, 1)[0];
       }
-    });
-    // the pipes from the valve box out to each zone share one trench: a tree over the box and the
-    // head of each zone nearest it (a separate run per zone counted the example yard at 2,010 ft)
-    const feeders = box ? tree([box, ...entries]) : 0;
-    const main = valve && meter ? Math.hypot(valve.x - meter.x, valve.y - meter.y) : 0;
-    const raw = laterals + feeders + main;
-    return { ft: Math.ceil((raw * TRENCH_SLACK) / 10) * 10, laterals, feeders, main, hasBox: !!box };
+    }
+    const laterals = boxes.reduce((t, bx) => t + shortestTree([bx].concat(bx.zones.map((i) => zones[i]))), 0);
+    const inZone = zones.reduce((t, z) => t + (ZONE_TRENCH[z.kind] || 0), 0);
+    return { boxes, main, laterals, inZone, hasMeter: !!meter, ft: Math.ceil((main + laterals + inZone) / 10) * 10 };
   }
 
   // A lawn no wider than STRIP_MAX_W all the way along, measured across its narrowest bounding
@@ -2798,7 +2847,7 @@
     ROTOR,
     arcPoints,
     orient,
-    trenchFeet,
+    trenchPlan,
     valveBoxes,
     STRIP,
     stripHead,

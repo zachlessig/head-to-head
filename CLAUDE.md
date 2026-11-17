@@ -106,9 +106,7 @@ swings 10x, so compare old and new engines back to back before calling anything 
   (`prefs.homeowner`, no account, jobs stay on the phone). They map and generate like a contractor,
   but until a yard is paid for (`job.unlocked`) the heads on the map are blurred, tapping them does
   nothing, and Plan and Parts open the unlock sheet. They do see the head count, zones and a rough
-  trench length (`trenchFeet` in `js/engine.js`: each zone's shortest tree, one shared trench from
-  the valve box to every zone, the meter-to-valve mainline, plus 15%; not checked against a real
-  job). Price is $10 one time (`UNLOCK_PRICE`). Payments aren't hooked up: only the http localhost
+  trench length (`trenchPlan`, see Trench below). Price is $10 one time (`UNLOCK_PRICE`). Payments aren't hooked up: only the http localhost
   test copy shows a no-charge unlock; the iPhone app is capacitor://localhost and must never get it.
   Installers near them show with their Google rating; installers pay $49 a month on top of the
   subscription to be listed. That list stays off (`SHOW_INSTALLERS`) until lots of homeowners use
@@ -124,8 +122,13 @@ swings 10x, so compare old and new engines back to back before calling anything 
   customer counts until real ones exist. `img/app-layout.jpg` is a capture of the example yard.
 - Pricing (Zach 2026-11-15): contractors pay about $35 a month. The first contractors on the app
   lock in $20 a month. Homeowners pay $10 once per yard. Nothing is charged yet.
-- Trench estimate: Zach is still working out how he wants trenching counted ("ill work out the
-  trenching system later"). Don't tune `trenchFeet` without his rule.
+- Trench (Zach 2026-11-16, `trenchPlan` in `js/engine.js`): zones (drip too) are grouped by
+  closeness into valve boxes sized by `valveBoxes`; each box goes on the lawn edge at the spot
+  closest on average to its zones; mainline runs meter, nearest box, next box, and so on; from each
+  box the shortest tree reaches the middle of each of its zones (shared trench "and split when it
+  gets close"); plus 50 ft inside each pop-up zone and 75 ft inside each rotor zone ("thats probably
+  close enough"). Drip zones add none inside (an assumption). The boxes show on the map as VB pins
+  once the layout is visible. He wants the same method for pipe lengths on the parts list next.
 - Look (Zach picked look A of three, 2026-11-15): cream and green, soft shadows instead of outlines,
   springy button presses, a floating tab bar, and an opening animation where the logo's spray arcs
   draw in (`splash` in `js/app.js`). The home screen fades in only when you arrive at it, not when a
@@ -215,7 +218,8 @@ swings 10x, so compare old and new engines back to back before calling anything 
 
 ## Zach's list before he feels good about the app (2026-11-15)
 
-1. Trenching for homeowners: `trenchFeet` is a placeholder until he gives his rule.
+1. Trenching for homeowners: built 2026-11-16 to his method (see Trench). Next: pipe lengths on the
+   parts list the same way.
 2. Rework tree mechanics: built 2026-11-15 (see Trees under His rules). Open: TREE_POPUPS (15 ft)
    is still a guess.
 3. Google ratings for the installer list, for when that list is switched on (`SHOW_INSTALLERS`).
