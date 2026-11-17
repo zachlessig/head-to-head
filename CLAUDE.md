@@ -207,8 +207,14 @@ swings 10x, so compare old and new engines back to back before calling anything 
     list is what gets copied and printed.
   - Lateral and mainline fittings (2026-11-10): per sprinkler zone 1 coupling, 2 tees, 1 swing
     adapter; per yard 2 elbows and 30 mainline pinch clamps; 1 bag of LD pinch clamps per 10 zones,
-    rounded up, and a saddle for every head. Pipe lengths aren't counted yet: Zach is working out
-    his rules for them.
+    rounded up, and a saddle for every head.
+  - Pipe (Zach 2026-11-17, `pipePlan`, on trenchPlan's valve boxes): mainline is the shortest run
+    joining the meter and every box, through a box or teed off partway, whichever is shorter; each
+    Spigot pin gets mainline back to the nearest point on that run (and a trench); every zone gets
+    its own lateral from its box out to each head, ending at the last one (shortest tree over the box
+    and its heads); a drip zone's lateral stops at its bed's edge. Listed as '<size> mainline pipe'
+    and '<size> lateral pipe' in 100 ft rolls rounded up, with the feet needed; the roll size and no
+    waste allowance are assumptions waiting on him.
   - Sizes (2026-11-10): the new job screen asks for the supply line from the street (3/4" or 1",
     required). Job settings has a lateral line size (3/4" or 1", past the valves),
     starting at the supply size. Saddles, couplings, tees, elbows and LD clamps carry the lateral

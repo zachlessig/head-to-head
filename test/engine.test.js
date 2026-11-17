@@ -768,6 +768,37 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(q(E.parts([], zones, 0, "culinary", null, { box: "jumbo" }), "Jumbo valve box"), 1, "jumbo when the contractor picks it");
 }
 
+// Pipe (Zach 2026-11-17): mainline joins the meter and every box (through a box or teed off,
+// whichever is shorter), each spigot gets mainline back to the nearest point on it, and each zone
+// gets its own lateral from its box out to every head, ending at the last one.
+{
+  const zones = [
+    { x: 10, y: 5, kind: "spray", heads: [{ x: 5, y: 5 }, { x: 10, y: 5 }, { x: 15, y: 5 }] },
+    { x: 90, y: 5, kind: "rotor", heads: [{ x: 85, y: 5 }, { x: 95, y: 5 }] },
+  ];
+  const plan = { boxes: [{ x: 0, y: 5, zones: [0] }, { x: 100, y: 5, zones: [1] }] };
+  const meter = { x: 50, y: -20 };
+  const pp = E.pipePlan(zones, meter, plan, [{ x: 50, y: 30 }]);
+  const chain = Math.hypot(50, 25) + 100; // meter to one box, straight on to the other
+  const teed = pp.main - pp.spigots[0];
+  eq(teed < chain - 1, true, "pipe: boxes at opposite ends get a teed mainline (" + Math.round(teed) + " < " + Math.round(chain) + " ft)");
+  eq(teed >= 100 - 1e-6, true, "pipe: the mainline still reaches both boxes");
+  // from the meter the mainline runs out to each box (126.9 degrees apart, so no tee helps); the
+  // spigot at (50, 30) is nearest to the run toward (0, 5)
+  const seg = (p, a, b) => {
+    const dx = b.x - a.x, dy = b.y - a.y, t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy)));
+    return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
+  };
+  const want = Math.min(seg({ x: 50, y: 30 }, meter, plan.boxes[0]), seg({ x: 50, y: 30 }, meter, plan.boxes[1]));
+  eq(Math.abs(pp.spigots[0] - want) < 0.5, true, "pipe: spigot pipe runs to the nearest point on the mainline (" + pp.spigots[0].toFixed(1) + " ft)");
+  eq(Math.abs(pp.perZone[0] - 15) < 0.5, true, "pipe: a zone's lateral runs from its box to its last head (" + pp.perZone[0].toFixed(1) + " ft)");
+  eq(Math.abs(pp.perZone[1] - 15) < 0.5, true, "pipe: the other zone's own lateral (" + pp.perZone[1].toFixed(1) + " ft)");
+  const pr = E.parts([], [{ n: 1, family: "spray", heads: [] }], 0, "culinary", null, { main: '1"', lateral: '3/4"' }, pp);
+  const line = (re) => pr.lines.find((l) => re.test(l.item));
+  eq(!!line(/^1" mainline pipe, 100 ft roll/) && !!line(/^3\/4" lateral pipe, 100 ft roll/), true, "pipe: mainline and lateral on the parts list in their sizes");
+  eq(E.pipePlan(zones, null, plan, []).main, 0, "pipe: no meter, no mainline");
+}
+
 // Zach 2026-11-10: a company can save its own backflow or filter parts once and every job uses them
 {
   const q = (p, item) => (p.lines.find((l) => l.item === item) || { qty: 0 }).qty;

@@ -1989,7 +1989,7 @@
     return Array.from({ length: n }, (_, i) => Math.floor(valves / n) + (i < valves % n ? 1 : 0));
   }
 
-  function parts(heads, zones, drip, water, setups, sizes) {
+  function parts(heads, zones, drip, water, setups, sizes, pipe) {
     const lat = sizes && sizes.lateral ? sizes.lateral + " " : "";
     const main = sizes && sizes.main ? sizes.main + " " : "";
     const notes = {};
@@ -2035,6 +2035,19 @@
         group: "Pipe",
         item: "Swing pipe, " + SWING_ROLL_FT + " ft roll (" + swingFeet + " ft needed)",
         qty: swingRolls(heads.length),
+      });
+    }
+    // mainline and lateral pipe from pipePlan, in 100 ft rolls rounded up like swing pipe (roll size
+    // and no extra for waste are assumptions, not his numbers yet)
+    if (pipe) {
+      [["mainline", pipe.main, main], ["lateral", pipe.lateral, lat]].forEach(([what, ft, size]) => {
+        if (!(ft > 0)) return;
+        const need = Math.ceil(ft / 10) * 10;
+        lines.push({
+          group: "Pipe",
+          item: size + what + " pipe, " + SWING_ROLL_FT + " ft roll (" + need + " ft needed)",
+          qty: Math.max(1, Math.ceil(need / SWING_ROLL_FT)),
+        });
       });
     }
     const elbows34 = rotorCount(rotors, "5004");
@@ -2603,7 +2616,7 @@
     }
     return groups;
   }
-  function trenchPlan(zones, meter, rings) {
+  function trenchPlan(zones, meter, rings, spigots) {
     const groups = groupZones(zones, valveBoxes(zones.length));
     const edge = [];
     (rings || []).forEach((r) =>
@@ -2635,7 +2648,7 @@
     // one connected network: meter, boxes and every zone, sharing trench wherever lines run together
     // (the mainline and each box's own zone lines used to be counted apart and never shared)
     const net = trenchTree(
-      (meter ? [meter] : []).concat(boxes, ...boxes.map((bx) => bx.zones.map((i) => target(zones[i], bx)))),
+      (meter ? [meter] : []).concat(spigots || [], boxes, ...boxes.map((bx) => bx.zones.map((i) => target(zones[i], bx)))),
     );
     const inZone = zones.reduce((t, z) => t + (ZONE_TRENCH[z.kind] || 0), 0);
     return { boxes, shared: net.length, edges: net.edges, inZone, hasMeter: !!meter, ft: Math.ceil((net.length + inZone) / 10) * 10 };
@@ -2778,6 +2791,51 @@
     return { heads, issues: [] };
   }
 
+  // Pipe lengths (Zach 2026-11-17), on the same valve boxes as trenchPlan:
+  // - mainline: the shortest run joining the meter and every box, straight through one box to the
+  //   next or teed off partway, whichever is shorter ("it might be adventageous to T the mainline
+  //   off"), trenchTree's split points being those tees;
+  // - spigots: "mainline pipe thats the shortest distance back into the mainline", to the nearest
+  //   point on that run;
+  // - laterals: every zone its own pipe ("each zone gets its own pipe length"), from its box out to
+  //   each of its heads, ending at the last one: the shortest tree over the box and the heads. A drip
+  //   zone's pipe stops at the edge of its beds.
+  // zones as in trenchPlan, plus heads: [{x, y}] for a sprinkler zone; plan: trenchPlan's result.
+  function nearestOnEdges(p, edges, fallback) {
+    let best = Infinity;
+    edges.forEach(([a, b]) => {
+      const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy || 1;
+      const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L2));
+      best = Math.min(best, Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy));
+    });
+    fallback.forEach((q) => (best = Math.min(best, Math.hypot(p.x - q.x, p.y - q.y))));
+    return best === Infinity ? 0 : best;
+  }
+  function pipePlan(zones, meter, plan, spigots) {
+    const mainNet = meter ? trenchTree([meter].concat(plan.boxes)) : { length: 0, edges: [] };
+    const spigotFt = (spigots || []).map((sp) =>
+      nearestOnEdges(sp, mainNet.edges, (meter ? [meter] : []).concat(plan.boxes)),
+    );
+    const perZone = zones.map(() => 0);
+    plan.boxes.forEach((bx) =>
+      bx.zones.forEach((i) => {
+        const z = zones[i];
+        if (z.heads && z.heads.length) perZone[i] = trenchTree([bx].concat(z.heads)).length;
+        else if (z.edge && z.edge.length)
+          perZone[i] = Math.min(...z.edge.map((p) => Math.hypot(p.x - bx.x, p.y - bx.y)));
+        else perZone[i] = Math.hypot(z.x - bx.x, z.y - bx.y);
+      }),
+    );
+    const spig = spigotFt.reduce((t, d) => t + d, 0);
+    return {
+      main: mainNet.length + spig,
+      mainEdges: mainNet.edges,
+      spigots: spigotFt,
+      lateral: perZone.reduce((t, d) => t + d, 0),
+      perZone,
+    };
+  }
+
   function layoutJob(job) {
     const factor = Math.sqrt((job.psi || 50) / 30);
     const allHeads = [];
@@ -2895,6 +2953,7 @@
     arcPoints,
     orient,
     trenchPlan,
+    pipePlan,
     valveBoxes,
     STRIP,
     stripHead,

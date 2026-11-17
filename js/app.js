@@ -19,6 +19,8 @@
   const MARKERS = {
     tree: { letter: "T", color: "#7bc96f", name: "Tree" },
     meter: { letter: "M", color: "#5bc8e6", name: "Meter" },
+    // Zach 2026-11-17: "a spigot feature that allows the user to add a spigot somewhere in the yard"
+    spigot: { letter: "S", color: "#f4a261", name: "Spigot" },
     valve: { letter: "V", color: "#c9a7f5", name: "Valve box" },
     note: { letter: "!", color: "#ffd166", name: "Note" },
   };
@@ -536,6 +538,7 @@
       markers: [
         marker("meter", -8, -52),
         marker("valve", -4, 34),
+        marker("spigot", 40, 30),
         Object.assign(marker("tree", 60, 70), { trunk: 14 }),
       ],
       layout: null,
@@ -2052,6 +2055,7 @@
       job.water,
       prefs.setups,
       pipeSizes(job),
+      L0.heads.length ? trenchInfo(job).pipe : null,
     );
     L0.totals = {
       points: totals.points,
@@ -2956,6 +2960,7 @@
         x: hs.reduce((t, h) => t + h.x, 0) / hs.length,
         y: hs.reduce((t, h) => t + h.y, 0) / hs.length,
         kind: hs.some((h) => h.kind === "R") ? "rotor" : "spray",
+        heads: hs.map((h) => ({ x: h.x, y: h.y })),
       }),
     );
     // a drip zone's trench goes to the edge of its beds
@@ -2977,7 +2982,10 @@
     });
     const meter = job.markers.find((k) => k.tag === "meter");
     const rings = buildAreas(job).map((a) => densify(a.outer, true));
-    return E.trenchPlan(zones, meter ? P.toXY(meter) : null, rings);
+    const spigots = job.markers.filter((k) => k.tag === "spigot").map((k) => P.toXY(k));
+    const plan = E.trenchPlan(zones, meter ? P.toXY(meter) : null, rings, spigots);
+    plan.pipe = E.pipePlan(zones, meter ? P.toXY(meter) : null, plan, spigots);
+    return plan;
   }
 
   // homeowners see just the total (Zach 2026-11-17: "keep it simple. just tell them the total")
@@ -3333,6 +3341,7 @@
       J.job.water,
       prefs.setups,
       pipeSizes(J.job),
+      L0.heads.length ? trenchInfo(J.job).pipe : null,
     );
   }
   // The list the crew sees: the company's edited copy if there is one, else the app's.
@@ -3597,7 +3606,7 @@
             .join("") +
           "</div>" +
           partsTable(shownParts(L0)) +
-          '<p class="note">Drip covers the beds only, not the line from the valve box to each bed. Mainline pipe, lateral pipe and wire are not counted yet.</p>' +
+          '<p class="note">Drip covers the beds; the line from the valve box to each bed is in the lateral pipe. Mainline pipe is counted from the meter to each valve box and each spigot (add the Meter on the Draw tab), lateral pipe from each box out to every head. Wire is not counted yet.</p>' +
           (job.water
             ? '<div class="row"><button class="btn grow" id="psetup">' +
               icon("sliders") +
