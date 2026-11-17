@@ -1111,3 +1111,13 @@ table.parts td.q {
   text-align: center;
   color: var(--flag);
 }
+
+/* water pressure gauge (Zach 2026-11-17) */
+.psi-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.psi-g { width: 180px; height: auto; }
+.psi-arc { fill: none; stroke: var(--line); stroke-width: 9; stroke-linecap: round; }
+.psi-ticks line { stroke: var(--muted); stroke-width: 1.4; }
+.psi-g text { font: 600 8px "DM Sans", sans-serif; fill: var(--muted); }
+.psi-needle { stroke: var(--flag); stroke-width: 3.2; stroke-linecap: round; }
+.psi-hub { fill: var(--flag); }
+.psi-wrap .stepper { width: 100%; max-width: 260px; }

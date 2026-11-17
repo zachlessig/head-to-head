@@ -142,7 +142,8 @@
   const contractor = () => !isHome() && Cloud.enabled && !!Cloud.company;
   // the example yard keeps showing homeowners the lock, the way it always has; contractors get it free
   const needsPay = (job) =>
-    isHome() || (!job.example && ENFORCE && contractor() && planActive === false);
+    isHome() ||
+    (!job.example && ENFORCE && contractor() && planActive === false);
   const locked = (job) => needsPay(job) && !(job.unlocked && inPlace(job));
 
   // A paid yard stays tied to the yard it was paid for, so one $15 can't be dragged across town
@@ -153,11 +154,16 @@
   const MOVE_LIMIT_FT = 500;
   const AREA_LIMIT = 0.5;
   function yardSnapshot(job) {
-    const lawns = job.shapes.filter((s) => s.type === "lawn" && s.closed && s.pts.length >= 3);
+    const lawns = job.shapes.filter(
+      (s) => s.type === "lawn" && s.closed && s.pts.length >= 3,
+    );
     if (!lawns.length) return null;
     const pts = lawns.flatMap((s) => s.pts);
     const P = proj(job);
-    const area = lawns.reduce((t, s) => t + Math.abs(ringArea(densify(shapeLocal(s, P), true))), 0);
+    const area = lawns.reduce(
+      (t, s) => t + Math.abs(ringArea(densify(shapeLocal(s, P), true))),
+      0,
+    );
     return {
       lat: pts.reduce((t, p) => t + p.lat, 0) / pts.length,
       lng: pts.reduce((t, p) => t + p.lng, 0) / pts.length,
@@ -166,7 +172,10 @@
   }
   function movedFt(a, b) {
     const c = Math.cos((a.lat * Math.PI) / 180);
-    return Math.hypot((b.lng - a.lng) * c * FT_PER_DEG, (b.lat - a.lat) * FT_PER_DEG);
+    return Math.hypot(
+      (b.lng - a.lng) * c * FT_PER_DEG,
+      (b.lat - a.lat) * FT_PER_DEG,
+    );
   }
   function inPlace(job) {
     const now = yardSnapshot(job);
@@ -265,17 +274,50 @@
   // One tip at a time, pointing at the tab it's about; X closes it and the next one comes up.
   function tourSteps() {
     const steps = [
-      { title: "Welcome to Head to Head", text: "This is a made-up yard so you can see everything the app does. Close each tip with the X to see the next one." },
-      { mode: "draw", tab: "draw", title: "Draw", text: "Trace the yard here on the satellite photo or grid paper: lawns, beds and fences. Tap to drop corners, drag one to move it, and pull the dot in the middle of a side to curve it. Add trees, the meter and the valve box as markers. A tree has a trunk size, and big ones keep heads away." },
-      { mode: "walk", tab: "walk", title: "Walk", text: "In the iPhone app, walk the edge of the lawn with the camera and the app traces it for you. Tap Corner at each corner." },
-      { mode: "measure", tab: "measure", title: "Measure", text: "Tap two spots to check a length. If it doesn't match your tape, enter the real number and the whole yard rescales." },
-      { mode: "heads", tab: "heads", title: "Heads", text: isHome()
+      {
+        title: "Welcome to Head to Head",
+        text: "This is a made-up yard so you can see everything the app does. Close each tip with the X to see the next one.",
+      },
+      {
+        mode: "draw",
+        tab: "draw",
+        title: "Draw",
+        text: "Trace the yard here on the satellite photo or grid paper: lawns, beds and fences. Tap to drop corners, drag one to move it, and pull the dot in the middle of a side to curve it. Add trees, the meter and the valve box as markers. A tree has a trunk size, and big ones keep heads away.",
+      },
+      {
+        mode: "walk",
+        tab: "walk",
+        title: "Walk",
+        text: "In the iPhone app, walk the edge of the lawn with the camera and the app traces it for you. Tap Corner at each corner.",
+      },
+      {
+        mode: "measure",
+        tab: "measure",
+        title: "Measure",
+        text: "Tap two spots to check a length. If it doesn't match your tape, enter the real number and the whole yard rescales.",
+      },
+      {
+        mode: "heads",
+        tab: "heads",
+        title: "Heads",
+        text: isHome()
           ? "Tap Generate and the app lays out every head and zone. You'll see the head count, zones and about how much trench to dig. Unlock the yard to see where each head goes and get the parts list."
-          : "Tap Generate and the app lays out every head: rotors in the open, pop-ups in the narrow spots, strip nozzles on park strips, and zones that stay together. Tap a zone to light it up, or tap a head to move it, delete it or switch its nozzle." },
-      { tab: "plan", title: "Plan and parts", text: isHome()
+          : "Tap Generate and the app lays out every head: rotors in the open, pop-ups in the narrow spots, strip nozzles on park strips, and zones that stay together. Tap a zone to light it up, or tap a head to move it, delete it or switch its nozzle.",
+      },
+      {
+        tab: "plan",
+        title: "Plan and parts",
+        text: isHome()
           ? "Once the yard is unlocked, Plan prints a full sprinkler map and Parts gives you the shopping list."
-          : "Plan prints a to-scale map for the customer or the crew. The Parts button on the Heads tab gives you the full parts list to copy, edit or print." },
-      { title: "You're set", text: "Go back to the home screen and tap " + (isHome() ? "Map my yard" : "New job") + " to start your own. You can watch this tour again from the home screen." },
+          : "Plan prints a to-scale map for the customer or the crew. The Parts button on the Heads tab gives you the full parts list to copy, edit or print.",
+      },
+      {
+        title: "You're set",
+        text:
+          "Go back to the home screen and tap " +
+          (isHome() ? "Map my yard" : "New job") +
+          " to start your own. You can watch this tour again from the home screen.",
+      },
     ];
     return steps;
   }
@@ -291,28 +333,56 @@
     const steps = tourSteps();
     let i = 0;
     const show = () => {
-      document.querySelectorAll(".tour, .tour-hl").forEach((el) =>
-        el.classList.contains("tour") ? el.remove() : el.classList.remove("tour-hl"),
-      );
+      document
+        .querySelectorAll(".tour, .tour-hl")
+        .forEach((el) =>
+          el.classList.contains("tour")
+            ? el.remove()
+            : el.classList.remove("tour-hl"),
+        );
       if (!J || i >= steps.length) return;
       const st = steps[i];
       if (st.mode && J.mode !== st.mode) setMode(st.mode);
-      const tab = st.tab && app.querySelector('.tab[data-mode="' + st.tab + '"]');
+      const tab =
+        st.tab && app.querySelector('.tab[data-mode="' + st.tab + '"]');
       const box = document.createElement("div");
       box.className = "tour" + (tab ? " at-tab" : "");
       box.setAttribute("role", "dialog");
       box.innerHTML =
-        '<button class="tour-x" aria-label="Close tip">' + icon("x") + "</button>" +
-        "<b>" + esc(st.title) + "</b><p>" + esc(st.text) + "</p>" +
-        '<div class="tour-foot"><span>' + (i + 1) + " of " + steps.length + "</span>" +
-        (i < steps.length - 1 ? '<button class="tour-skip">Skip tour</button>' : "") + "</div>";
+        '<button class="tour-x" aria-label="Close tip">' +
+        icon("x") +
+        "</button>" +
+        "<b>" +
+        esc(st.title) +
+        "</b><p>" +
+        esc(st.text) +
+        "</p>" +
+        '<div class="tour-foot"><span>' +
+        (i + 1) +
+        " of " +
+        steps.length +
+        "</span>" +
+        (i < steps.length - 1
+          ? '<button class="tour-skip">Skip tour</button>'
+          : "") +
+        "</div>";
       document.body.appendChild(box);
       if (tab) {
         tab.classList.add("tour-hl");
         // sit just above the tab bar, the arrow over the tab
-        const tr = tab.getBoundingClientRect(), bar = tab.parentElement.getBoundingClientRect();
+        const tr = tab.getBoundingClientRect(),
+          bar = tab.parentElement.getBoundingClientRect();
         box.style.bottom = window.innerHeight - bar.top + 12 + "px";
-        box.style.setProperty("--arrow", Math.max(24, Math.min(box.offsetWidth - 24, tr.left + tr.width / 2 - box.getBoundingClientRect().left)) + "px");
+        box.style.setProperty(
+          "--arrow",
+          Math.max(
+            24,
+            Math.min(
+              box.offsetWidth - 24,
+              tr.left + tr.width / 2 - box.getBoundingClientRect().left,
+            ),
+          ) + "px",
+        );
       }
       box.querySelector(".tour-x").onclick = () => {
         i++;
@@ -443,8 +513,10 @@
           ", so they work with no signal."
         : "Jobs save on this " + DEVICE + ".") +
       " Address search and satellite photos come from Mapbox.</p>";
-    h += '<button class="btn small ghost" style="width:100%" id="tour">Take the tour</button>';
-    h += '<p class="note" style="text-align:center"><a href="terms.html">Terms of Use</a></p>';
+    h +=
+      '<button class="btn small ghost" style="width:100%" id="tour">Take the tour</button>';
+    h +=
+      '<p class="note" style="text-align:center"><a href="terms.html">Terms of Use</a></p>';
     if (isHome())
       h +=
         '<button class="btn small ghost" style="width:100%" id="mode">Installer? Use the contractor version</button>';
@@ -625,6 +697,73 @@
     }, 300);
   }
 
+  // Water pressure as a gauge (Zach 2026-11-17: "put a PSI guage on the screen for a homeowner as
+  // well. that way they can map the yard accurately"). 0 to 100 PSI across a half circle, the
+  // needle on the value; set with - and + in steps of 5 between 20 and 100, as job settings always has.
+  const PSI_NOTE =
+    "Not sure? Use a pressure gauge on the pipe, ask a neighbor with an existing system, or call your local city.";
+  function gaugeSvg(v) {
+    const ang = Math.PI * (1 - Math.min(100, Math.max(0, v)) / 100);
+    const x = (r) => (60 + r * Math.cos(ang)).toFixed(1),
+      y = (r) => (62 - r * Math.sin(ang)).toFixed(1);
+    let ticks = "";
+    for (let t = 0; t <= 100; t += 10) {
+      const a = Math.PI * (1 - t / 100),
+        r0 = t % 50 ? 44 : 40;
+      ticks +=
+        '<line x1="' +
+        (60 + r0 * Math.cos(a)).toFixed(1) +
+        '" y1="' +
+        (62 - r0 * Math.sin(a)).toFixed(1) +
+        '" x2="' +
+        (60 + 50 * Math.cos(a)).toFixed(1) +
+        '" y2="' +
+        (62 - 50 * Math.sin(a)).toFixed(1) +
+        '"/>';
+    }
+    return (
+      '<svg class="psi-g" viewBox="0 0 120 70" aria-hidden="true">' +
+      '<path class="psi-arc" d="M10 62 A50 50 0 0 1 110 62"/>' +
+      '<g class="psi-ticks">' +
+      ticks +
+      "</g>" +
+      '<text x="12" y="70">0</text><text x="108" y="70" text-anchor="end">100</text>' +
+      '<line class="psi-needle" x1="60" y1="62" x2="' +
+      x(40) +
+      '" y2="' +
+      y(40) +
+      '"/>' +
+      '<circle class="psi-hub" cx="60" cy="62" r="4.5"/></svg>'
+    );
+  }
+  function psiBlock(id, v) {
+    return (
+      '<div><label class="f">Water pressure (PSI)</label><div class="psi-wrap" id="' +
+      id +
+      '">' +
+      gaugeSvg(v) +
+      '<div class="stepper"><button type="button" data-p="-" aria-label="Lower pressure">-</button><output>' +
+      v +
+      ' PSI</output><button type="button" data-p="+" aria-label="Raise pressure">+</button></div></div>' +
+      '<p class="note">' +
+      PSI_NOTE +
+      "</p></div>"
+    );
+  }
+  function wirePsi(el, id, start, onSet) {
+    const box = el.querySelector("#" + id);
+    let v = start;
+    box.querySelectorAll("[data-p]").forEach(
+      (b) =>
+        (b.onclick = () => {
+          v = b.dataset.p === "+" ? Math.min(100, v + 5) : Math.max(20, v - 5);
+          box.querySelector("svg").outerHTML = gaugeSvg(v);
+          box.querySelector("output").textContent = v + " PSI";
+          onSet(v);
+        }),
+    );
+  }
+
   // Culinary (city) or secondary water decides the connection parts on the parts list.
   function waterSeg(cur) {
     return (
@@ -664,6 +803,7 @@
     let water = null;
     let supply = null; // the line from the street, picked here (Zach 2026-11-10)
     let base = null; // "satellite" or "grid" paper (Zach 2026-11-14)
+    let psi = 50;
     sheet(
       '<h2>New job</h2><div class="stack">' +
         '<div><label class="f" for="jn">Customer or job name</label><input class="t" id="jn" placeholder="Smith backyard" autocomplete="off"></div>' +
@@ -693,6 +833,7 @@
           )
           .join("") +
         '</div><p class="note" id="sln">Sets how much water each zone gets: 12 GPM on 3/4", 18 GPM on 1".</p></div>' +
+        psiBlock("jpsi", 50) +
         '<div class="row"><button class="btn grow" id="jc">Cancel</button><button class="btn primary grow" id="jo">Start mapping</button></div></div>',
       (el, close) => {
         const name = el.querySelector("#jn"),
@@ -781,23 +922,104 @@
           if (addr.value.trim().length >= 4)
             typeTimer = setTimeout(search, 350);
         });
+        // Use where I am now (Zach 2026-11-17: "isnt working very well. its not getting close to my
+        // house"). It used the phone's first fix, which is often a rough Wi-Fi or cell guess. Now
+        // it listens for up to 12 s and keeps the tightest fix (stops early inside 10 m), then
+        // snaps to the nearest street address so the map opens on the house, not the street.
         el.querySelector("#jl").onclick = () => {
           if (!navigator.geolocation)
             return toast("This browser has no location access.");
-          toast("Finding you...");
-          navigator.geolocation.getCurrentPosition(
+          const btn = el.querySelector("#jl");
+          let best = null,
+            watch = null,
+            done = false;
+          btn.disabled = true;
+          res.innerHTML =
+            '<p class="note">Finding you. Hold still a few seconds...</p>';
+          const finish = async () => {
+            if (done) return;
+            done = true;
+            navigator.geolocation.clearWatch(watch);
+            btn.disabled = false;
+            if (!best)
+              return (res.innerHTML =
+                '<p class="note">Couldn\'t get your location. Allow location in Settings, or type the address.</p>');
+            const gps = {
+              lat: best.coords.latitude,
+              lng: best.coords.longitude,
+            };
+            const acc = Math.round(best.coords.accuracy * 3.28);
+            picked = gps;
+            try {
+              const r = await fetch(
+                "https://api.mapbox.com/search/geocode/v6/reverse?types=address&limit=1&longitude=" +
+                  gps.lng +
+                  "&latitude=" +
+                  gps.lat +
+                  "&access_token=" +
+                  MAPBOX_TOKEN,
+              );
+              const f = r.ok ? (await r.json()).features[0] : null;
+              if (f) {
+                const at = {
+                  lat: f.geometry.coordinates[1],
+                  lng: f.geometry.coordinates[0],
+                };
+                const off = movedFt(gps, at);
+                // trust the address point only when it's about as close as the fix itself
+                if (off <= Math.max(200, acc * 1.5)) {
+                  picked = at;
+                  addr.value = (
+                    f.properties.full_address ||
+                    f.properties.name ||
+                    ""
+                  )
+                    .split(",")
+                    .slice(0, 3)
+                    .join(",");
+                  res.innerHTML =
+                    '<p class="note">' +
+                    icon("check") +
+                    " Found " +
+                    esc(addr.value) +
+                    ". Not your house? Type the address instead.</p>";
+                  return;
+                }
+              }
+            } catch (e) {
+              console.warn("Reverse lookup failed", e);
+            }
+            res.innerHTML =
+              '<p class="note">' +
+              icon("check") +
+              " Got your location, within about " +
+              acc +
+              " ft. You can drag the map once it opens.</p>";
+          };
+          watch = navigator.geolocation.watchPosition(
             (p) => {
-              picked = { lat: p.coords.latitude, lng: p.coords.longitude };
-              toast("Got your location.");
+              if (!best || p.coords.accuracy < best.coords.accuracy) best = p;
+              res.innerHTML =
+                '<p class="note">Finding you. Within about ' +
+                Math.round(best.coords.accuracy * 3.28) +
+                " ft so far...</p>";
+              if (best.coords.accuracy <= 10) finish();
             },
-            () =>
-              toast(
-                "Location was blocked. Allow it in Settings, or type the address.",
-              ),
-            { enableHighAccuracy: true, timeout: 15000 },
+            (e) => {
+              if (e.code === 1) {
+                done = true;
+                navigator.geolocation.clearWatch(watch);
+                btn.disabled = false;
+                res.innerHTML =
+                  '<p class="note">Location is blocked. Allow it in Settings, or type the address.</p>';
+              }
+            },
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 },
           );
+          setTimeout(finish, 12000);
         };
         wireWaterSeg(el, (w) => (water = w));
+        wirePsi(el, "jpsi", psi, (v) => (psi = v));
         el.querySelectorAll("[data-s]").forEach(
           (b) =>
             (b.onclick = () => {
@@ -842,7 +1064,7 @@
               zoom: grid ? 21 : picked ? 20 : 15,
             },
             scale: 1,
-            psi: 50,
+            psi,
             line: supply,
             customCap: 12,
             popupsOnly: false,
@@ -879,7 +1101,10 @@
   // Zach 2026-11-17: the lateral matches the supply from the street, but "some landscapers only use
   // 1 inch everywhere for simplicity sake", so a company that picks 1" gets it on every new job.
   function lateralOf(job) {
-    return job.lateral || (prefs.lateral === "1" ? "1" : job.line === "34" ? "34" : "1");
+    return (
+      job.lateral ||
+      (prefs.lateral === "1" ? "1" : job.line === "34" ? "34" : "1")
+    );
   }
   function capOf(job) {
     const supply =
@@ -900,7 +1125,11 @@
   // mainline (meter to the valve boxes, spigots, its pinch clamps) is 1" on every yard (Zach
   // 2026-11-17); the supply size only sets the lateral's default and the GPM cap
   function pipeSizes(job) {
-    return { lateral: sizeName(lateralOf(job)), main: sizeName("1"), box: boxSize(job) };
+    return {
+      lateral: sizeName(lateralOf(job)),
+      main: sizeName("1"),
+      box: boxSize(job),
+    };
   }
 
   function proj(job) {
@@ -971,42 +1200,47 @@
         // a narrow arm of a bigger lawn (a side entrance) is cut off to get park strip nozzles
         .flatMap((piece) => E.splitStrips(piece))
         .forEach((piece) => {
-        // a fence that stops partway in is still a wall: the lawn wraps around it as a slit
-        const slit = E.fenceSlits(piece, fences);
-        const outer = slit.outer;
-        const ring = densify(outer, true);
-        // beds are split by fences too, so a bed running across a fence is a hole on both sides
-        // (whole, it only cut into one side and the other side put pop-ups in the bed)
-        const holes = beds
-          .flatMap((b) => E.splitByFences(shapeLocal(b, P), fences))
-          .map((h) => E.offFence(h, fences))
-          .filter((h) => pointInRing(E.pointInside(h), ring));
-        // big trees in this piece of lawn; the fences go along so a head on a fence line may sit
-        // closer to a tree than 7 ft
-        const trees = job.markers
-          .filter((m) => m.tag === "tree" && (m.trunk || 0) >= E.BIG_TRUNK_IN)
-          .map((m) => Object.assign(P.toXY(m), { trunk: m.trunk }))
-          .filter((t) => pointInRing(t, ring));
-        areas.push({
-          outer,
-          holes: holes.concat(slit.holes),
-          trees,
-          fences,
-          mode: s.mode || "auto",
-          shapeId: s.id,
+          // a fence that stops partway in is still a wall: the lawn wraps around it as a slit
+          const slit = E.fenceSlits(piece, fences);
+          const outer = slit.outer;
+          const ring = densify(outer, true);
+          // beds are split by fences too, so a bed running across a fence is a hole on both sides
+          // (whole, it only cut into one side and the other side put pop-ups in the bed)
+          const holes = beds
+            .flatMap((b) => E.splitByFences(shapeLocal(b, P), fences))
+            .map((h) => E.offFence(h, fences))
+            .filter((h) => pointInRing(E.pointInside(h), ring));
+          // big trees in this piece of lawn; the fences go along so a head on a fence line may sit
+          // closer to a tree than 7 ft
+          const trees = job.markers
+            .filter((m) => m.tag === "tree" && (m.trunk || 0) >= E.BIG_TRUNK_IN)
+            .map((m) => Object.assign(P.toXY(m), { trunk: m.trunk }))
+            .filter((t) => pointInRing(t, ring));
+          areas.push({
+            outer,
+            holes: holes.concat(slit.holes),
+            trees,
+            fences,
+            mode: s.mode || "auto",
+            shapeId: s.id,
+          });
         });
-      });
     });
     // the rest of the yard, as seen from each piece: a park strip's heads go on the side facing it
     // (the sidewalk side)
     const mids = areas.map((a) => {
       const r = densify(a.outer, true);
       const w = Math.abs(ringArea(r));
-      const c = r.reduce((t, p) => ({ x: t.x + p.x / r.length, y: t.y + p.y / r.length }), { x: 0, y: 0 });
+      const c = r.reduce(
+        (t, p) => ({ x: t.x + p.x / r.length, y: t.y + p.y / r.length }),
+        { x: 0, y: 0 },
+      );
       return { x: c.x, y: c.y, w };
     });
     areas.forEach((a, i) => {
-      let x = 0, y = 0, w = 0;
+      let x = 0,
+        y = 0,
+        w = 0;
       mids.forEach((m, k) => {
         if (k === i) return;
         x += m.x * m.w;
@@ -2141,7 +2375,12 @@
       // a park strip nozzle throws a band, not a pie slice
       const q = h.strip,
         v1 = Math.min(q.v1 - 0.3, Math.max(4, q.w || 4));
-      [[q.u0, q.v0], [q.u1, q.v0], [q.u1, v1], [q.u0, v1]].forEach(([u, v]) =>
+      [
+        [q.u0, q.v0],
+        [q.u1, q.v0],
+        [q.u1, v1],
+        [q.u0, v1],
+      ].forEach(([u, v]) =>
         pts.push(P.toLL(h.x + u * q.ux - v * q.uy, h.y + u * q.uy + v * q.ux)),
       );
       return pts;
@@ -2280,7 +2519,11 @@
       tinfo.boxes.forEach((bx, i, all) =>
         lay.addLayer(
           L.marker(P.toLL(bx.x, bx.y), {
-            icon: L.divIcon({ className: "vbox", html: "VB" + (all.length > 1 ? i + 1 : ""), iconSize: null }),
+            icon: L.divIcon({
+              className: "vbox",
+              html: "VB" + (all.length > 1 ? i + 1 : ""),
+              iconSize: null,
+            }),
             interactive: false,
             keyboard: false,
           }),
@@ -2780,7 +3023,13 @@
       Object.keys(E.STRIP)
         .map(
           (k) =>
-            '<button class="chip" data-sn="' + k + '" aria-pressed="' + (hd.label === "15" + k) + '">15' + k + "</button>",
+            '<button class="chip" data-sn="' +
+            k +
+            '" aria-pressed="' +
+            (hd.label === "15" + k) +
+            '">15' +
+            k +
+            "</button>",
         )
         .join("") +
       "</div>"
@@ -2800,8 +3049,8 @@
           : hd.kind === "STRIP"
             ? "park strip nozzle on an 1804"
             : hd.kind === "VAN"
-            ? hd.series + " series VAN on an 1804"
-            : hd.series + hd.kind + " on an 1804";
+              ? hd.series + " series VAN on an 1804"
+              : hd.series + hd.kind + " on an 1804";
       h +=
         '<dl class="kv"><dt>Head</dt><dd>' +
         esc(hd.label) +
@@ -2845,8 +3094,20 @@
             // swap the strip nozzle in place, same spot, same direction along the strip
             const q = hd.strip;
             const len = Math.max(Math.abs(q.u0), Math.abs(q.u1));
-            const nh = E.stripHead(hd.x, hd.y, b.dataset.sn, { ux: q.ux, uy: q.uy, w: q.w || 4 }, len);
-            Object.assign(hd, { label: nh.label, gpmBase: nh.gpmBase, strip: nh.strip, r: nh.r, dir: nh.dir });
+            const nh = E.stripHead(
+              hd.x,
+              hd.y,
+              b.dataset.sn,
+              { ux: q.ux, uy: q.uy, w: q.w || 4 },
+              len,
+            );
+            Object.assign(hd, {
+              label: nh.label,
+              gpmBase: nh.gpmBase,
+              strip: nh.strip,
+              r: nh.r,
+              dir: nh.dir,
+            });
             recheckLayout();
             redraw();
           }),
@@ -2938,7 +3199,9 @@
         h +=
           '<p class="note">' +
           vb.length +
-          (vb.length > 1 ? " valve boxes: " + vb.join(", ") + " valves" : " valve box") +
+          (vb.length > 1
+            ? " valve boxes: " + vb.join(", ") + " valves"
+            : " valve box") +
           ".</p>";
       const smallRotor = L0.zones.filter(
         (z) => z.family === "rotor" && z.count < 3,
@@ -3044,8 +3307,15 @@
     });
     const meter = job.markers.find((k) => k.tag === "meter");
     const rings = buildAreas(job).map((a) => densify(a.outer, true));
-    const spigots = job.markers.filter((k) => k.tag === "spigot").map((k) => P.toXY(k));
-    const plan = E.trenchPlan(zones, meter ? P.toXY(meter) : null, rings, spigots);
+    const spigots = job.markers
+      .filter((k) => k.tag === "spigot")
+      .map((k) => P.toXY(k));
+    const plan = E.trenchPlan(
+      zones,
+      meter ? P.toXY(meter) : null,
+      rings,
+      spigots,
+    );
     plan.pipe = E.pipePlan(zones, meter ? P.toXY(meter) : null, plan, spigots);
     return plan;
   }
@@ -3092,12 +3362,16 @@
     const price = pro ? YARD_PRICE : UNLOCK_PRICE;
     const moved = J.job.unlocked && !inPlace(J.job);
     sheet(
-      "<h2>" + (pro ? "Lay out this yard" : "Unlock this yard") + "</h2>" +
+      "<h2>" +
+        (pro ? "Lay out this yard" : "Unlock this yard") +
+        "</h2>" +
         (moved
           ? '<p class="hint"><b>This yard moved more than ' +
             MOVE_LIMIT_FT +
             " ft from the one that was paid for</b>" +
-            (J.job.base === "grid" ? " (or its lawn size changed by more than half)" : "") +
+            (J.job.base === "grid"
+              ? " (or its lawn size changed by more than half)"
+              : "") +
             ", so it counts as a new yard.</p>"
           : "") +
         '<p class="hint">' +
@@ -3111,7 +3385,9 @@
         "</p>" +
         '<p class="note">It\'s an estimate from your map. By paying you agree to the <a href="terms.html">Terms of Use</a>.</p>' +
         (PAY_HERE
-          ? '<button class="btn primary" style="width:100%" id="pay">Pay ' + price + "</button>" +
+          ? '<button class="btn primary" style="width:100%" id="pay">Pay ' +
+            price +
+            "</button>" +
             '<p class="note">Stripe takes the card. Head to Head never sees it.</p>'
           : '<button class="btn primary" style="width:100%" disabled>Payments open soon</button>') +
         (TEST_COPY
@@ -3122,7 +3398,9 @@
             FOUNDING_PRICE +
             ", every yard included</button>"
           : "") +
-        (pro && NATIVE ? '<p class="note">Pay for yards and plans on the Head to Head website.</p>' : "") +
+        (pro && NATIVE
+          ? '<p class="note">Pay for yards and plans on the Head to Head website.</p>'
+          : "") +
         '<button class="btn ghost" style="width:100%;margin-top:8px" id="nx">Not now</button>',
       (el, close) => {
         el.querySelector("#nx").onclick = close;
@@ -3193,7 +3471,9 @@
         '<div><label class="f" for="sa">Address</label><input class="t" id="sa" value="' +
         esc(job.address) +
         '"></div>' +
-        '<div><label class="f">Working pressure (PSI)</label><div class="stepper"><button id="pm" aria-label="Lower pressure">-</button><output id="pv">' +
+        '<div><label class="f">Working pressure (PSI)</label><div class="psi-wrap" id="spsi">' +
+        gaugeSvg(job.psi) +
+        '</div><div class="stepper"><button id="pm" aria-label="Lower pressure">-</button><output id="pv">' +
         esc(String(job.psi)) +
         '</output><button id="pp" aria-label="Raise pressure">+</button></div><p class="note" id="pn"></p></div>' +
         '<div><label class="f">Supply line</label><div class="seg" id="ln">' +
@@ -3270,21 +3550,27 @@
         const pn = el.querySelector("#pn");
         const note = () => {
           pn.textContent =
-            psi < 50
+            PSI_NOTE +
+            " " +
+            (psi < 50
               ? "Below 50 PSI your 12 and 18 GPM caps may be too high. A flow test is safer."
               : "Spray flow is the 30 PSI chart times " +
                 Math.sqrt(psi / 30).toFixed(2) +
-                ".";
+                ".");
         };
         note();
+        const needle = () =>
+          (el.querySelector("#spsi svg").outerHTML = gaugeSvg(psi));
         el.querySelector("#pm").onclick = () => {
           psi = Math.max(20, psi - 5);
           el.querySelector("#pv").textContent = psi;
+          needle();
           note();
         };
         el.querySelector("#pp").onclick = () => {
           psi = Math.min(100, psi + 5);
           el.querySelector("#pv").textContent = psi;
+          needle();
           note();
         };
         // warn when a 3/4" lateral sits on a bigger supply
@@ -3380,7 +3666,8 @@
       // Zach 2026-11-17: a homeowner's plan says "Homeowner plan" and carries no company name, and a
       // contractor's carries theirs, so the homeowner side is no use for handing plans to customers
       homeowner: isHome(),
-      company: !isHome() && Cloud.enabled && Cloud.company ? Cloud.company.name : "",
+      company:
+        !isHome() && Cloud.enabled && Cloud.company ? Cloud.company.name : "",
       title: job.name,
       address: job.address,
       date: new Date().toLocaleDateString(),
@@ -3466,7 +3753,11 @@
   function shownParts(L0) {
     const fresh = freshParts(L0);
     return J.job.partsEdit
-      ? { lines: J.job.partsEdit.lines, notes: fresh.notes, footer: fresh.footer }
+      ? {
+          lines: J.job.partsEdit.lines,
+          notes: fresh.notes,
+          footer: fresh.footer,
+        }
       : fresh;
   }
   function partsTable(parts) {
@@ -3492,7 +3783,9 @@
     return (
       h +
       "</table>" +
-      (parts.footer ? '<p class="parts-foot">' + esc(parts.footer) + "</p>" : "") +
+      (parts.footer
+        ? '<p class="parts-foot">' + esc(parts.footer) + "</p>"
+        : "") +
       '<p class="note parts-terms">' +
       esc(E.DISCLAIMER.replace(/ See the Terms of Use\.$/, "")) +
       ' See the <a href="terms.html">Terms of Use</a>.</p>'
@@ -3726,7 +4019,13 @@
           ["34", "1"]
             .map(
               (k) =>
-                '<button data-lt="' + k + '" aria-pressed="' + (lateralOf(job) === k) + '">' + sizeName(k) + "</button>",
+                '<button data-lt="' +
+                k +
+                '" aria-pressed="' +
+                (lateralOf(job) === k) +
+                '">' +
+                sizeName(k) +
+                "</button>",
             )
             .join("") +
           "</div>" +
@@ -3734,7 +4033,11 @@
           ["standard", "jumbo"]
             .map(
               (k) =>
-                '<button data-vb="' + k + '" aria-pressed="' + (boxSize(job) === k) + '">' +
+                '<button data-vb="' +
+                k +
+                '" aria-pressed="' +
+                (boxSize(job) === k) +
+                '">' +
                 (k === "jumbo" ? "Jumbo" : "Standard") +
                 "</button>",
             )
@@ -3961,20 +4264,56 @@
     // along the edges, spraying head to head (drawing only, made for the page, not an engine run)
     const lawn = "M40 330 L40 92 Q160 34 280 92 L280 330 Z";
     const heads = [
-      [40, 330], [280, 330], [40, 92], [280, 92],
-      [40, 211], [280, 211], [160, 330], [160, 63],
+      [40, 330],
+      [280, 330],
+      [40, 92],
+      [280, 92],
+      [40, 211],
+      [280, 211],
+      [160, 330],
+      [160, 63],
     ];
     return (
       '<svg class="walk-demo" viewBox="0 0 320 400" role="img" aria-label="A phone walking the edge of a lawn, then sprinkler heads appearing head to head around it">' +
-      '<defs><clipPath id="wd-clip"><path d="' + lawn + '"/></clipPath></defs>' +
+      '<defs><clipPath id="wd-clip"><path d="' +
+      lawn +
+      '"/></clipPath></defs>' +
       '<rect x="8" y="8" width="304" height="384" rx="22" class="wd-ground"/>' +
-      '<path class="wd-lawn" d="' + lawn + '"/>' +
+      '<path class="wd-lawn" d="' +
+      lawn +
+      '"/>' +
       '<g class="wd-spray" clip-path="url(#wd-clip)">' +
-      heads.map(([x, y], i) => '<circle cx="' + x + '" cy="' + y + '" r="128" style="--i:' + i + '"/>').join("") +
+      heads
+        .map(
+          ([x, y], i) =>
+            '<circle cx="' +
+            x +
+            '" cy="' +
+            y +
+            '" r="128" style="--i:' +
+            i +
+            '"/>',
+        )
+        .join("") +
       "</g>" +
-      '<path class="wd-trail" pathLength="100" d="' + lawn + '"/>' +
-      heads.map(([x, y], i) => '<circle class="wd-head" cx="' + x + '" cy="' + y + '" r="6" style="--i:' + i + '"/>').join("") +
-      '<g class="wd-walker" style="offset-path:path(\'' + lawn + '\')"><circle r="11"/><circle r="4" class="wd-dot"/></g>' +
+      '<path class="wd-trail" pathLength="100" d="' +
+      lawn +
+      '"/>' +
+      heads
+        .map(
+          ([x, y], i) =>
+            '<circle class="wd-head" cx="' +
+            x +
+            '" cy="' +
+            y +
+            '" r="6" style="--i:' +
+            i +
+            '"/>',
+        )
+        .join("") +
+      '<g class="wd-walker" style="offset-path:path(\'' +
+      lawn +
+      '\')"><circle r="11"/><circle r="4" class="wd-dot"/></g>' +
       '<text x="160" y="372" class="wd-cap wd-cap1">Walk the edge</text>' +
       '<text x="160" y="372" class="wd-cap wd-cap2">Heads, zones and parts: done</text>' +
       "</svg>"
@@ -3983,7 +4322,13 @@
 
   function landingPage() {
     const step = (n, t, d) =>
-      '<li><span class="l-n">' + n + "</span><b>" + t + "</b><span>" + d + "</span></li>";
+      '<li><span class="l-n">' +
+      n +
+      "</span><b>" +
+      t +
+      "</b><span>" +
+      d +
+      "</span></li>";
     return (
       '<main class="landing">' +
       '<header class="l-top"><img src="icons/logo.svg" alt=""><b>Head to Head</b>' +
@@ -3994,8 +4339,9 @@
       '<p class="l-sub">Walk the edge of the lawn with your iPhone and Head to Head maps it as you go. About 5 minutes for a whole yard. No measuring wheel, no tape, no drawing it up later.</p>' +
       '<p class="l-sub">Then it places every head, splits the zones to fit your water, and writes the parts list for the counter.</p>' +
       '<div class="l-card" id="signin"></div>' +
-      '</div><figure class="l-demo">' + walkDemo() +
-      '<figcaption>Camera walk is coming to the App Store. On the website you trace the yard on the satellite photo today.</figcaption></figure></section>' +
+      '</div><figure class="l-demo">' +
+      walkDemo() +
+      "<figcaption>Camera walk is coming to the App Store. On the website you trace the yard on the satellite photo today.</figcaption></figure></section>" +
       '<section class="l-sec l-founder"><h2>Built on my own jobs</h2>' +
       "<p>I'm a landscaper, and I used to work the counter at a sprinkler supply store. Every sprinkler job started the same way: measure the yard, sketch it out, figure out heads and zones, then guess on a parts list once I got in the store. I built Head to Head to save time on my own jobs.</p>" +
       "<p>The layout follows the rules I'd use myself. The yard gets double coverage, it's split into zones by pressure and flow rate, and the heads are strategically placed to make the install easy.</p>" +
@@ -4007,17 +4353,35 @@
       "<li>Walk the edge of the lawn with your phone</li><li>Tap Corner at each corner</li><li>Heads, zones and parts list come out the other end</li></ul></div>" +
       "</div></section>" +
       '<section class="l-sec l-split"><div><h2>Then it lays it out</h2><ol class="l-steps">' +
-      step(1, "Map it", "Walk it with the iPhone camera, or trace it on the satellite photo or grid paper.") +
-      step(2, "Lay it out", "Heads and nozzles placed head to head, with zones sized to your GPM and pressure.") +
-      step(3, "Print and buy", "A plan for the customer, a plan for the crew, and a parts list ready for the counter.") +
+      step(
+        1,
+        "Map it",
+        "Walk it with the iPhone camera, or trace it on the satellite photo or grid paper.",
+      ) +
+      step(
+        2,
+        "Lay it out",
+        "Heads and nozzles placed head to head, with zones sized to your GPM and pressure.",
+      ) +
+      step(
+        3,
+        "Print and buy",
+        "A plan for the customer, a plan for the crew, and a parts list ready for the counter.",
+      ) +
       '</ol></div><figure class="l-shot"><img src="img/app-layout.jpg" width="508" height="1100" loading="lazy" alt="A laid-out yard in Head to Head: sprinkler heads, spray patterns and zones on a lawn, with a list of zones and their GPM"></figure></section>' +
       '<section class="l-sec"><h2>Pricing</h2><div class="l-prices">' +
       '<div class="l-price"><b>Contractors</b><div class="l-amt">$30<span>/month</span></div>' +
       "<p>The first contractors on Head to Head lock in <b>$20 a month</b>.</p>" +
       "<p>Jobs save online and your whole crew can open them.</p>" +
-      "<p>Or pay for the year up front: <b>" + SEASON_PRICE + "</b>, or <b>" + FOUNDING_SEASON_PRICE + "</b> for founding contractors.</p>" +
+      "<p>Or pay for the year up front: <b>" +
+      SEASON_PRICE +
+      "</b>, or <b>" +
+      FOUNDING_SEASON_PRICE +
+      "</b> for founding contractors.</p>" +
       '<a href="#signin" class="btn primary" id="l-co">Start my company</a></div>' +
-      '<div class="l-price"><b>Contractors, a few yards a month</b><div class="l-amt">' + YARD_PRICE + '<span> per yard</span></div>' +
+      '<div class="l-price"><b>Contractors, a few yards a month</b><div class="l-amt">' +
+      YARD_PRICE +
+      "<span> per yard</span></div>" +
       "<p>Only do a couple of sprinkler installs a month? Pay for each yard you lay out, nothing in the slow months.</p>" +
       "<p>You still keep a log of every job you've done, and your crew can open them too.</p>" +
       "<p>Three or more yards a month, and the monthly plan costs less.</p>" +
@@ -4576,14 +4940,22 @@
       b = await Cloud.billing();
     } catch (e) {
       console.warn("Plan not loaded", e);
-      box.innerHTML = '<p class="note" style="margin:0">Couldn\'t load your plan. Check your signal.</p>';
+      box.innerHTML =
+        '<p class="note" style="margin:0">Couldn\'t load your plan. Check your signal.</p>';
       return;
     }
     planActive = !!(b && ["active", "trialing", "past_due"].includes(b.status));
     const day = (iso) =>
-      iso ? new Date(iso).toLocaleDateString(undefined, { month: "long", day: "numeric" }) : "";
+      iso
+        ? new Date(iso).toLocaleDateString(undefined, {
+            month: "long",
+            day: "numeric",
+          })
+        : "";
     const price = b && b.plan === "standard" ? PLAN_PRICE : FOUNDING_PRICE;
-    let h, btn, yearly = null;
+    let h,
+      btn,
+      yearly = null;
     if (b && (b.status === "active" || b.status === "trialing")) {
       h =
         "<p><b>" +
@@ -4598,27 +4970,41 @@
       btn = owner ? ["portal", "Manage billing"] : null;
       // Deactivate (Zach 2026-11-17): stop paying, keep the account and every job
       if (owner && !b.cancel_at_period_end)
-        h += '<button class="btn small ghost" style="width:100%;margin:0 0 6px" id="pd">Deactivate the plan</button>';
+        h +=
+          '<button class="btn small ghost" style="width:100%;margin:0 0 6px" id="pd">Deactivate the plan</button>';
     } else if (b && (b.status === "past_due" || b.status === "unpaid")) {
-      h = "<p><b>The last payment didn't go through.</b></p><p class=\"note\">Update the card to keep the plan.</p>";
+      h =
+        '<p><b>The last payment didn\'t go through.</b></p><p class="note">Update the card to keep the plan.</p>';
       btn = owner ? ["portal", "Update the card"] : null;
     } else {
       h = offer;
       btn = owner ? ["subscribe", "Start the plan · " + FOUNDING_PRICE] : null;
       if (owner) yearly = "Pay for the year · " + FOUNDING_SEASON_PRICE;
-      if (!owner) h += '<p class="note">The company\'s owner starts the plan.</p>';
+      if (!owner)
+        h += '<p class="note">The company\'s owner starts the plan.</p>';
     }
     box.innerHTML =
       h +
-      (btn ? '<button class="btn primary small" style="width:100%" id="pb">' + btn[1] + "</button>" : "") +
-      (yearly ? '<button class="btn small" style="width:100%;margin-top:8px" id="py">' + yearly + "</button>" : "");
+      (btn
+        ? '<button class="btn primary small" style="width:100%" id="pb">' +
+          btn[1] +
+          "</button>"
+        : "") +
+      (yearly
+        ? '<button class="btn small" style="width:100%;margin-top:8px" id="py">' +
+          yearly +
+          "</button>"
+        : "");
     const wire = (el, action, label, interval) => {
       if (!el) return;
       el.onclick = async () => {
         el.disabled = true;
         el.textContent = "Opening Stripe...";
         try {
-          const r = await Cloud.pay(action, { company_id: Cloud.company.id, interval });
+          const r = await Cloud.pay(action, {
+            company_id: Cloud.company.id,
+            interval,
+          });
           location.assign(r.url);
         } catch (e) {
           console.warn("Billing page not opened", e);
@@ -4643,7 +5029,9 @@
         pd.disabled = true;
         try {
           await Cloud.pay("cancel", { company_id: Cloud.company.id });
-          toast("Deactivated. The plan stops at the end of this billing period.");
+          toast(
+            "Deactivated. The plan stops at the end of this billing period.",
+          );
           setTimeout(() => fillPlan(box, owner), 2500);
         } catch (e) {
           console.warn("Deactivate failed", e);
@@ -4664,7 +5052,9 @@
     try {
       const b = await Cloud.billing();
       const was = planActive;
-      planActive = !!(b && ["active", "trialing", "past_due"].includes(b.status));
+      planActive = !!(
+        b && ["active", "trialing", "past_due"].includes(b.status)
+      );
       if (was !== planActive && J) redraw();
     } catch (e) {
       console.warn("Plan not checked", e);
@@ -4686,28 +5076,46 @@
       jid = q.get("job"),
       bill = q.get("billing");
     if (!sid && !bill) return;
-    const clean = (hash) => history.replaceState(null, "", location.pathname + (hash || location.hash));
+    const clean = (hash) =>
+      history.replaceState(
+        null,
+        "",
+        location.pathname + (hash || location.hash),
+      );
     if (bill) {
       clean();
       if (bill === "done") {
-        toast("Thanks! Your plan is starting. It can take a few seconds to show.");
+        toast(
+          "Thanks! Your plan is starting. It can take a few seconds to show.",
+        );
         planPoll = 6;
-      }
-      else if (bill === "cancel") toast("No charge. You can start the plan any time.");
+      } else if (bill === "cancel")
+        toast("No charge. You can start the plan any time.");
       return;
     }
     const job = jobs.find((j) => j.id === jid);
     clean(job ? "#/job/" + job.id : "");
-    if (!job) return toast("Paid, but that yard isn't on this device. Open it where you mapped it.");
+    if (!job)
+      return toast(
+        "Paid, but that yard isn't on this device. Open it where you mapped it.",
+      );
     try {
-      const r = await Cloud.pay("unlock-check", { session_id: sid, job_id: job.id });
-      if (!r.paid) return toast("That payment didn't go through, so the yard is still locked.");
+      const r = await Cloud.pay("unlock-check", {
+        session_id: sid,
+        job_id: job.id,
+      });
+      if (!r.paid)
+        return toast(
+          "That payment didn't go through, so the yard is still locked.",
+        );
       markPaid(job);
       touch(job);
       toast("Paid. Your yard is unlocked.");
     } catch (e) {
       console.warn("Unlock check failed", e);
-      toast("Couldn't confirm the payment. Check your signal and reload this page.");
+      toast(
+        "Couldn't confirm the payment. Check your signal and reload this page.",
+      );
     }
   }
 
@@ -4940,7 +5348,9 @@
           };
         // Delete account (Zach 2026-11-17; Apple requires it in the app too)
         el.querySelector("#da").onclick = async () => {
-          const mine = Cloud.companies.filter((x) => x.role === "owner").map((x) => x.name);
+          const mine = Cloud.companies
+            .filter((x) => x.role === "owner")
+            .map((x) => x.name);
           const what = mine.length
             ? "This deletes your sign-in and " +
               mine.join(" and ") +
@@ -4949,13 +5359,17 @@
               c.name +
               ". The company's jobs stay with the company. It can't be undone.";
           // (an owner of another company hears about that one too, above)
-          const typed = prompt(what + "\n\nType DELETE to delete your account.");
+          const typed = prompt(
+            what + "\n\nType DELETE to delete your account.",
+          );
           if (!typed || typed.trim().toUpperCase() !== "DELETE") return;
           try {
             await Cloud.pay("delete-account");
           } catch (e) {
             console.warn("Delete failed", e);
-            return toast(e.message || "Couldn't delete the account. Check your signal.");
+            return toast(
+              e.message || "Couldn't delete the account. Check your signal.",
+            );
           }
           close();
           await Cloud.signOut(true).catch(() => {});
