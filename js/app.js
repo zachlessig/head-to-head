@@ -2980,21 +2980,12 @@
     return E.trenchPlan(zones, meter ? P.toXY(meter) : null, rings);
   }
 
+  // homeowners see just the total (Zach 2026-11-17: "keep it simple. just tell them the total")
   function trenchLine(job) {
-    const t = trenchInfo(job);
     return (
-      '<dl class="kv"><dt>Trench to dig</dt><dd>About ' +
-      t.ft +
-      " ft</dd></dl>" +
-      '<p class="note">That\'s the total: ' +
-      Math.round(t.shared) +
-      " ft of trench " +
-      (t.hasMeter ? "from the meter to the valve box" + (t.boxes.length > 1 ? "es" : "") + " and " : "from the valve box" + (t.boxes.length > 1 ? "es" : "") + " ") +
-      "out to every zone and bed, with pipes sharing a trench wherever they run the same way, plus " +
-      Math.round(t.inZone) +
-      " ft inside the zones (about 50 ft for each pop-up zone and 75 ft for each rotor zone)." +
-      (t.hasMeter ? "" : " Add the Meter on the Draw tab to count the mainline too.") +
-      "</p>"
+      '<dl class="kv"><dt>Estimated trenching</dt><dd>About ' +
+      trenchInfo(job).ft +
+      " ft</dd></dl>"
     );
   }
 

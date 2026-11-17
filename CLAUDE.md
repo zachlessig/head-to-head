@@ -131,7 +131,7 @@ swings 10x, so compare old and new engines back to back before calling anything 
   the example yard went from 657 ft run separately to 464 shared); plus 50 ft inside each pop-up
   zone and 75 ft inside each rotor zone ("thats probably
   close enough"). A drip zone's trench stops at the edge of its beds, nothing inside ("just get the
-  pipe to the bed area"). The screen shows all three parts so they add up to the total. The boxes show on the map as VB pins
+  pipe to the bed area"). Homeowners see only the total, "Estimated trenching: About N ft" (Zach 2026-11-17: "keep it simple"). The boxes show on the map as VB pins
   and the network as dashed brown lines once the layout is visible. He wants the same method for pipe lengths on the parts list next.
 - Look (Zach picked look A of three, 2026-11-15): cream and green, soft shadows instead of outlines,
   springy button presses, a floating tab bar, and an opening animation where the logo's spray arcs
