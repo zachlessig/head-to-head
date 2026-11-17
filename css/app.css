@@ -1118,3 +1118,15 @@ table.parts td.q {
   color: var(--flag);
   font-weight: 600;
 }
+.sod {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: var(--soft);
+}
+.sod > b {
+  display: block;
+  font: 700 17px Fraunces, Georgia, serif;
+  margin-bottom: 6px;
+}

@@ -211,6 +211,9 @@ swings 10x, so compare old and new engines back to back before calling anything 
   Measure, Heads, Plan and parts, and how to start a job. Homeowners get their own wording for
   Heads and Plan. "Take the tour" on the home screen runs it again. When a feature is added, add a
   line to the tip for its tab.
+- Sod calculator (Zach 2026-11-17, Measure tab, `sodBlock` and `sodPallets`): the lawn's total
+  square feet (beds inside lawns taken out), and pallets of 500 sq ft after adding 10% for edges
+  and cuts, with a note saying so.
 - Example yard: "Try an example yard" on the home screen builds a made-up yard with every
   feature, on a plain background (no satellite photo of a real place), and lays it out.
   When a feature is added, add it to `exampleJob()` in `js/app.js` too.
@@ -279,7 +282,7 @@ swings 10x, so compare old and new engines back to back before calling anything 
 4. The website vs the app: decided and built 2026-11-16 (see Website and iPhone app under His rules).
 5. Security and liability (added 2026-11-17): "a way im not liable for if someones map is wrong
    because in reality, this is just a tool for contractors, we aren't actually installing the yard."
-6. A sod calculator (added 2026-11-17).
+6. A sod calculator: built 2026-11-17 (see Sod calculator).
 
 ## Payments and server scripts
 

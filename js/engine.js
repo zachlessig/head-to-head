@@ -2056,6 +2056,14 @@
   // just a tool for contractors, we aren't actually installing the yard." On every plan and parts list.
   const DISCLAIMER =
     "This is an estimate from the map it was drawn on. Check measurements, water pressure and local codes, and call 811 before you dig. Head to Head doesn't install systems and isn't responsible for errors in the map, layout or parts list. See the Terms of Use.";
+  // Sod (Zach 2026-11-17): total lawn square feet, then pallets of 500 sq ft after adding 10% "to
+  // account for cuts and edges".
+  const SOD_PALLET_SQFT = 500;
+  const SOD_EXTRA = 0.1;
+  function sodPallets(sqft) {
+    const withExtra = sqft * (1 + SOD_EXTRA);
+    return { sqft, withExtra, pallets: sqft > 0 ? Math.ceil(withExtra / SOD_PALLET_SQFT - 1e-9) : 0 };
+  }
   const PIPE_ROLLS = { mainline: [100, 300], lateral: [100, 400] };
   function lateralExtra(ft) {
     return ft > 3000 ? 400 : ft > 1300 ? 200 : 100;
@@ -3049,6 +3057,7 @@
     arcPoints,
     orient,
     trenchPlan,
+    sodPallets,
     DISCLAIMER,
     pipePlan,
     rollMix,

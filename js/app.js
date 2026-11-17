@@ -268,7 +268,7 @@
       { title: "Welcome to Head to Head", text: "This is a made-up yard so you can see everything the app does. Close each tip with the X to see the next one." },
       { mode: "draw", tab: "draw", title: "Draw", text: "Trace the yard here on the satellite photo or grid paper: lawns, beds and fences. Tap to drop corners, drag one to move it, and pull the dot in the middle of a side to curve it. Add trees, the meter and the valve box as markers. A tree has a trunk size, and big ones keep heads away." },
       { mode: "walk", tab: "walk", title: "Walk", text: "In the iPhone app, walk the edge of the lawn with the camera and the app traces it for you. Tap Corner at each corner." },
-      { mode: "measure", tab: "measure", title: "Measure", text: "Tap two spots to check a length. If it doesn't match your tape, enter the real number and the whole yard rescales." },
+      { mode: "measure", tab: "measure", title: "Measure", text: "Tap two spots to check a length. If it doesn't match your tape, enter the real number and the whole yard rescales. The lawn's square feet and how many pallets of sod it takes are here too." },
       { mode: "heads", tab: "heads", title: "Heads", text: isHome()
           ? "Tap Generate and the app lays out every head and zone. You'll see the head count, zones and about how much trench to dig. Unlock the yard to see where each head goes and get the parts list."
           : "Tap Generate and the app lays out every head: rotors in the open, pop-ups in the narrow spots, strip nozzles on park strips, and zones that stay together. Tap a zone to light it up, or tap a head to move it, delete it or switch its nozzle." },
@@ -2709,6 +2709,30 @@
     else toast(name + " saved: " + parts + ". Drag any dot to fix it up.");
   }
 
+  // Sod calculator (Zach 2026-11-17): the lawn's total square feet, and pallets of 500 sq ft with
+  // 10% added for cuts and edges. Beds inside a lawn come out of the total.
+  function sodBlock(job) {
+    const sqft = buildAreas(job).reduce(
+      (t, a) =>
+        t +
+        Math.abs(ringArea(densify(a.outer, true))) -
+        (a.holes || []).reduce((u, hl) => u + Math.abs(ringArea(densify(hl, true))), 0),
+      0,
+    );
+    if (sqft < 1) return "";
+    const sod = E.sodPallets(sqft);
+    return (
+      '<div class="sod"><b>Sod</b><dl class="kv"><dt>Lawn</dt><dd>' +
+      Math.round(sqft).toLocaleString() +
+      " sq ft</dd><dt>Pallets</dt><dd>" +
+      sod.pallets +
+      "</dd></dl>" +
+      '<p class="note">Based on 500 sq ft pallets, with 10% added for edges and cuts (' +
+      Math.round(sod.withExtra).toLocaleString() +
+      " sq ft).</p></div>"
+    );
+  }
+
   function panelMeasure(el) {
     const job = J.job;
     const ft = measureFeet();
@@ -2730,7 +2754,7 @@
           '<p class="hint">That\'s <b>' +
           ft.toFixed(1) +
           " ft</b> on the grid.</p>";
-      el.innerHTML = h;
+      el.innerHTML = h + sodBlock(job);
       return;
     }
     const pct = (job.scale - 1) * 100;
@@ -2745,7 +2769,7 @@
       "</p>";
     if (Math.abs(pct) >= 0.05)
       h += '<button class="btn small" id="rs">Reset scale</button>';
-    el.innerHTML = h;
+    el.innerHTML = h + sodBlock(job);
     const ap = el.querySelector("#ap");
     if (ap)
       ap.onclick = () => {
