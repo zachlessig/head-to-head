@@ -3808,7 +3808,8 @@
       '<a href="#signin" class="btn" id="l-py">Start my company</a></div>' +
       '<div class="l-price"><b>Homeowners</b><div class="l-amt">$10<span> once per yard</span></div>' +
       "<p>Map your yard for free and see how many heads and zones it needs.</p>" +
-      "<p>Pay once to see every head and get the parts list.</p>" +
+      // Zach's words, 2026-11-17
+      "<p>Only pay once the yard and part list has been generated.</p>" +
       '<button class="btn" id="l-ho">Map my yard</button></div>' +
       "</div>" +
       '<p class="note">Payments open soon. Nothing is charged yet.</p></section>' +
