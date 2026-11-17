@@ -3383,8 +3383,8 @@
       "</table>" +
       (parts.footer ? '<p class="parts-foot">' + esc(parts.footer) + "</p>" : "") +
       '<p class="note parts-terms">' +
-      esc(E.DISCLAIMER) +
-      ' <a href="terms.html">Terms of Use</a></p>'
+      esc(E.DISCLAIMER.replace(/ See the Terms of Use\.$/, "")) +
+      ' See the <a href="terms.html">Terms of Use</a>.</p>'
     );
   }
 
