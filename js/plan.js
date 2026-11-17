@@ -57,7 +57,7 @@
       { key: "3504", name: "3504 rotor, 18 to 23 ft", count: d.heads.filter((h) => h.kind === "R" && h.model === "3504").length },
     ].filter((t) => t.count);
     const head = 130 + Math.max(1, kinds.length) * 32,
-      foot = (d.legendRows ? 70 + Math.ceil(d.legendRows / 2) * 34 : 90) + 64,
+      foot = (d.legendRows ? 70 + Math.ceil(d.legendRows / 2) * 34 : 90) + 64 + (d.homeowner ? 22 : 0),
       side = 70;
     const k = Math.min(
       (W - 2 * side) / Math.max(1, x1 - x0),
@@ -82,14 +82,8 @@
       ctx.font = "800 30px Inter, sans-serif";
       ctx.fillStyle = "#1d6e47";
       ctx.fillText("Homeowner plan", W - 48, 70);
-      ctx.font = "500 20px Inter, sans-serif";
-      ctx.fillStyle = "#5f6964";
-      ctx.textAlign = "center";
-      ctx.fillText(
-        "Homeowner plan" + (d.address ? " for " + d.address : "") + ". Made with Head to Head.",
-        W / 2,
-        H - 16,
-      );
+      // the bottom line rides with the estimate note below, so the two never print on each other
+      // (2026-11-17 test: drawn separately at H - 16 they overlapped)
     } else {
       // the contractor's company name goes on both copies; long names shrink to fit beside the title
       const label = d.company || "Sprinkler plan";
@@ -280,11 +274,14 @@
     drawNorth(ctx, 48 + barFt * k + 70, by + 2);
 
     // the estimate note along the bottom edge (Zach 2026-11-17, liability)
-    if (d.disclaimer) {
+    const ownerLine = d.homeowner
+      ? "Homeowner plan" + (d.address ? " for " + d.address : "") + ". Made with Head to Head."
+      : "";
+    if (d.disclaimer || ownerLine) {
       ctx.font = "500 15px Inter, sans-serif";
       ctx.fillStyle = "#5d6f62";
       ctx.textAlign = "left";
-      const words = d.disclaimer.split(" ");
+      const words = (d.disclaimer || "").split(" ").filter(Boolean);
       const rows = [];
       let row = "";
       words.forEach((w) => {
@@ -295,6 +292,7 @@
         } else row = t;
       });
       if (row) rows.push(row);
+      if (ownerLine) rows.push(ownerLine);
       rows.forEach((r, i) => ctx.fillText(r, 48, H - 20 - (rows.length - 1 - i) * 20));
     }
 

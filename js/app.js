@@ -3347,11 +3347,14 @@
       "</dd></dl>" +
       trenchLine(job);
     h +=
-      '<button class="btn primary" style="width:100%;margin:6px 0 10px" id="ul">Unlock the heads and parts list · ' +
-      UNLOCK_PRICE +
+      '<button class="btn primary" style="width:100%;margin:6px 0 10px" id="ul">' +
+      (contractor() ? "Unlock the heads, plans and parts list · " : "Unlock the heads and parts list · ") +
+      (contractor() ? YARD_PRICE : UNLOCK_PRICE) +
       "</button>" +
       '<button class="btn small" style="width:100%" id="gen">Generate again</button>' +
-      installersCard();
+      // the installer list is for homeowners; a contractor shouldn't be shown other installers
+      // (2026-11-17 test)
+      (isHome() ? installersCard() : "");
     el.innerHTML = h;
     el.querySelector("#ul").onclick = unlockSheet;
     el.querySelector("#gen").onclick = generate;

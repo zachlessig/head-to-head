@@ -1128,3 +1128,9 @@ table.parts td.q {
   color: var(--flag);
   font-weight: 600;
 }
+
+/* computer screens: the plan and parts list stay a readable width instead of stretching edge to
+   edge (2026-11-17 test: the plan preview filled 1440 px and the yard needed scrolling) */
+@media (min-width: 900px) {
+  .overlay .body { max-width: 860px; margin-left: auto; margin-right: auto; }
+}
