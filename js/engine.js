@@ -2627,6 +2627,23 @@
     return cuts;
   }
 
+  // A lawn piece with its narrow arms cut off. The cut sits 0.05 ft inside the arm, which leaves a
+  // 0.05 ft jog on the bigger piece; a jog that small read as two corners and the 70x45 backyard in
+  // the side-entrance example lost every rotor, so edges under 0.1 ft are dropped.
+  function splitStrips(outer) {
+    const cuts = stripCuts(outer);
+    if (!cuts.length) return [outer];
+    return splitByFences(outer, cuts).map((r) => {
+      const out = [];
+      r.forEach((p, i) => {
+        const q = r[(i + 1) % r.length];
+        if (Math.abs(p.b || 0) < 1e-6 && Math.hypot(q.x - p.x, q.y - p.y) < 0.1 && r.length > 3) return;
+        out.push(p);
+      });
+      return out.length >= 3 ? out : r;
+    });
+  }
+
   // RCS in one corner, LCS in the other, SSTs along the same side between them, head to head.
   // toward: a spot in the rest of the yard; the heads go on the long side facing it, the sidewalk
   // side of a park strip (Zach 2026-11-15: "sidewalk side always")
@@ -2768,6 +2785,7 @@
     STRIP,
     stripHead,
     stripCuts,
+    splitStrips,
     BIG_TRUNK_IN,
     TREE_KEEP,
   };

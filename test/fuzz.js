@@ -393,10 +393,7 @@ function buildAreas(y) {
   y.lawns.forEach((l) => {
     E.splitByFences(l.ring, fences)
       // the app cuts a narrow arm off a bigger lawn so it gets park strip nozzles
-      .flatMap((piece) => {
-        const cuts = E.stripCuts(piece);
-        return cuts.length ? E.splitByFences(piece, cuts) : [piece];
-      })
+      .flatMap((piece) => E.splitStrips(piece))
       .forEach((piece) => {
       const slit = E.fenceSlits(piece, fences);
       const outer = slit.outer;

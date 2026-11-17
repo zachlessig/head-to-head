@@ -824,10 +824,7 @@
     lawns.forEach((s) => {
       E.splitByFences(shapeLocal(s, P), fences)
         // a narrow arm of a bigger lawn (a side entrance) is cut off to get park strip nozzles
-        .flatMap((piece) => {
-          const cuts = E.stripCuts(piece);
-          return cuts.length ? E.splitByFences(piece, cuts) : [piece];
-        })
+        .flatMap((piece) => E.splitStrips(piece))
         .forEach((piece) => {
         // a fence that stops partway in is still a wall: the lawn wraps around it as a slit
         const slit = E.fenceSlits(piece, fences);
