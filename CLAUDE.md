@@ -39,6 +39,18 @@ swings 10x, so compare old and new engines back to back before calling anything 
   way up." The north edge there went R1, 12VAN, 15VAN, R1, 12VAN, 10H, R0.5, 12VAN, 10VAN, R1.5.
   Being on separate zones isn't enough. Asked him how he'd lay that lawn out (all rotors, all
   pop-ups, or split down the middle) before building the rule; use his answer.
+- Never market Head to Head as a generic layout tool. On 2026-11-16 the first front page led with
+  "Draw the yard" and satellite tracing, and Zach said: "lets really capitalize on the fact that
+  this is built by a landscaper so that i could save time on my own jobs. and lets really market
+  the camera idea ... it takes like 5 minutes to map an entire yard by literally just walking
+  around. No measuring wheels, no tapes, no mapping on their end." Lead with the camera walk and
+  the landscaper who built it (`landingPage` in `js/app.js`). The 5 minutes is his estimate, not a
+  timed walk, and the camera walk is iPhone-only and not on the App Store yet: say both plainly.
+- Never use a price that isn't the latest one he gave. The standard contractor price went from
+  about $35 to $30 on 2026-11-16 ("lets go with 30 for standard as of right now"); founding is $20
+  and a yard is $15 for homeowners and contractors alike (Zach 2026-11-17: "both are the same"). Prices live in `PLAN_PRICE`/`FOUNDING_PRICE`/`UNLOCK_PRICE` in `js/app.js`, the
+  front page, and the Stripe sandbox lookup keys (standard_monthly, founding_monthly, yard_unlock):
+  change all three together.
 - Never list rotor nozzles on the parts list. Rotors come with every nozzle (Zach, 2026-11-08).
 
 ## His rules
@@ -106,7 +118,7 @@ swings 10x, so compare old and new engines back to back before calling anything 
   (`prefs.homeowner`, no account, jobs stay on the phone). They map and generate like a contractor,
   but until a yard is paid for (`job.unlocked`) the heads on the map are blurred, tapping them does
   nothing, and Plan and Parts open the unlock sheet. They do see the head count, zones and a rough
-  trench length (`trenchPlan`, see Trench below). Price is $10 one time (`UNLOCK_PRICE`). Payments aren't hooked up: only the http localhost
+  trench length (`trenchPlan`, see Trench below). Price is $15 one time (`UNLOCK_PRICE`, $10 until 2026-11-17). Payments aren't hooked up: only the http localhost
   test copy shows a no-charge unlock; the iPhone app is capacitor://localhost and must never get it.
   Installers near them show with their Google rating; installers pay $49 a month on top of the
   subscription to be listed. That list stays off (`SHOW_INSTALLERS`) until lots of homeowners use
@@ -120,14 +132,26 @@ swings 10x, so compare old and new engines back to back before calling anything 
   else. `NATIVE` in `js/app.js` tells them apart; inside the app, links that leave the phone use
   `SITE_URL` (the app's own address is capacitor://localhost). The front page shows no reviews or
   customer counts until real ones exist. `img/app-layout.jpg` is a capture of the example yard.
-- Pricing (Zach 2026-11-15): contractors pay about $35 a month. The first contractors on the app
-  lock in $20 a month. Homeowners pay $10 once per yard. Nothing is charged yet. Crew (Zach
-  2026-11-17): a contractor account includes 2 crew members free; each person after that is $5 a
-  month. Referrals (Zach 2026-11-17): every contractor company has a referral code to give another
-  contractor. The new contractor who enters it gets $5 off their first month. The contractor who
-  shared it gets one free month, only after the new contractor's first payment goes through; free
-  months stack. The card payment code is on the other branch (feat/wt2-work), so seat billing
-  and referrals get built there or after the merge.
+- Plans, locks and accounts (Zach 2026-11-17). A contractor company with no active plan (never
+  started, or cancelled) keeps its account and every job, crew included, and can map new yards,
+  but a yard's heads stay blurred and Plan and Parts stay shut until it's paid for ($15, Stripe
+  lookup contractor_yard). Yards laid out while the plan was active stay open after a cancel. A
+  paid yard (contractor or homeowner) locks again if its lawns move more than 500 ft ("lets say it
+  needs to move more than 500 feet") or, on grid paper, if the lawn area changes by more than half
+  (`inPlace`, `MOVE_LIMIT_FT`, `AREA_LIMIT` in `js/app.js`). Locks only apply when `ENFORCE`
+  (payments on, or the localhost test copy). Locks run on the phone, so a determined person could
+  get around them; moving the layout engine to the server is the only real fix. Company screen:
+  Deactivate the plan (stops at the end of the paid period, keeps everything) and Delete my account
+  (an owner's company and all its jobs go with it; typed DELETE to confirm). Both go through the
+  `billing` function. Stripe sandbox only takes cards and Apple Pay (set on the account: Stripe no
+  longer takes payment types per checkout).
+- Pricing (Zach 2026-11-15, standard changed to $30 on 2026-11-16): contractors pay $30 a month (Stripe lookup key standard_monthly). The first contractors on the app
+  lock in $20 a month. Homeowners pay $15 once per yard (was $10; Zach 2026-11-17: "each yard is $15 for a homeowner/contractor"). Nothing is charged yet.
+  Crew (Zach 2026-11-17): a contractor account includes 2 crew members free; each person after
+  that is $5 a month (not built into billing yet). Referrals (Zach 2026-11-17, not built yet): every
+  contractor company has a referral code to give another contractor; the new contractor who enters
+  it gets $5 off their first month; the contractor who shared it gets one free month, only after
+  the new contractor's first payment goes through; free months stack.
 - Trench (Zach 2026-11-16, `trenchPlan` in `js/engine.js`): zones (drip too) are grouped by
   closeness into valve boxes sized by `valveBoxes`; each box goes on the lawn edge at the spot
   closest on average to its zones; the meter, every box and the middle of every zone are joined by
@@ -251,6 +275,27 @@ swings 10x, so compare old and new engines back to back before calling anything 
 5. Security and liability (added 2026-11-17): "a way im not liable for if someones map is wrong
    because in reality, this is just a tool for contractors, we aren't actually installing the yard."
 6. A sod calculator (added 2026-11-17).
+
+## Payments and server scripts
+
+Keys live in the Mac's keychain (account head-to-head): supabase-access-token,
+stripe-secret-key-test, stripe-webhook-secret-test. Scripts read them from env vars and never print
+them. Run with Node 18+:
+
+- `scripts/supabase.mjs` (env SUPA_TOKEN): `query "<sql>"`, `sqlfile <migration>`, `deploy <slug>
+  supabase/functions/<slug> <verify_jwt>`, `secrets NAME=ENVVAR`, `list-functions`. Migrations are
+  run by hand with `sqlfile`, in order; 0001 to 0006 are on the live project.
+- `scripts/stripe-prices.mjs` (env STRIPE_KEY): makes the products and lookup-key prices; leaves
+  existing ones alone (changing a price means a new price with `transfer_lookup_key`).
+- `scripts/stripe-webhook-setup.mjs hook|portal` (env STRIPE_KEY): creates the webhook (prints its
+  signing secret once, pipe it into the keychain) and sets up the billing portal.
+- End-to-end tests against the Stripe sandbox and the live Supabase project, with the site served
+  on http://localhost:8742 (`python3 -m http.server 8742`) and playwright-core installed:
+  `test/pay-homeowner.e2e.js` (4242 card through Stripe checkout, yard unlocks),
+  `test/yard-lock.e2e.js` (500 ft and grid area rules), `test/account.e2e.mjs` (throwaway account:
+  checkout, $15 price by sign-in, deactivate, delete leaves nothing; env ANON, SUPA_TOKEN,
+  STRIPE_KEY), `test/subscription.e2e.mjs` (webhook writes billing for the oldest company, then
+  cleans up).
 
 ## Shipping
 

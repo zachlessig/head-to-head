@@ -130,9 +130,63 @@
   // Homeowner mode (Zach 2026-11-15): a homeowner maps their own yard with no account. The heads
   // and parts list stay blurred until they pay once for that yard. Payments aren't hooked up yet, so
   // only a test copy on this Mac (localhost) shows a no-charge unlock button.
-  const UNLOCK_PRICE = "$10";
+  // Zach 2026-11-17: "lets say each yard is $15 for a homeowner/contractor. both are the same."
+  const UNLOCK_PRICE = "$15";
   const isHome = () => !!prefs.homeowner;
-  const locked = (job) => isHome() && !job.unlocked;
+  // Who pays for a yard (Zach 2026-11-17). Homeowners always pay per yard. A contractor company
+  // with no active plan (never started, or cancelled) also pays per yard: they keep every job and
+  // can map new ones, but a yard's heads stay blurred and Plan and Parts stay shut until it's paid
+  // for. Yards laid out while the plan was active stay open after a cancel. Only enforced once
+  // payments are on (or on the test copy), so nobody gets locked out before they can pay.
+  let planActive = null; // true, false, or null while unknown (offline): unknown never locks
+  const contractor = () => !isHome() && Cloud.enabled && !!Cloud.company;
+  // the example yard keeps showing homeowners the lock, the way it always has; contractors get it free
+  const needsPay = (job) =>
+    isHome() || (!job.example && ENFORCE && contractor() && planActive === false);
+  const locked = (job) => needsPay(job) && !(job.unlocked && inPlace(job));
+
+  // A paid yard stays tied to the yard it was paid for, so one $15 can't be dragged across town
+  // and redrawn as the next customer's yard. Zach 2026-11-17: "lets say it needs to move more than
+  // 500 feet". On grid paper there's no location, so the lawn area changing by more than half
+  // (his okay on "about half", 2026-11-17) counts as a new yard. Corner fixes, beds, curves and
+  // generating again stay free.
+  const MOVE_LIMIT_FT = 500;
+  const AREA_LIMIT = 0.5;
+  function yardSnapshot(job) {
+    const lawns = job.shapes.filter((s) => s.type === "lawn" && s.closed && s.pts.length >= 3);
+    if (!lawns.length) return null;
+    const pts = lawns.flatMap((s) => s.pts);
+    const P = proj(job);
+    const area = lawns.reduce((t, s) => t + Math.abs(ringArea(densify(shapeLocal(s, P), true))), 0);
+    return {
+      lat: pts.reduce((t, p) => t + p.lat, 0) / pts.length,
+      lng: pts.reduce((t, p) => t + p.lng, 0) / pts.length,
+      area: Math.round(area),
+    };
+  }
+  function movedFt(a, b) {
+    const c = Math.cos((a.lat * Math.PI) / 180);
+    return Math.hypot((b.lng - a.lng) * c * FT_PER_DEG, (b.lat - a.lat) * FT_PER_DEG);
+  }
+  function inPlace(job) {
+    const now = yardSnapshot(job);
+    if (!now) return true;
+    // yards paid for before this check existed get their spot recorded the first time they're seen
+    if (!job.paidAt) {
+      job.paidAt = now;
+      saveJobs();
+      return true;
+    }
+    if (job.base === "grid") {
+      const was = job.paidAt.area || now.area;
+      return Math.abs(now.area - was) <= was * AREA_LIMIT;
+    }
+    return movedFt(job.paidAt, now) <= MOVE_LIMIT_FT;
+  }
+  function markPaid(job) {
+    job.unlocked = true;
+    job.paidAt = yardSnapshot(job);
+  }
   // http only: the iPhone app also calls itself localhost, but over capacitor://, and must never
   // hand out free unlocks
   const TEST_COPY =
@@ -1987,6 +2041,9 @@
           })),
           sig: signature(J.job),
         };
+        // laid out on the plan (or before payments started, or offline with the plan unknown):
+        // stays open after a cancel
+        if (contractor() && planActive !== false) markPaid(J.job);
         applyCheck(
           J.job,
           out.totals,
@@ -3031,22 +3088,72 @@
   }
 
   function unlockSheet() {
+    const pro = contractor();
+    const price = pro ? YARD_PRICE : UNLOCK_PRICE;
+    const moved = J.job.unlocked && !inPlace(J.job);
     sheet(
-      "<h2>Unlock this yard</h2>" +
-        '<p class="hint">One payment of ' +
-        UNLOCK_PRICE +
-        ", no subscription. You get every head on the map with its nozzle, a printable plan, and the full parts list to take to the store.</p>" +
-        '<p class="note">It\'s an estimate from your map. By unlocking you agree to the <a href="terms.html">Terms of Use</a>.</p>' +
-        (TEST_COPY
-          ? '<button class="btn primary" style="width:100%" id="tu">Unlock (test copy, no charge)</button>'
+      "<h2>" + (pro ? "Lay out this yard" : "Unlock this yard") + "</h2>" +
+        (moved
+          ? '<p class="hint"><b>This yard moved more than ' +
+            MOVE_LIMIT_FT +
+            " ft from the one that was paid for</b>" +
+            (J.job.base === "grid" ? " (or its lawn size changed by more than half)" : "") +
+            ", so it counts as a new yard.</p>"
+          : "") +
+        '<p class="hint">' +
+        (pro
+          ? "Your company doesn't have an active plan, so this yard is " +
+            price +
+            ". You get every head, the customer and contractor plans, and the parts list. It stays in your job log for your crew."
+          : "One payment of " +
+            price +
+            ", no subscription. You get every head on the map with its nozzle, a printable plan, and the full parts list to take to the store.") +
+        "</p>" +
+        '<p class="note">It\'s an estimate from your map. By paying you agree to the <a href="terms.html">Terms of Use</a>.</p>' +
+        (PAY_HERE
+          ? '<button class="btn primary" style="width:100%" id="pay">Pay ' + price + "</button>" +
+            '<p class="note">Stripe takes the card. Head to Head never sees it.</p>'
           : '<button class="btn primary" style="width:100%" disabled>Payments open soon</button>') +
+        (TEST_COPY
+          ? '<button class="btn small" style="width:100%;margin-top:8px" id="tu">Unlock (test copy, no charge)</button>'
+          : "") +
+        (pro && Cloud.company.role === "owner" && PAY_HERE
+          ? '<button class="btn small" style="width:100%;margin-top:8px" id="sp">Or start the plan: ' +
+            FOUNDING_PRICE +
+            ", every yard included</button>"
+          : "") +
+        (pro && NATIVE ? '<p class="note">Pay for yards and plans on the Head to Head website.</p>' : "") +
         '<button class="btn ghost" style="width:100%;margin-top:8px" id="nx">Not now</button>',
       (el, close) => {
         el.querySelector("#nx").onclick = close;
+        const pay = el.querySelector("#pay");
+        if (pay)
+          pay.onclick = async () => {
+            pay.disabled = true;
+            pay.textContent = "Opening Stripe...";
+            try {
+              const r = await Cloud.pay("unlock", {
+                job_id: J.job.id,
+                kind: pro ? "contractor" : "homeowner",
+              });
+              location.assign(r.url);
+            } catch (e) {
+              console.warn("Checkout not opened", e);
+              toast(e.message);
+              pay.disabled = false;
+              pay.textContent = "Pay " + price;
+            }
+          };
+        const sp = el.querySelector("#sp");
+        if (sp)
+          sp.onclick = () => {
+            close();
+            companySheet();
+          };
         const tu = el.querySelector("#tu");
         if (tu)
           tu.onclick = () => {
-            J.job.unlocked = true;
+            markPaid(J.job);
             touch(J.job);
             close();
             redraw();
@@ -3270,6 +3377,10 @@
     return {
       fences: fenceLines(job, P),
       copy,
+      // Zach 2026-11-17: a homeowner's plan says "Homeowner plan" and carries no company name, and a
+      // contractor's carries theirs, so the homeowner side is no use for handing plans to customers
+      homeowner: isHome(),
+      company: !isHome() && Cloud.enabled && Cloud.company ? Cloud.company.name : "",
       title: job.name,
       address: job.address,
       date: new Date().toLocaleDateString(),
@@ -3838,56 +3949,83 @@
     return '<div class="brand"><img class="mark" src="icons/logo.svg" alt=""><h1>Head to Head</h1></div>';
   }
 
-  // The website's front page (Zach 2026-11-16). Says what it does for whom in the first line, shows
-  // the real app (img/app-layout.jpg is a capture of "Try an example yard"), puts the price on the
-  // page, and has one form. No reviews or customer counts: there aren't any yet, so none are shown.
+  // The website's front page. Zach 2026-11-16: "lets really capitalize on the fact that this is
+  // built by a landscaper so that i could save time on my own jobs. and lets really market the
+  // camera idea ... it takes like 5 minutes to map an entire yard by literally just walking around.
+  // No measuring wheels, no tapes, no mapping on their end." The 5 minutes is his estimate, not a
+  // timed walk. The camera walk is iPhone-only and not on the App Store yet, so the page says so and
+  // the website itself starts on satellite tracing. No reviews or customer counts: there aren't
+  // any yet. img/app-layout.jpg is a capture of "Try an example yard".
+  function walkDemo() {
+    // a lawn with one curved side; the walker goes around it, then heads pop in at the corners and
+    // along the edges, spraying head to head (drawing only, made for the page, not an engine run)
+    const lawn = "M40 330 L40 92 Q160 34 280 92 L280 330 Z";
+    const heads = [
+      [40, 330], [280, 330], [40, 92], [280, 92],
+      [40, 211], [280, 211], [160, 330], [160, 63],
+    ];
+    return (
+      '<svg class="walk-demo" viewBox="0 0 320 400" role="img" aria-label="A phone walking the edge of a lawn, then sprinkler heads appearing head to head around it">' +
+      '<defs><clipPath id="wd-clip"><path d="' + lawn + '"/></clipPath></defs>' +
+      '<rect x="8" y="8" width="304" height="384" rx="22" class="wd-ground"/>' +
+      '<path class="wd-lawn" d="' + lawn + '"/>' +
+      '<g class="wd-spray" clip-path="url(#wd-clip)">' +
+      heads.map(([x, y], i) => '<circle cx="' + x + '" cy="' + y + '" r="128" style="--i:' + i + '"/>').join("") +
+      "</g>" +
+      '<path class="wd-trail" pathLength="100" d="' + lawn + '"/>' +
+      heads.map(([x, y], i) => '<circle class="wd-head" cx="' + x + '" cy="' + y + '" r="6" style="--i:' + i + '"/>').join("") +
+      '<g class="wd-walker" style="offset-path:path(\'' + lawn + '\')"><circle r="11"/><circle r="4" class="wd-dot"/></g>' +
+      '<text x="160" y="372" class="wd-cap wd-cap1">Walk the edge</text>' +
+      '<text x="160" y="372" class="wd-cap wd-cap2">Heads, zones and parts: done</text>' +
+      "</svg>"
+    );
+  }
+
   function landingPage() {
     const step = (n, t, d) =>
-      '<li><span class="l-n">' +
-      n +
-      "</span><b>" +
-      t +
-      "</b><span>" +
-      d +
-      "</span></li>";
+      '<li><span class="l-n">' + n + "</span><b>" + t + "</b><span>" + d + "</span></li>";
     return (
       '<main class="landing">' +
       '<header class="l-top"><img src="icons/logo.svg" alt=""><b>Head to Head</b>' +
       '<a href="#signin" class="btn small ghost" id="l-in">Sign in</a></header>' +
       '<section class="l-hero"><div class="l-copy">' +
-      "<h1>Draw the yard. Get the sprinkler layout.</h1>" +
-      '<p class="l-sub">Trace a lawn on the satellite photo. Head to Head places every head, splits the zones to fit your water, and writes the parts list for the supply counter.</p>' +
+      '<p class="l-kicker">Built by a landscaper</p>' +
+      "<h1>Walk the yard. Get the sprinkler layout.</h1>" +
+      '<p class="l-sub">Walk the edge of the lawn with your iPhone and Head to Head maps it as you go. About 5 minutes for a whole yard. No measuring wheel, no tape, no drawing it up later.</p>' +
+      '<p class="l-sub">Then it places every head, splits the zones to fit your water, and writes the parts list for the counter.</p>' +
       '<div class="l-card" id="signin"></div>' +
-      '</div><figure class="l-shot"><img src="img/app-layout.jpg" width="508" height="1100" alt="A laid-out yard in Head to Head: sprinkler heads, spray patterns and zones on a lawn, with a list of zones and their GPM"></figure></section>' +
-      '<section class="l-sec"><h2>How it works</h2><ol class="l-steps">' +
-      step(
-        1,
-        "Trace it",
-        "On the satellite photo, on grid paper, or by walking it with your iPhone's camera.",
-      ) +
-      step(
-        2,
-        "Lay it out",
-        "Heads and nozzles placed head to head, with zero overspray on straight edges and zones sized to your GPM and pressure.",
-      ) +
-      step(
-        3,
-        "Print and buy",
-        "A plan for the customer, a plan for the crew, and a parts list ready for the counter.",
-      ) +
-      "</ol></section>" +
-      '<section class="l-sec l-app">' +
-      icon("walk") +
-      "<div><h2>Walk the yard with your camera</h2>" +
-      "<p>The iPhone app measures the lawn as you walk its edge, no tape needed. Coming soon to the App Store. Everything else works right here in your browser, and your company's jobs show up in both.</p></div></section>" +
+      '</div><figure class="l-demo">' + walkDemo() +
+      '<figcaption>Camera walk is coming to the App Store. On the website you trace the yard on the satellite photo today.</figcaption></figure></section>' +
+      '<section class="l-sec l-founder"><h2>Built on my own jobs</h2>' +
+      "<p>I'm a landscaper, and I used to work the counter at a sprinkler supply store. Every sprinkler job started the same way: measure the yard, sketch it out, figure out heads and zones, then guess on a parts list once I got in the store. I built Head to Head to save time on my own jobs.</p>" +
+      "<p>The layout follows the rules I'd use myself. The yard gets double coverage, it's split into zones by pressure and flow rate, and the heads are strategically placed to make the install easy.</p>" +
+      '<p class="l-sign">Zach, founder</p></section>' +
+      '<section class="l-sec"><h2>The yard measures itself</h2><div class="l-vs">' +
+      '<div class="l-old"><b>How mapping usually goes</b><ul>' +
+      "<li>Roll a measuring wheel down every side</li><li>Pull tape to the house corners</li><li>Sketch it on paper in the truck</li><li>Redraw it and count heads at home</li></ul></div>" +
+      '<div class="l-new"><b>With Head to Head</b><ul>' +
+      "<li>Walk the edge of the lawn with your phone</li><li>Tap Corner at each corner</li><li>Heads, zones and parts list come out the other end</li></ul></div>" +
+      "</div></section>" +
+      '<section class="l-sec l-split"><div><h2>Then it lays it out</h2><ol class="l-steps">' +
+      step(1, "Map it", "Walk it with the iPhone camera, or trace it on the satellite photo or grid paper.") +
+      step(2, "Lay it out", "Heads and nozzles placed head to head, with zones sized to your GPM and pressure.") +
+      step(3, "Print and buy", "A plan for the customer, a plan for the crew, and a parts list ready for the counter.") +
+      '</ol></div><figure class="l-shot"><img src="img/app-layout.jpg" width="508" height="1100" loading="lazy" alt="A laid-out yard in Head to Head: sprinkler heads, spray patterns and zones on a lawn, with a list of zones and their GPM"></figure></section>' +
       '<section class="l-sec"><h2>Pricing</h2><div class="l-prices">' +
-      '<div class="l-price"><b>Contractors</b><div class="l-amt">$35<span>/month</span></div>' +
+      '<div class="l-price"><b>Contractors</b><div class="l-amt">$30<span>/month</span></div>' +
       "<p>The first contractors on Head to Head lock in <b>$20 a month</b>.</p>" +
       "<p>Jobs save online and your whole crew can open them.</p>" +
+      "<p>Or pay for the year up front: <b>" + SEASON_PRICE + "</b>, or <b>" + FOUNDING_SEASON_PRICE + "</b> for founding contractors.</p>" +
       '<a href="#signin" class="btn primary" id="l-co">Start my company</a></div>' +
-      '<div class="l-price"><b>Homeowners</b><div class="l-amt">$10<span> once per yard</span></div>' +
+      '<div class="l-price"><b>Contractors, a few yards a month</b><div class="l-amt">' + YARD_PRICE + '<span> per yard</span></div>' +
+      "<p>Only do a couple of sprinkler installs a month? Pay for each yard you lay out, nothing in the slow months.</p>" +
+      "<p>You still keep a log of every job you've done, and your crew can open them too.</p>" +
+      "<p>Three or more yards a month, and the monthly plan costs less.</p>" +
+      '<a href="#signin" class="btn" id="l-py">Start my company</a></div>' +
+      '<div class="l-price"><b>Homeowners</b><div class="l-amt">$15<span> once per yard</span></div>' +
       "<p>Map your yard for free and see how many heads and zones it needs.</p>" +
-      "<p>Pay once to see every head and get the parts list.</p>" +
+      // Zach's words, 2026-11-17
+      "<p>Only pay once the yard and part list has been generated.</p>" +
       '<button class="btn" id="l-ho">Map my yard</button></div>' +
       "</div>" +
       '<p class="note">Payments open soon. Nothing is charged yet.</p></section>' +
@@ -3919,6 +4057,7 @@
     };
     app.querySelector("#l-in").onclick = toForm;
     app.querySelector("#l-co").onclick = toForm;
+    app.querySelector("#l-py").onclick = toForm;
     app.querySelector("#l-ho").onclick = () => setHomeowner(true);
   }
 
@@ -4187,7 +4326,9 @@
         jobs.forEach((j) => Cloud.queueJob(j.id));
     }
     await syncNow();
+    await refreshPlan();
     route();
+    if (planPoll) waitForPlan();
   }
 
   async function refreshFolders() {
@@ -4227,6 +4368,17 @@
       id: String(j.id),
       name: str(j.name) || "Untitled yard",
       address: str(j.address),
+      // a paid yard stays paid on every phone in the company (review 2026-11-17: dropping these
+      // here locked paid yards again after a sync)
+      unlocked: j.unlocked === true,
+      paidAt:
+        j.paidAt && typeof j.paidAt === "object"
+          ? {
+              lat: num(j.paidAt.lat, 0),
+              lng: num(j.paidAt.lng, 0),
+              area: Math.max(0, num(j.paidAt.area, 0)),
+            }
+          : null,
       created: num(j.created, Date.now()),
       updated: num(j.updated, Date.now()),
       origin: {
@@ -4376,29 +4528,187 @@
     }
   }
 
-  // Plan and billing (Zach 2026-11-16): paying happens on the website, where Apple takes no cut.
-  // The iPhone app only says where to go. Payments aren't hooked up, so nothing here charges.
-  const PLAN_PRICE = "$35 a month";
+  // Plan and billing (Zach picked Stripe 2026-11-16): paying happens on the website, where Apple
+  // takes no cut. The iPhone app only says where to go. PAYMENTS_ON stays false while the Stripe
+  // account is a sandbox (test cards only); the test copy on this Mac uses the sandbox anyway.
+  const PAYMENTS_ON = false;
+  const PAY_HERE = !NATIVE && (PAYMENTS_ON || TEST_COPY);
+  // locks only apply once someone could actually pay (the iPhone app sends them to the website)
+  const ENFORCE = PAYMENTS_ON || TEST_COPY;
+  // Zach 2026-11-16: "lets go with 30 for standard as of right now"
+  const PLAN_PRICE = "$30 a month";
+  // Zach 2026-11-16: "lets do $15 per yard and lets just say you can pay for the 'season' up front
+  // and just give it to them for the year for a discounted price ... would 260 a year sound good?"
+  const YARD_PRICE = "$15";
+  // Zach 2026-11-16: "lets give founders 200 a year. 250 for the yearly for the 30 a month ones"
+  const SEASON_PRICE = "$250";
+  const FOUNDING_SEASON_PRICE = "$200";
   const FOUNDING_PRICE = "$20 a month";
-  function planBlock(owner) {
-    let h = '<label class="f" style="margin-top:14px">Plan</label><div class="plan">';
-    if (NATIVE)
-      h +=
+  function planBlock() {
+    return '<label class="f" style="margin-top:14px">Plan</label><div class="plan" id="plan"><p class="note" style="margin:0">Loading your plan...</p></div>';
+  }
+  async function fillPlan(box, owner) {
+    if (!box) return;
+    if (NATIVE) {
+      box.innerHTML =
         "<p>Your plan is handled on the Head to Head website.</p>" +
         '<a class="btn small" href="' +
         SITE_URL +
         '" target="_blank" rel="noopener">Open the website</a>';
-    else
-      h +=
-        "<p><b>Founding contractor</b>: " +
-        FOUNDING_PRICE +
-        " locked in (" +
-        PLAN_PRICE +
-        " after the first contractors).</p>" +
+      return;
+    }
+    const offer =
+      "<p><b>Founding contractor</b>: " +
+      FOUNDING_PRICE +
+      " locked in (" +
+      PLAN_PRICE +
+      " after the first contractors).</p>";
+    if (!PAY_HERE) {
+      box.innerHTML =
+        offer +
         '<p class="note">Payments open soon. Nothing is charged yet' +
         (owner ? ", and you'll pick how to pay right here." : ".") +
         "</p>";
-    return h + "</div>";
+      return;
+    }
+    let b = null;
+    try {
+      b = await Cloud.billing();
+    } catch (e) {
+      console.warn("Plan not loaded", e);
+      box.innerHTML = '<p class="note" style="margin:0">Couldn\'t load your plan. Check your signal.</p>';
+      return;
+    }
+    planActive = !!(b && ["active", "trialing", "past_due"].includes(b.status));
+    const day = (iso) =>
+      iso ? new Date(iso).toLocaleDateString(undefined, { month: "long", day: "numeric" }) : "";
+    const price = b && b.plan === "standard" ? PLAN_PRICE : FOUNDING_PRICE;
+    let h, btn, yearly = null;
+    if (b && (b.status === "active" || b.status === "trialing")) {
+      h =
+        "<p><b>" +
+        (b.plan === "standard" ? "Contractor plan" : "Founding contractor") +
+        "</b>: " +
+        price +
+        ".</p>" +
+        '<p class="note">' +
+        (b.cancel_at_period_end ? "Cancelled. It runs until " : "Renews ") +
+        esc(day(b.current_period_end)) +
+        ".</p>";
+      btn = owner ? ["portal", "Manage billing"] : null;
+      // Deactivate (Zach 2026-11-17): stop paying, keep the account and every job
+      if (owner && !b.cancel_at_period_end)
+        h += '<button class="btn small ghost" style="width:100%;margin:0 0 6px" id="pd">Deactivate the plan</button>';
+    } else if (b && (b.status === "past_due" || b.status === "unpaid")) {
+      h = "<p><b>The last payment didn't go through.</b></p><p class=\"note\">Update the card to keep the plan.</p>";
+      btn = owner ? ["portal", "Update the card"] : null;
+    } else {
+      h = offer;
+      btn = owner ? ["subscribe", "Start the plan · " + FOUNDING_PRICE] : null;
+      if (owner) yearly = "Pay for the year · " + FOUNDING_SEASON_PRICE;
+      if (!owner) h += '<p class="note">The company\'s owner starts the plan.</p>';
+    }
+    box.innerHTML =
+      h +
+      (btn ? '<button class="btn primary small" style="width:100%" id="pb">' + btn[1] + "</button>" : "") +
+      (yearly ? '<button class="btn small" style="width:100%;margin-top:8px" id="py">' + yearly + "</button>" : "");
+    const wire = (el, action, label, interval) => {
+      if (!el) return;
+      el.onclick = async () => {
+        el.disabled = true;
+        el.textContent = "Opening Stripe...";
+        try {
+          const r = await Cloud.pay(action, { company_id: Cloud.company.id, interval });
+          location.assign(r.url);
+        } catch (e) {
+          console.warn("Billing page not opened", e);
+          toast(e.message);
+          el.disabled = false;
+          el.textContent = label;
+        }
+      };
+    };
+    if (btn) wire(box.querySelector("#pb"), btn[0], btn[1], "month");
+    const pd = box.querySelector("#pd");
+    if (pd)
+      pd.onclick = async () => {
+        if (
+          !confirm(
+            "Stop the plan when this billing period ends? Your account and every job stay: you can still open, print and share them, and your crew keeps access. New yards cost " +
+              YARD_PRICE +
+              " each until you start the plan again.",
+          )
+        )
+          return;
+        pd.disabled = true;
+        try {
+          await Cloud.pay("cancel", { company_id: Cloud.company.id });
+          toast("Deactivated. The plan stops at the end of this billing period.");
+          setTimeout(() => fillPlan(box, owner), 2500);
+        } catch (e) {
+          console.warn("Deactivate failed", e);
+          toast(e.message);
+          pd.disabled = false;
+        }
+      };
+    if (yearly) wire(box.querySelector("#py"), "subscribe", yearly, "year");
+  }
+
+  // Coming back from Stripe's checkout page: confirm a yard payment with the server before
+  // unlocking, and say what happened with a plan. Then tidy the address.
+  // Ask the server whether the company's plan is active. Kept in planActive for the locks; a
+  // failed check (no signal) leaves it as it was.
+  let planPoll = 0;
+  async function refreshPlan() {
+    if (!ENFORCE || !contractor()) return;
+    try {
+      const b = await Cloud.billing();
+      const was = planActive;
+      planActive = !!(b && ["active", "trialing", "past_due"].includes(b.status));
+      if (was !== planActive && J) redraw();
+    } catch (e) {
+      console.warn("Plan not checked", e);
+    }
+  }
+  // right after checkout, keep checking for a few seconds until Stripe's message lands
+  async function waitForPlan() {
+    while (planPoll > 0 && planActive !== true) {
+      planPoll--;
+      await new Promise((r) => setTimeout(r, 2500));
+      await refreshPlan();
+    }
+    if (planActive) toast("Your plan is active. Every yard is included.");
+  }
+
+  async function paymentReturn() {
+    const q = new URLSearchParams(location.search);
+    const sid = q.get("unlock"),
+      jid = q.get("job"),
+      bill = q.get("billing");
+    if (!sid && !bill) return;
+    const clean = (hash) => history.replaceState(null, "", location.pathname + (hash || location.hash));
+    if (bill) {
+      clean();
+      if (bill === "done") {
+        toast("Thanks! Your plan is starting. It can take a few seconds to show.");
+        planPoll = 6;
+      }
+      else if (bill === "cancel") toast("No charge. You can start the plan any time.");
+      return;
+    }
+    const job = jobs.find((j) => j.id === jid);
+    clean(job ? "#/job/" + job.id : "");
+    if (!job) return toast("Paid, but that yard isn't on this device. Open it where you mapped it.");
+    try {
+      const r = await Cloud.pay("unlock-check", { session_id: sid, job_id: job.id });
+      if (!r.paid) return toast("That payment didn't go through, so the yard is still locked.");
+      markPaid(job);
+      touch(job);
+      toast("Paid. Your yard is unlocked.");
+    } catch (e) {
+      console.warn("Unlock check failed", e);
+      toast("Couldn't confirm the payment. Check your signal and reload this page.");
+    }
   }
 
   async function companySheet() {
@@ -4485,7 +4795,7 @@
               .join("") +
             "</select>"
           : "") +
-        planBlock(owner) +
+        planBlock() +
         (NATIVE
           ? ""
           : '<p class="note" style="margin-top:12px">On iPhone, add this app to your home screen (Share, then Add to Home Screen) so Safari doesn\'t sign you out after a week away.</p>') +
@@ -4494,7 +4804,8 @@
           : '<button class="btn danger" style="width:100%;margin-bottom:8px" id="lv">Leave ' +
             esc(c.name) +
             "</button>") +
-        '<button class="btn" style="width:100%" id="so">Sign out</button>',
+        '<button class="btn" style="width:100%" id="so">Sign out</button>' +
+        '<button class="btn small ghost danger" style="width:100%;margin-top:14px" id="da">Delete my account</button>',
       (el, close) => {
         const reopen = () => {
           close();
@@ -4596,6 +4907,7 @@
             }),
         );
         invitesBlock(el.querySelector("#myiv"), close);
+        fillPlan(el.querySelector("#plan"), owner);
         const sw = el.querySelector("#sw");
         if (sw)
           sw.onchange = async () => {
@@ -4626,6 +4938,31 @@
               toast("Couldn't leave. Check your signal.");
             }
           };
+        // Delete account (Zach 2026-11-17; Apple requires it in the app too)
+        el.querySelector("#da").onclick = async () => {
+          const mine = Cloud.companies.filter((x) => x.role === "owner").map((x) => x.name);
+          const what = mine.length
+            ? "This deletes your sign-in and " +
+              mine.join(" and ") +
+              ", with every job, folder and invite in it, for everyone on your crew. Your plan stops today. It can't be undone.\n\nJust want to stop paying? Use Deactivate the plan instead: it keeps every job."
+            : "This deletes your sign-in and takes you off " +
+              c.name +
+              ". The company's jobs stay with the company. It can't be undone.";
+          // (an owner of another company hears about that one too, above)
+          const typed = prompt(what + "\n\nType DELETE to delete your account.");
+          if (!typed || typed.trim().toUpperCase() !== "DELETE") return;
+          try {
+            await Cloud.pay("delete-account");
+          } catch (e) {
+            console.warn("Delete failed", e);
+            return toast(e.message || "Couldn't delete the account. Check your signal.");
+          }
+          close();
+          await Cloud.signOut(true).catch(() => {});
+          resetLocalJobs();
+          route();
+          toast("Your account is deleted.");
+        };
         el.querySelector("#so").onclick = async () => {
           close();
           await Cloud.signOut();
@@ -4637,7 +4974,10 @@
   }
 
   async function boot() {
-    if (!Cloud.enabled || isHome()) return route();
+    if (!Cloud.enabled || isHome()) {
+      await paymentReturn();
+      return route();
+    }
     Cloud.setLocalJobs(() => jobs);
     Cloud.on((what) => {
       if (what === "signedOut") route();
@@ -4647,8 +4987,11 @@
     } catch (e) {
       // no signal on launch: run on what's saved on the phone and sync later
       console.warn("Couldn't reach the server", e);
+      await paymentReturn();
       return route();
     }
+    // after the session is back, so a contractor's paid yard is queued to go up to the company
+    await paymentReturn();
     if (Cloud.session && Cloud.company) await afterSignIn();
     else route();
     // keep up with the rest of the crew while the app is open

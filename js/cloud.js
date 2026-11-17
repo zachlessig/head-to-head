@@ -91,9 +91,13 @@
     });
     if (error) throw error;
   }
-  async function signOut() {
-    await pushNow();
-    await sb.auth.signOut();
+  // gone: the account was just deleted, so there's nothing left to send up first
+  async function signOut(gone) {
+    if (gone) {
+      state.dirty = [];
+      state.gone = [];
+    } else await pushNow();
+    await sb.auth.signOut({ scope: gone ? "local" : "global" }).catch(() => {});
     session = null;
     company = null;
     state.companyId = null;
@@ -225,6 +229,37 @@
     });
     if (error) throw error;
     company.settings = settings;
+  }
+
+  /* ---------- plan and payments (Stripe, 2026-11-16) ---------- */
+
+  // the company's plan as Stripe last reported it, or null before anyone subscribes
+  async function billing() {
+    const { data, error } = await sb
+      .from("billing")
+      .select("status, plan, current_period_end, cancel_at_period_end")
+      .eq("company_id", company.id)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
+  // Ask the server's billing function for a Stripe page. Works signed out too (a homeowner paying
+  // for one yard), so it uses plain fetch and the public key when there's no session.
+  async function pay(action, body) {
+    const token = session ? session.access_token : cfg.anonKey;
+    const res = await fetch(cfg.url + "/functions/v1/billing", {
+      method: "POST",
+      headers: {
+        apikey: cfg.anonKey,
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(Object.assign({ action }, body || {})),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json.error || "The payment page didn't open. Try again.");
+    return json;
   }
 
   /* ---------- folders ---------- */
@@ -394,6 +429,8 @@
     cancelInvite,
     removeMember,
     saveSettings,
+    billing,
+    pay,
     folders,
     addFolder,
     renameFolder,
