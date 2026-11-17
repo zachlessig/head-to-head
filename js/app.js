@@ -2882,12 +2882,31 @@
         '<p class="hint">One payment of ' +
         UNLOCK_PRICE +
         ", no subscription. You get every head on the map with its nozzle, a printable plan, and the full parts list to take to the store.</p>" +
-        (TEST_COPY
-          ? '<button class="btn primary" style="width:100%" id="tu">Unlock (test copy, no charge)</button>'
+        (PAY_HERE
+          ? '<button class="btn primary" style="width:100%" id="pay">Pay ' + UNLOCK_PRICE + "</button>" +
+            '<p class="note">Stripe takes the card. Head to Head never sees it.</p>'
           : '<button class="btn primary" style="width:100%" disabled>Payments open soon</button>') +
+        (TEST_COPY
+          ? '<button class="btn small" style="width:100%;margin-top:8px" id="tu">Unlock (test copy, no charge)</button>'
+          : "") +
         '<button class="btn ghost" style="width:100%;margin-top:8px" id="nx">Not now</button>',
       (el, close) => {
         el.querySelector("#nx").onclick = close;
+        const pay = el.querySelector("#pay");
+        if (pay)
+          pay.onclick = async () => {
+            pay.disabled = true;
+            pay.textContent = "Opening Stripe...";
+            try {
+              const r = await Cloud.pay("unlock", { job_id: J.job.id });
+              location.assign(r.url);
+            } catch (e) {
+              console.warn("Checkout not opened", e);
+              toast(e.message);
+              pay.disabled = false;
+              pay.textContent = "Pay " + UNLOCK_PRICE;
+            }
+          };
         const tu = el.querySelector("#tu");
         if (tu)
           tu.onclick = () => {
@@ -4171,29 +4190,119 @@
     }
   }
 
-  // Plan and billing (Zach 2026-11-16): paying happens on the website, where Apple takes no cut.
-  // The iPhone app only says where to go. Payments aren't hooked up, so nothing here charges.
+  // Plan and billing (Zach picked Stripe 2026-11-16): paying happens on the website, where Apple
+  // takes no cut. The iPhone app only says where to go. PAYMENTS_ON stays false while the Stripe
+  // account is a sandbox (test cards only); the test copy on this Mac uses the sandbox anyway.
+  const PAYMENTS_ON = false;
+  const PAY_HERE = !NATIVE && (PAYMENTS_ON || TEST_COPY);
   const PLAN_PRICE = "$35 a month";
   const FOUNDING_PRICE = "$20 a month";
-  function planBlock(owner) {
-    let h = '<label class="f" style="margin-top:14px">Plan</label><div class="plan">';
-    if (NATIVE)
-      h +=
+  function planBlock() {
+    return '<label class="f" style="margin-top:14px">Plan</label><div class="plan" id="plan"><p class="note" style="margin:0">Loading your plan...</p></div>';
+  }
+  async function fillPlan(box, owner) {
+    if (!box) return;
+    if (NATIVE) {
+      box.innerHTML =
         "<p>Your plan is handled on the Head to Head website.</p>" +
         '<a class="btn small" href="' +
         SITE_URL +
         '" target="_blank" rel="noopener">Open the website</a>';
-    else
-      h +=
-        "<p><b>Founding contractor</b>: " +
-        FOUNDING_PRICE +
-        " locked in (" +
-        PLAN_PRICE +
-        " after the first contractors).</p>" +
+      return;
+    }
+    const offer =
+      "<p><b>Founding contractor</b>: " +
+      FOUNDING_PRICE +
+      " locked in (" +
+      PLAN_PRICE +
+      " after the first contractors).</p>";
+    if (!PAY_HERE) {
+      box.innerHTML =
+        offer +
         '<p class="note">Payments open soon. Nothing is charged yet' +
         (owner ? ", and you'll pick how to pay right here." : ".") +
         "</p>";
-    return h + "</div>";
+      return;
+    }
+    let b = null;
+    try {
+      b = await Cloud.billing();
+    } catch (e) {
+      console.warn("Plan not loaded", e);
+      box.innerHTML = '<p class="note" style="margin:0">Couldn\'t load your plan. Check your signal.</p>';
+      return;
+    }
+    const day = (iso) =>
+      iso ? new Date(iso).toLocaleDateString(undefined, { month: "long", day: "numeric" }) : "";
+    const price = b && b.plan === "standard" ? PLAN_PRICE : FOUNDING_PRICE;
+    let h, btn;
+    if (b && (b.status === "active" || b.status === "trialing")) {
+      h =
+        "<p><b>" +
+        (b.plan === "standard" ? "Contractor plan" : "Founding contractor") +
+        "</b>: " +
+        price +
+        ".</p>" +
+        '<p class="note">' +
+        (b.cancel_at_period_end ? "Cancelled. It runs until " : "Renews ") +
+        esc(day(b.current_period_end)) +
+        ".</p>";
+      btn = owner ? ["portal", "Manage billing"] : null;
+    } else if (b && (b.status === "past_due" || b.status === "unpaid")) {
+      h = "<p><b>The last payment didn't go through.</b></p><p class=\"note\">Update the card to keep the plan.</p>";
+      btn = owner ? ["portal", "Update the card"] : null;
+    } else {
+      h = offer;
+      btn = owner ? ["subscribe", "Start the plan · " + FOUNDING_PRICE] : null;
+      if (!owner) h += '<p class="note">The company\'s owner starts the plan.</p>';
+    }
+    box.innerHTML =
+      h + (btn ? '<button class="btn primary small" style="width:100%" id="pb">' + btn[1] + "</button>" : "");
+    const pb = box.querySelector("#pb");
+    if (pb)
+      pb.onclick = async () => {
+        pb.disabled = true;
+        pb.textContent = "Opening Stripe...";
+        try {
+          const r = await Cloud.pay(btn[0], { company_id: Cloud.company.id });
+          location.assign(r.url);
+        } catch (e) {
+          console.warn("Billing page not opened", e);
+          toast(e.message);
+          pb.disabled = false;
+          pb.textContent = btn[1];
+        }
+      };
+  }
+
+  // Coming back from Stripe's checkout page: confirm a yard payment with the server before
+  // unlocking, and say what happened with a plan. Then tidy the address.
+  async function paymentReturn() {
+    const q = new URLSearchParams(location.search);
+    const sid = q.get("unlock"),
+      jid = q.get("job"),
+      bill = q.get("billing");
+    if (!sid && !bill) return;
+    const clean = (hash) => history.replaceState(null, "", location.pathname + (hash || location.hash));
+    if (bill) {
+      clean();
+      if (bill === "done") toast("Thanks! Your plan is starting. It can take a few seconds to show.");
+      else if (bill === "cancel") toast("No charge. You can start the plan any time.");
+      return;
+    }
+    const job = jobs.find((j) => j.id === jid);
+    clean(job ? "#/job/" + job.id : "");
+    if (!job) return toast("Paid, but that yard isn't on this device. Open it where you mapped it.");
+    try {
+      const r = await Cloud.pay("unlock-check", { session_id: sid, job_id: job.id });
+      if (!r.paid) return toast("That payment didn't go through, so the yard is still locked.");
+      job.unlocked = true;
+      touch(job);
+      toast("Paid. Your yard is unlocked.");
+    } catch (e) {
+      console.warn("Unlock check failed", e);
+      toast("Couldn't confirm the payment. Check your signal and reload this page.");
+    }
   }
 
   async function companySheet() {
@@ -4280,7 +4389,7 @@
               .join("") +
             "</select>"
           : "") +
-        planBlock(owner) +
+        planBlock() +
         (NATIVE
           ? ""
           : '<p class="note" style="margin-top:12px">On iPhone, add this app to your home screen (Share, then Add to Home Screen) so Safari doesn\'t sign you out after a week away.</p>') +
@@ -4391,6 +4500,7 @@
             }),
         );
         invitesBlock(el.querySelector("#myiv"), close);
+        fillPlan(el.querySelector("#plan"), owner);
         const sw = el.querySelector("#sw");
         if (sw)
           sw.onchange = async () => {
@@ -4432,6 +4542,7 @@
   }
 
   async function boot() {
+    await paymentReturn();
     if (!Cloud.enabled || isHome()) return route();
     Cloud.setLocalJobs(() => jobs);
     Cloud.on((what) => {
