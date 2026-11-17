@@ -1051,3 +1051,9 @@ table.parts td.q {
   white-space: nowrap;
   transform: translate(-50%, -50%);
 }
+.parts-foot {
+  margin: 14px 0 6px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--flag);
+}

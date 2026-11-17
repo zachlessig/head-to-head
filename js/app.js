@@ -3352,7 +3352,7 @@
   function shownParts(L0) {
     const fresh = freshParts(L0);
     return J.job.partsEdit
-      ? { lines: J.job.partsEdit.lines, notes: fresh.notes }
+      ? { lines: J.job.partsEdit.lines, notes: fresh.notes, footer: fresh.footer }
       : fresh;
   }
   function partsTable(parts) {
@@ -3375,7 +3375,7 @@
         esc(String(l.qty)) +
         "</td></tr>";
     });
-    return h + "</table>";
+    return h + "</table>" + (parts.footer ? '<p class="parts-foot">' + esc(parts.footer) + "</p>" : "");
   }
 
   function partsText(parts) {
@@ -3390,6 +3390,7 @@
       }
       t += l.qty + "  " + l.item + "\n";
     });
+    if (parts.footer) t += "\n" + parts.footer + "\n";
     return t;
   }
 
@@ -3618,7 +3619,7 @@
             .join("") +
           "</div>" +
           partsTable(shownParts(L0)) +
-          '<p class="note">Drip covers the beds; the line from the valve box to each bed is in the lateral pipe. Mainline pipe is counted from the meter to each valve box and each spigot (add the Meter on the Draw tab), lateral pipe from each box out to every head. Wire is not counted yet.</p>' +
+          '<p class="note">Drip covers the beds; the line from the valve box to each bed is in the lateral pipe. Mainline pipe is counted from the meter to each valve box and each spigot (add the Meter on the Draw tab), lateral pipe from each box out to every head.</p>' +
           (job.water
             ? '<div class="row"><button class="btn grow" id="psetup">' +
               icon("sliders") +

@@ -701,6 +701,13 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(near(strip(false)).length, 0, "strip: heads stay 7 ft off the trunk");
   const nf = near(strip(true));
   eq(nf.length > 0 && nf.every((h) => Math.abs(h.y - 8) < 0.5), true, "strip: only heads on the fence line come closer (" + nf.length + ")");
+  // a 60x30 front lawn with an 18 in tree keeps rotors where they fit (Zach 2026-11-17: "id do rotors
+  // where needed"); it went all pop-ups when ground rotors couldn't reach past the tree counted
+  // against them
+  const front = E.layoutJob({ areas: [{ outer: P([[0, 0], [60, 0], [60, 30], [0, 30]]), trees: [{ x: 22, y: 14, trunk: 18 }], mode: "auto" }], psi: 50, cap: 12 });
+  eq(front.heads.filter((h) => h.kind === "R").length >= 3, true, "front lawn with a tree keeps its rotors (" + front.heads.filter((h) => h.kind === "R").length + ")");
+  eq(front.totals.overspray, 0, "front lawn with a tree: no overspray");
+  eq(front.totals.coverage >= 0.99, true, "front lawn with a tree: double covered (" + (front.totals.coverage * 100).toFixed(1) + "%)");
 }
 
 // Park strips (Zach 2026-11-15): a lawn 3 to 6 ft wide gets Rain Bird strip nozzles, "the LCS RCS
@@ -762,6 +769,7 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(JSON.stringify(E.valveBoxes(5)), "[3,2]", "5 valves: 3 and 2");
   eq(JSON.stringify(E.valveBoxes(4)), "[4]", "4 valves: one box");
   eq(JSON.stringify(E.valveBoxes(0)), "[]", "no valves, no box");
+  eq(E.parts([], [{ n: 1, family: "spray", heads: [] }], 0, "culinary").footer, "Don't forget your low voltage wire!", "parts list ends with the wire reminder");
   const zones = Array.from({ length: 4 }, (_, i) => ({ n: i + 1, family: "spray", heads: [] }));
   const q = (p, item) => (p.lines.find((l) => l.item === item) || { qty: 0 }).qty;
   eq(q(E.parts([], zones, { zones: [1, 2], ft: 80 }, "culinary"), "Standard valve box"), 2, "4 zone valves and 2 drip valves: 2 standard boxes");

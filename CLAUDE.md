@@ -207,7 +207,8 @@ swings 10x, so compare old and new engines back to back before calling anything 
     list is what gets copied and printed.
   - Lateral and mainline fittings (2026-11-10): per sprinkler zone 1 coupling, 2 tees, 1 swing
     adapter; per yard 2 elbows and 30 mainline pinch clamps; 1 bag of LD pinch clamps per 10 zones,
-    rounded up, and a saddle for every head.
+    rounded up, and a saddle for every head. Wire isn't counted: the list ends with "Don't forget
+    your low voltage wire!" (Zach 2026-11-17: "who knows where they will put the timer").
   - Pipe (Zach 2026-11-17, `pipePlan`, on trenchPlan's valve boxes): mainline is the shortest run
     joining the meter and every box, through a box or teed off partway, whichever is shorter; each
     Spigot pin gets mainline back to the nearest point on that run (and a trench); every zone gets
@@ -241,6 +242,9 @@ swings 10x, so compare old and new engines back to back before calling anything 
    is still a guess.
 3. Google ratings for the installer list, for when that list is switched on (`SHOW_INSTALLERS`).
 4. The website vs the app: decided and built 2026-11-16 (see Website and iPhone app under His rules).
+5. Security and liability (added 2026-11-17): "a way im not liable for if someones map is wrong
+   because in reality, this is just a tool for contractors, we aren't actually installing the yard."
+6. A sod calculator (added 2026-11-17).
 
 ## Shipping
 

@@ -1321,6 +1321,10 @@
       R.curveStrip = curveStrip;
       for (let k = 0; k < S.n; k++) {
         if (!R.core[k] || curveStrip[k]) continue;
+        // ground a rotor can't reach without spraying a big trunk is pop-up ground, not a mark
+        // against the rotors (Zach 2026-11-17, a 60x30 front lawn with an 18 in tree went all
+        // pop-ups: "id do rotors where needed")
+        if (TRUNKS.length && nearTrunk(S.x[k], S.y[k], ROTOR.max)) continue;
         let gi = -1, bd = Infinity;
         groups.forEach((g, i) => g.forEach((h) => {
           const d = Math.hypot(h.x - S.x[k], h.y - S.y[k]);
@@ -2123,14 +2127,17 @@
         qty: boxes.length,
       });
     const stations = valves + dz;
-    if (stations)
+    if (stations) {
       lines.push({ group: "Controller", item: "Controller with at least " + stations + " stations", qty: 1 });
+    }
 
     const own = setups && Array.isArray(setups[water]) && setups[water].length ? setups[water] : null;
     (WATER_SOURCE_PARTS[water] ? own || WATER_SOURCE_PARTS[water] : []).forEach((p) => {
       if (p.item && p.qty > 0) lines.push({ group: WATER_SOURCE_GROUP[water], item: p.item, qty: p.qty });
     });
-    return { lines, notes, stations, boxes, overLimit: stations > 16, waterSet: !!WATER_SOURCE_PARTS[water] };
+    // Zach 2026-11-17: the contractor runs the wire, since "who knows where they will put the timer";
+    // the list just ends with "Don't forget your low voltage wire!"
+    return { lines, notes, footer: stations ? "Don't forget your low voltage wire!" : "", stations, boxes, overLimit: stations > 16, waterSet: !!WATER_SOURCE_PARTS[water] };
   }
 
   /* ---------------- fences ---------------- */
