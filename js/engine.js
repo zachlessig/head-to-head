@@ -1720,7 +1720,179 @@
       for (let i = zones.length - 1; i >= 0; i--) if (!zones[i].heads.length) zones.splice(i, 1);
       if (!changed) break;
     }
-    zones.forEach((z) => (z.small = z.family === 'rotor' && z.heads.length < 3));
+    // Still short: regroup every rotor on that lawn from scratch. Merging and borrowing only look
+    // one zone at a time, so in a stress-test yard with rotors of 1, 2, 3, 4, 4, 4 GPM on a 9 GPM
+    // cap they came out 3 + 2 + 1 when 1+4+4 and 2+3+4 is two full zones. Zach 2026-11-17: "on a
+    // yard that big, more trenching and inevitably more space between heads is fine".
+    const areas = new Set(
+      zones
+        .filter(
+          (z) =>
+            z.family === "rotor" &&
+            z.heads.length &&
+            z.heads.length < MIN_ROTORS,
+        )
+        .map((z) => z.heads[0].area),
+    );
+    for (const area of areas) {
+      const mine = zones.filter(
+        (z) =>
+          z.family === "rotor" && z.heads.length && z.heads[0].area === area,
+      );
+      const groups = regroupRotors(
+        mine.map((z) => z.heads),
+        cap,
+      );
+      if (!groups) continue;
+      mine.forEach((z, i) => (z.heads = groups[i] || []));
+    }
+    for (let i = zones.length - 1; i >= 0; i--)
+      if (!zones[i].heads.length) zones.splice(i, 1);
+    zones.forEach(
+      (z) => (z.small = z.family === "rotor" && z.heads.length < MIN_ROTORS),
+    );
+  }
+
+  // Split one lawn's rotors into the fewest zones that each hold MIN_ROTORS or more and stay under
+  // the cap, keeping each zone's pipe short (sum of its shortest connecting runs). Local search:
+  // move one head or swap two between zones from a few starting splits. Returns null when no split
+  // with every zone full was found, so the old zones stay.
+  function regroupRotors(current, cap) {
+    const all = current.flat();
+    const n = all.length;
+    const total = all.reduce((s, h) => s + h.gpm, 0);
+    const dist = all.map((a) =>
+      all.map((b) => Math.hypot(a.x - b.x, a.y - b.y)),
+    );
+    const pipe = (idx) => {
+      // Prim's minimum spanning tree length: the trench a zone needs, roughly
+      if (idx.length < 2) return 0;
+      const inT = new Set([idx[0]]);
+      const best = new Map(idx.slice(1).map((i) => [i, dist[idx[0]][i]]));
+      let len = 0;
+      while (best.size) {
+        let mi = -1,
+          md = Infinity;
+        for (const [i, d] of best)
+          if (d < md) {
+            md = d;
+            mi = i;
+          }
+        len += md;
+        best.delete(mi);
+        inT.add(mi);
+        for (const [i, d] of best)
+          if (dist[mi][i] < d) best.set(i, dist[mi][i]);
+      }
+      return len;
+    };
+    const cost = (asg, k) => {
+      let c = 0;
+      for (let g = 0; g < k; g++) {
+        const idx = [];
+        let gpm = 0;
+        asg.forEach((a, i) => {
+          if (a === g) {
+            idx.push(i);
+            gpm += all[i].gpm;
+          }
+        });
+        c +=
+          1e6 * Math.max(0, MIN_ROTORS - idx.length) +
+          1e6 * Math.max(0, gpm - cap - 1e-9) +
+          pipe(idx);
+      }
+      return c;
+    };
+    const climb = (asg, k) => {
+      let c = cost(asg, k);
+      for (let improved = true; improved;) {
+        improved = false;
+        for (let i = 0; i < n; i++) {
+          for (let g = 0; g < k; g++) {
+            if (g === asg[i]) continue;
+            const was = asg[i];
+            asg[i] = g;
+            const nc = cost(asg, k);
+            if (nc < c - 1e-9) {
+              c = nc;
+              improved = true;
+            } else asg[i] = was;
+          }
+          for (let j = i + 1; j < n; j++) {
+            if (asg[i] === asg[j]) continue;
+            [asg[i], asg[j]] = [asg[j], asg[i]];
+            const nc = cost(asg, k);
+            if (nc < c - 1e-9) {
+              c = nc;
+              improved = true;
+            } else [asg[i], asg[j]] = [asg[j], asg[i]];
+          }
+        }
+      }
+      return c;
+    };
+    const cx = all.reduce((s, h) => s + h.x, 0) / n,
+      cy = all.reduce((s, h) => s + h.y, 0) / n;
+    const byAngle = all
+      .map((h, i) => i)
+      .sort(
+        (a, b) =>
+          Math.atan2(all[a].y - cy, all[a].x - cx) -
+          Math.atan2(all[b].y - cy, all[b].x - cx),
+      );
+    const byX = all
+      .map((h, i) => i)
+      .sort((a, b) => all[a].x - all[b].x || all[a].y - all[b].y);
+    const byY = all
+      .map((h, i) => i)
+      .sort((a, b) => all[a].y - all[b].y || all[a].x - all[b].x);
+    for (
+      let k = Math.max(1, Math.ceil(total / cap - 1e-9));
+      k <= Math.floor(n / MIN_ROTORS);
+      k++
+    ) {
+      let best = null;
+      const starts = [];
+      // the current zones (extra ones folded into the nearest kept zone)
+      const cur = new Array(n);
+      let at = 0;
+      current.forEach((hs, g) =>
+        hs.forEach(() => (cur[at++] = g < k ? g : -1)),
+      );
+      cur.forEach((g, i) => {
+        if (g >= 0) return;
+        let bj = 0,
+          bd = Infinity;
+        cur.forEach((h, j) => {
+          if (h >= 0 && dist[i][j] < bd) {
+            bd = dist[i][j];
+            bj = j;
+          }
+        });
+        cur[i] = cur[bj] >= 0 ? cur[bj] : 0;
+      });
+      starts.push(cur);
+      for (const order of [byAngle, byX, byY])
+        for (let off = 0; off < n; off += Math.max(1, Math.floor(n / 4))) {
+          const asg = new Array(n);
+          order.forEach(
+            (i, r) => (asg[i] = Math.floor((((r + off) % n) * k) / n)),
+          );
+          starts.push(asg);
+        }
+      for (const s of starts) {
+        const asg = s.slice();
+        const c = climb(asg, k);
+        if (!best || c < best.c) best = { c, asg };
+      }
+      if (best.c < 1e6) {
+        const groups = Array.from({ length: k }, () => []);
+        best.asg.forEach((g, i) => groups[g].push(all[i]));
+        return groups;
+      }
+    }
+    return null;
   }
 
   // A zone of one or two heads may join a zone on the same lawn up to TINY_JOIN_FT away: a valve

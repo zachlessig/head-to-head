@@ -64,7 +64,11 @@ swings 10x, so compare old and new engines back to back before calling anything 
 - Zones stay in one part of the yard (Zach 2026-11-09): "dont spread rotors across the entire
   yard", no "blender of heads". Two zones of the same kind merge only when they're neighbours
   (their sprays reach each other) and fit under the cap; a 1 or 2 head zone may reach 45 ft on
-  the same lawn. Rotor borrowing is neighbours only. A pop-up zone of one head that can't merge
+  the same lawn. Rotor borrowing is neighbours only, but if a lawn still has a rotor zone under 3 after
+  merging and borrowing, all its rotors are regrouped from scratch (`regroupRotors`: fewest valves,
+  every zone 3+ and under the cap, shortest pipe), because Zach said on 2026-11-17 "on a yard that
+  big, more trenching and inevitably more space between heads is fine". In 1,000 random yards that
+  took short rotor zones from 3 yards to 0. A pop-up zone of one head that can't merge
   (cap) takes the nearest head of a pop-up zone of 3+ within 45 ft (`shareLonePopup`). There's no minimum number of pop-ups for a
   zone. A test fails if any zone has a head off on its own.
 - Rotor side and pop-up side (Zach 2026-11-15, Camera v1): "pop ups along the north curvy side and

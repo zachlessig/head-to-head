@@ -829,5 +829,17 @@ eq(E.swingRolls(0), 0, "no heads, no pipe");
   eq(q(E.parts([], [{}], 0, "culinary", { culinary: [] }), "Backflow setup"), 1, "an empty company list falls back to the default");
 }
 
+// Stress-test batch 6 yard 11 (2026-11-17): rotors of 1, 2, 3, 4, 4, 4 GPM on a 9 GPM cap came out
+// 3 + 2 + 1 rotors because merging only looks one zone at a time; 1+4+4 and 2+3+4 is two full
+// zones. Zach: "on a yard that big, more trenching and inevitably more space between heads is fine".
+{
+  const spots = [[43.8, 68.5, 1, 30], [62.8, 29.1, 3, 18.5], [44.1, 48.6, 2, 19.5], [80.8, 45.3, 4, 24.3], [80.8, 35.3, 4, 19.1], [62.8, 47.3, 4, 18.2]];
+  const heads = spots.map(([x, y, gpm, r], i) => ({ x, y, gpm, r, arc: 180, dir: 90, kind: "R", area: 0, label: "R" + i }));
+  const zones = E.zoneHeads(heads, 9);
+  eq(zones.every((z) => z.heads.length >= 3), true, "rotors regroup so no rotor zone is under 3 (1,2,3,4,4,4 GPM on a 9 GPM cap)");
+  eq(zones.every((z) => z.heads.reduce((s, h) => s + h.gpm, 0) <= 9), true, "regrouped rotor zones stay under the cap");
+  eq(zones.length, 2, "six rotors on a 9 GPM cap fit two valves");
+}
+
 console.log(fail ? fail + " failing" : "all passing");
 process.exit(fail ? 1 : 0);
