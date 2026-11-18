@@ -5706,7 +5706,10 @@
 
   // opening animation (Zach's pick 2026-11-15, "the rain one"): three small drops fall, and where
   // they land the drop logo grows in
+  // iPhone app only (Zach 2026-11-18: "get rid of the animation when you open the website. i like it
+  // on the app though")
   function splash() {
+    if (!NATIVE) return;
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const s = document.createElement("div");
     s.className = "splash";
