@@ -25,7 +25,7 @@ const RETURN_ORIGINS = [
   "https://www.headtoheadapp.com",
   "http://localhost:8742",
 ];
-const SITE = "https://zachlessig.github.io/head-to-head/";
+const SITE = "https://headtoheadapp.com/";
 
 const cors = (origin: string | null) => ({
   "Access-Control-Allow-Origin":

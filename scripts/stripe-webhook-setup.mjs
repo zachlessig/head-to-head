@@ -58,7 +58,7 @@ if (mode === "hook") {
     "features[customer_update][enabled]": "true",
     "features[customer_update][allowed_updates][0]": "email",
     "features[customer_update][allowed_updates][1]": "name",
-    default_return_url: "https://zachlessig.github.io/head-to-head/",
+    default_return_url: "https://headtoheadapp.com/",
   };
   const cfgs = (await api("billing_portal/configurations?limit=10")).data;
   const def = cfgs.find((c) => c.is_default);

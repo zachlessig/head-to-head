@@ -325,6 +325,8 @@ them. Run with Node 18+:
 
 ## Shipping
 
-The site is GitHub Pages from `main` (zachlessig/head-to-head). Push and it's live in about
+The site is GitHub Pages from `main` (zachlessig/head-to-head), served at https://headtoheadapp.com
+(since 2026-11-18: `CNAME` file, Cloudflare CNAMEs for @ and www to zachlessig.github.io, DNS only,
+not proxied, or GitHub can't issue the certificate). The old github.io address forwards there. Push and it's live in about
 a minute. The Mapbox key is a public `pk.` token. GitHub push protection flags it, and Zach has
 to click "Allow secret" once for each new token.

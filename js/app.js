@@ -209,7 +209,7 @@
     window.Capacitor.isNativePlatform()
   );
   // where people land from an invite or "manage your plan"; headtoheadapp.com once it points here
-  const SITE_URL = "https://zachlessig.github.io/head-to-head/";
+  const SITE_URL = "https://headtoheadapp.com/";
   const DEVICE = NATIVE ? "phone" : "device";
   function setHomeowner(on) {
     prefs.homeowner = !!on;
