@@ -4429,7 +4429,7 @@
       '<p class="note">Payments open soon. Nothing is charged yet.</p></section>' +
       '<footer class="l-foot">Built by a landscaper who ran a sprinkler supply counter. © ' +
       new Date().getFullYear() +
-      ' Head to Head · <a href="terms.html">Terms of Use</a></footer>' +
+      ' Head to Head App LLC · <a href="terms.html">Terms of Use</a></footer>' +
       "</main>"
     );
   }
