@@ -246,32 +246,34 @@ try {
   made.subs.push(sub.id);
   check(sub.status === "active", "test subscription active");
 
-  // the webhook should record B's plan and credit A a free month
-  let ref = [],
-    bal = null;
+  // A has no plan or card yet, so the free month waits (security review 2026-11-17)
+  let ref = [];
   for (let i = 0; i < 20 && !ref.length; i++) {
     await sleep(3000);
-    ref = await sql(
-      `select rewarded_at from referrals where company_id = '${bid}' and referrer_id = '${aid}' and rewarded_at is not null`,
-    );
+    ref = await sql(`select held, rewarded_at from referrals where company_id = '${bid}' and referrer_id = '${aid}'`);
   }
-  check(
-    ref.length === 1,
-    "referral recorded as rewarded after the first payment",
-  );
-  const acust = (
-    await sql(
-      `select stripe_customer_id from billing where company_id = '${aid}'`,
-    )
-  )[0];
-  if (acust && acust.stripe_customer_id) {
-    made.customers.push(acust.stripe_customer_id);
-    bal = (await stripe("customers/" + acust.stripe_customer_id)).balance;
+  check(ref.length === 1 && ref[0].held === true && ref[0].rewarded_at === null, "referrer with no plan: free month held");
+
+  // A starts a plan with a different card: the held free month is credited after A's first payment
+  const acus = (await stripe("customers", { "metadata[company_id]": aid })).id;
+  made.customers.push(acus);
+  const apm = await stripe("payment_methods/pm_card_mastercard/attach", { customer: acus });
+  await stripe("customers/" + acus, { "invoice_settings[default_payment_method]": apm.id });
+  const asub = await stripe("subscriptions", {
+    customer: acus,
+    "items[0][price]": await price("founding_monthly"),
+    "metadata[company_id]": aid,
+    "metadata[plan]": "founding",
+  });
+  made.subs.push(asub.id);
+  let bal = 0;
+  for (let i = 0; i < 20 && bal !== -2000; i++) {
+    await sleep(3000);
+    bal = (await stripe("customers/" + acus)).balance;
   }
-  check(
-    bal === -2000,
-    "referrer (no plan yet) holds a $20 free month as credit: balance " + bal,
-  );
+  check(bal === -2000, "referrer's plan paid with another card: $20 free month credited, balance " + bal);
+  ref = await sql(`select held, rewarded_at from referrals where company_id = '${bid}'`);
+  check(ref[0].held === false && ref[0].rewarded_at !== null, "held referral marked rewarded");
   const bb = (
     await sql(`select status from billing where company_id = '${bid}'`)
   )[0];
@@ -343,13 +345,11 @@ try {
   const a2 = (await rest(a, "rpc/create_company", { method: "POST", body: JSON.stringify({ company_name: "Test Referrer Two" }) })).body;
   const selfTry = await billing(a, { action: "subscribe", company_id: a2, referral_code: code });
   check(selfTry.status === 400, "referrer's own second company refused: " + selfTry.body.error);
-  const acus = (await sql(`select stripe_customer_id from billing where company_id = '${aid}'`))[0].stripe_customer_id;
-  await stripe("payment_methods/pm_card_visa/attach", { customer: acus });
   const d = await person("same-card");
   const did = (await rest(d, "rpc/create_company", { method: "POST", body: JSON.stringify({ company_name: "Test Same Card" }) })).body;
   const dcust = await stripe("customers", { "metadata[company_id]": did });
   made.customers.push(dcust.id);
-  const dpm = await stripe("payment_methods/pm_card_visa/attach", { customer: dcust.id });
+  const dpm = await stripe("payment_methods/pm_card_mastercard/attach", { customer: dcust.id });
   await stripe("customers/" + dcust.id, { "invoice_settings[default_payment_method]": dpm.id });
   const dsub = await stripe("subscriptions", {
     customer: dcust.id,
@@ -368,6 +368,43 @@ try {
   check(drow.length === 1 && drow[0].rewarded_at === null, "same card: referral recorded but not rewarded");
   const bal2 = (await stripe("customers/" + acus)).balance;
   check(bal2 === -2000, "referrer still has just the one free month: balance " + bal2);
+
+  // the cheat from the review: a referrer with no plan refers a company paid with card X, then
+  // starts their own plan with card X. The held free month is never paid out.
+  const e = await person("held-ref"), f = await person("held-new");
+  const eid = (await rest(e, "rpc/create_company", { method: "POST", body: JSON.stringify({ company_name: "Test Held Referrer" }) })).body;
+  const fid = (await rest(f, "rpc/create_company", { method: "POST", body: JSON.stringify({ company_name: "Test Held New" }) })).body;
+  const paidSub = async (cid, extra) => {
+    const c = (await stripe("customers", { "metadata[company_id]": cid })).id;
+    made.customers.push(c);
+    const pm = await stripe("payment_methods/pm_card_amex/attach", { customer: c });
+    await stripe("customers/" + c, { "invoice_settings[default_payment_method]": pm.id });
+    const sub = await stripe("subscriptions", {
+      customer: c,
+      "items[0][price]": await price("founding_monthly"),
+      "metadata[company_id]": cid,
+      "metadata[plan]": "founding",
+      ...extra,
+    });
+    made.subs.push(sub.id);
+    return c;
+  };
+  await paidSub(fid, { "discounts[0][coupon]": "referral_5_off", "metadata[referrer]": eid });
+  let erow = [];
+  for (let i = 0; i < 20 && !erow.length; i++) {
+    await sleep(3000);
+    erow = await sql(`select held from referrals where company_id = '${fid}' and held`);
+  }
+  check(erow.length === 1, "no-plan referrer's free month held");
+  const ecus = await paidSub(eid, {});
+  let erel = [];
+  for (let i = 0; i < 20 && !erel.length; i++) {
+    await sleep(3000);
+    erel = await sql(`select rewarded_at from referrals where company_id = '${fid}' and not held`);
+  }
+  const ebal = (await stripe("customers/" + ecus)).balance;
+  check(erel.length === 1 && erel[0].rewarded_at === null && ebal === 0,
+    "same card on both sides: held free month dropped, balance " + ebal);
 } catch (e) {
   console.log("FAIL error:", e.message);
   fails++;

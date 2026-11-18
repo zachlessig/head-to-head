@@ -168,7 +168,10 @@ swings 10x, so compare old and new engines back to back before calling anything 
   payment), only on the company's first plan and never its own code. The referrer is kept in the
   subscription's metadata; after the first payment (invoice.paid, subscription_create) the webhook
   credits the referrer one month of their plan ($20 founding, $30 standard) as Stripe customer
-  balance and records it in `referrals`. Credit comes off their next bill, and free months stack.
+  balance and records it in `referrals`. No free month if the two companies share an owner, a person or email, or a card
+  (every saved card and every card that paid a charge), or the first payment was $0 (security
+  review 2026-11-17). A referrer with no live plan and card has the free month held (`referrals.held`,
+  migration 0008) until their own plan's first payment, then the cards are compared. Credit comes off their next bill, and free months stack.
   Test: `test/crew-referral.e2e.mjs` (env SUPA_TOKEN, ANON, STRIPE_KEY).
 - Trench (Zach 2026-11-16, `trenchPlan` in `js/engine.js`): zones (drip too) are grouped by
   closeness into valve boxes sized by `valveBoxes`; each box goes on the lawn edge at the spot
@@ -305,7 +308,7 @@ them. Run with Node 18+:
 
 - `scripts/supabase.mjs` (env SUPA_TOKEN): `query "<sql>"`, `sqlfile <migration>`, `deploy <slug>
   supabase/functions/<slug> <verify_jwt>`, `secrets NAME=ENVVAR`, `list-functions`. Migrations are
-  run by hand with `sqlfile`, in order; 0001 to 0007 are on the live project.
+  run by hand with `sqlfile`, in order; 0001 to 0008 are on the live project.
 - `scripts/stripe-prices.mjs` (env STRIPE_KEY): makes the products and lookup-key prices; leaves
   existing ones alone (changing a price means a new price with `transfer_lookup_key`).
 - `scripts/stripe-webhook-setup.mjs hook|portal` (env STRIPE_KEY): creates the webhook (prints its
