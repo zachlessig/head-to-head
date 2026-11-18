@@ -4625,7 +4625,17 @@
       if (go) {
         const em = app.querySelector("#em");
         // on the front page, jumping to the box on load would pop the keyboard over the page
-        if (NATIVE || msg || focusBox) em.focus();
+        // in the app, wait for the opening animation to finish first (Zach 2026-11-18: the keyboard
+        // came up before the animation was done)
+        if (msg || focusBox) em.focus();
+        else if (NATIVE) {
+          const sp = document.querySelector(".splash");
+          if (!sp) em.focus();
+          else
+            setTimeout(() => {
+              if (document.activeElement !== em && em.isConnected) em.focus();
+            }, 2300);
+        }
         const send = async () => {
           email = em.value.trim();
           if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
