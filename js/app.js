@@ -555,7 +555,7 @@
     h +=
       '<button class="btn small ghost" style="width:100%" id="tour">Take the tour</button>';
     h +=
-      '<p class="note" style="text-align:center"><a href="terms.html">Terms of Use</a></p>';
+      '<p class="note" style="text-align:center"><a href="terms.html">Terms of Use</a> · <a href="privacy.html">Privacy Policy</a></p>';
     if (isHome())
       h +=
         '<button class="btn small ghost" style="width:100%" id="mode">Installer? Use the contractor version</button>';
@@ -3453,22 +3453,26 @@
         // the example yard shows the lock but can't be bought (payments live 2026-11-18)
         (J.job.example
           ? '<p class="hint"><b>This is the example yard, so it can\'t be unlocked.</b> Go back and tap Map my yard to make your own.</p>'
-          : PAY_HERE
+          : PAY_HERE || PAY_LINK
           ? '<button class="btn primary" style="width:100%" id="pay">Pay ' +
             price +
+            (PAY_LINK ? " on the website" : "") +
             "</button>" +
-            '<p class="note">Stripe takes the card. Head to Head never sees it.</p>'
+            '<p class="note">' +
+            (PAY_LINK
+              ? "Opens Stripe's checkout in Safari. Come back to the app when you're done and the yard unlocks."
+              : "Stripe takes the card. Head to Head never sees it.") +
+            "</p>"
           : '<button class="btn primary" style="width:100%" disabled>Payments open soon</button>') +
         (TEST_COPY
           ? '<button class="btn small" style="width:100%;margin-top:8px" id="tu">Unlock (test copy, no charge)</button>'
           : "") +
-        (pro && Cloud.company.role === "owner" && PAY_HERE
-          ? '<button class="btn small" style="width:100%;margin-top:8px" id="sp">Or start the plan: ' +
+        (pro && Cloud.company.role === "owner" && (PAY_HERE || PAY_LINK)
+          ? '<button class="btn small" style="width:100%;margin-top:8px" id="sp">Or start the plan' +
+            (PAY_LINK ? " on the website" : "") +
+            ": " +
             FOUNDING_PRICE +
             ", every yard included</button>"
-          : "") +
-        (pro && NATIVE
-          ? '<p class="note">Pay for yards and plans on the Head to Head website.</p>'
           : "") +
         '<button class="btn ghost" style="width:100%;margin-top:8px" id="nx">Not now</button>',
       (el, close) => {
@@ -3482,7 +3486,16 @@
               const r = await Cloud.pay("unlock", {
                 job_id: J.job.id,
                 kind: pro ? "contractor" : "homeowner",
+                from: PAY_LINK ? "app" : undefined,
               });
+              if (PAY_LINK) {
+                // the session id is in Stripe's checkout address; it's checked when the app comes back
+                const sid = (String(r.url).match(/cs_(?:test|live)_[A-Za-z0-9]+/) || [])[0];
+                if (sid) savePendingUnlock({ sid, job: J.job.id });
+                window.open(r.url, "_blank");
+                close();
+                return;
+              }
               location.assign(r.url);
             } catch (e) {
               console.warn("Checkout not opened", e);
@@ -3495,7 +3508,8 @@
         if (sp)
           sp.onclick = () => {
             close();
-            companySheet();
+            if (PAY_LINK) window.open(SITE_URL, "_blank");
+            else companySheet();
           };
         const tu = el.querySelector("#tu");
         if (tu)
@@ -4471,7 +4485,7 @@
       '<p class="note">Stripe takes the card. Head to Head never sees it.</p></section>' +
       '<footer class="l-foot">Built by a landscaper who ran a sprinkler supply counter. © ' +
       new Date().getFullYear() +
-      ' Head to Head App LLC · <a href="terms.html">Terms of Use</a></footer>' +
+      ' Head to Head App LLC · <a href="terms.html">Terms of Use</a> · <a href="privacy.html">Privacy Policy</a></footer>' +
       "</main>"
     );
   }
@@ -4535,7 +4549,7 @@
               .join("") +
             '<label class="f" for="em">Email</label><input class="t" id="em" type="email" inputmode="email" autocomplete="email" placeholder="you@company.com">' +
             '<button class="btn primary" style="width:100%;margin-top:12px" id="go">Email me a code</button>' +
-            '<p class="note" style="margin-top:10px">By signing in you agree to the <a href="terms.html">Terms of Use</a>.</p>' +
+            '<p class="note" style="margin-top:10px">By signing in you agree to the <a href="terms.html">Terms of Use</a> and <a href="privacy.html">Privacy Policy</a>.</p>' +
             '<button class="btn small ghost" style="width:100%;margin-top:18px" id="mode">Homeowner? Map your own yard, no account needed</button>'
           : '<p class="lede">We sent a 6-digit code to <b>' +
             esc(email) +
@@ -4973,6 +4987,10 @@
   // LLC verified on Stripe; the server's key is the live one, so the test copy charges real cards too).
   const PAYMENTS_ON = true;
   const PAY_HERE = !NATIVE && (PAYMENTS_ON || TEST_COPY);
+  // The iPhone app is on the US App Store only (Zach 2026-11-18), where Apple allows a button that
+  // takes people to pay on the web (App Review Guideline 3.1.1(a), US storefront). Stripe's
+  // checkout opens in Safari; the yard unlocks when they come back to the app.
+  const PAY_LINK = NATIVE && PAYMENTS_ON;
   // locks only apply once someone could actually pay (the iPhone app sends them to the website)
   const ENFORCE = PAYMENTS_ON || TEST_COPY;
   // Zach 2026-11-16: "lets go with 30 for standard as of right now"
@@ -5188,11 +5206,61 @@
     if (planActive) toast("Your plan is active. Every yard is included.");
   }
 
+  // iPhone app: a yard paid for in Safari. Kept on the phone until the server confirms it, and
+  // checked whenever the app comes back to the front.
+  const PENDING_KEY = "headtohead.pendingUnlock.v1";
+  function savePendingUnlock(p) {
+    try {
+      localStorage.setItem(PENDING_KEY, JSON.stringify(p));
+    } catch (e) {
+      console.warn("Pending payment not saved", e);
+    }
+  }
+  async function checkPendingUnlock() {
+    let p = null;
+    try {
+      p = JSON.parse(localStorage.getItem(PENDING_KEY) || "null");
+    } catch (e) {
+      p = null;
+    }
+    if (!p || !p.sid || !p.job) return;
+    const job = jobs.find((j) => j.id === p.job);
+    if (!job) return localStorage.removeItem(PENDING_KEY);
+    try {
+      const r = await Cloud.pay("unlock-check", { session_id: p.sid, job_id: job.id });
+      if (!r.paid) return; // not paid yet; it stays pending until checkout is done or replaced
+      localStorage.removeItem(PENDING_KEY);
+      markPaid(job);
+      touch(job);
+      if (J && J.job.id === job.id) redraw();
+      toast("Paid. Your yard is unlocked.");
+    } catch (e) {
+      console.warn("Unlock check failed", e);
+    }
+  }
+  if (NATIVE) {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") checkPendingUnlock();
+    });
+    setTimeout(checkPendingUnlock, 1500);
+  }
+
   async function paymentReturn() {
     const q = new URLSearchParams(location.search);
     const sid = q.get("unlock"),
       jid = q.get("job"),
-      bill = q.get("billing");
+      bill = q.get("billing"),
+      fromApp = q.get("paid");
+    // checkout opened from the iPhone app finishes here, in Safari; the yard lives in the app
+    if (fromApp) {
+      history.replaceState(null, "", location.pathname);
+      return sheet(
+        fromApp === "app"
+          ? "<h2>Payment received</h2><p class=\"hint\">Go back to the Head to Head app. Your yard unlocks there in a moment.</p>"
+          : "<h2>No charge</h2><p class=\"hint\">Go back to the Head to Head app whenever you're ready.</p>",
+        () => {},
+      );
+    }
     if (!sid && !bill) return;
     const clean = (hash) =>
       history.replaceState(

@@ -66,7 +66,14 @@
 
   /* ---------- signing in ---------- */
 
+  // Apple's App Review needs an account it can sign in to (Guideline 2.1), but sign-in codes go to
+  // the person's own inbox. This one address signs in with a fixed 8-digit code instead (a password
+  // on that account, kept in the Mac keychain as app-review-code and given to Apple in the review
+  // notes). No email is sent to it. Every other address works as before.
+  const REVIEW_EMAIL = "appreview@headtoheadapp.com";
+  const isReview = (email) => email.trim().toLowerCase() === REVIEW_EMAIL;
   async function sendCode(email) {
+    if (isReview(email)) return;
     const { error } = await sb.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
       options: { shouldCreateUser: true },
@@ -74,11 +81,13 @@
     if (error) throw error;
   }
   async function verifyCode(email, code) {
-    const { data, error } = await sb.auth.verifyOtp({
-      email: email.trim().toLowerCase(),
-      token: code.trim(),
-      type: "email",
-    });
+    const { data, error } = isReview(email)
+      ? await sb.auth.signInWithPassword({ email: REVIEW_EMAIL, password: code.trim() })
+      : await sb.auth.verifyOtp({
+          email: email.trim().toLowerCase(),
+          token: code.trim(),
+          type: "email",
+        });
     if (error) throw error;
     session = data.session;
     await loadCompany();

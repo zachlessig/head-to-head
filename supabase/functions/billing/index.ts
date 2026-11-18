@@ -27,9 +27,12 @@ const RETURN_ORIGINS = [
 ];
 const SITE = "https://headtoheadapp.com/";
 
+// the iPhone app's own pages load from capacitor://localhost; it may call this, but Stripe never
+// sends anyone back there
+const APP_ORIGINS = ["capacitor://localhost"];
 const cors = (origin: string | null) => ({
   "Access-Control-Allow-Origin":
-    origin && RETURN_ORIGINS.includes(origin) ? origin : RETURN_ORIGINS[0],
+    origin && (RETURN_ORIGINS.includes(origin) || APP_ORIGINS.includes(origin)) ? origin : RETURN_ORIGINS[0],
   "Access-Control-Allow-Headers":
     "authorization, apikey, content-type, x-client-info",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -380,12 +383,13 @@ Deno.serve(async (req) => {
           },
         },
         metadata: { job_id: jobId, kind: input.kind === "contractor" ? "contractor_yard" : "yard_unlock" },
-        // Stripe fills in {CHECKOUT_SESSION_ID}; the app checks it on the way back
-        success_url: backTo(
-          origin,
-          "?unlock={CHECKOUT_SESSION_ID}&job=" + jobId,
-        ),
-        cancel_url: backTo(origin, "#/job/" + jobId),
+        // Stripe fills in {CHECKOUT_SESSION_ID}; the app checks it on the way back. Checkout opened
+        // from the iPhone app (US storefront, Zach 2026-11-18) ends on the website in Safari, which
+        // says to go back to the app; the app confirms the payment itself when it comes back.
+        success_url: input.from === "app"
+          ? SITE + "?paid=app"
+          : backTo(origin, "?unlock={CHECKOUT_SESSION_ID}&job=" + jobId),
+        cancel_url: input.from === "app" ? SITE + "?paid=app-cancel" : backTo(origin, "#/job/" + jobId),
       });
       return reply({ url: s.url });
     }
