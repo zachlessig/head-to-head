@@ -36,7 +36,17 @@
   }
   const emit = (what) => listeners.forEach((fn) => fn(what));
 
-  async function start() {
+  // one connection, however many places ask for it
+  let starting = null;
+  function start() {
+    if (!starting)
+      starting = startOnce().catch((e) => {
+        starting = null;
+        throw e;
+      });
+    return starting;
+  }
+  async function startOnce() {
     if (!enabled) return null;
     // Sessions persist on the phone and refresh themselves, so you stay signed in until you sign out.
     // PKCE keeps the Google sign-in return in the query string, away from the app's #/ routes.
@@ -73,7 +83,13 @@
   // notes). No email is sent to it. Every other address works as before.
   const REVIEW_EMAIL = "appreview@headtoheadapp.com";
   const isReview = (email) => email.trim().toLowerCase() === REVIEW_EMAIL;
+  // the app may not have connected yet (it opened on the homeowner side); connect now
+  async function ready() {
+    if (!sb) await start();
+    if (!sb) throw new Error("Sign-in isn't available right now");
+  }
   async function sendCode(email) {
+    await ready();
     if (isReview(email)) return;
     const { error } = await sb.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
@@ -82,6 +98,7 @@
     if (error) throw error;
   }
   async function verifyCode(email, code) {
+    await ready();
     const { data, error } = isReview(email)
       ? await sb.auth.signInWithPassword({ email: REVIEW_EMAIL, password: code.trim() })
       : await sb.auth.verifyOtp({

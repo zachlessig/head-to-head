@@ -226,6 +226,10 @@
   function setHomeowner(on) {
     prefs.homeowner = !!on;
     savePrefs();
+    if (!on && Cloud.enabled && !cloudUp)
+      return startCloud().then(() =>
+        cloudUp && Cloud.session && Cloud.company ? afterSignIn() : route(),
+      );
     route();
   }
 
@@ -5655,35 +5659,49 @@
     );
   }
 
+  // Connects to the server once. The homeowner side doesn't need it, so an app that opens there
+  // connects when someone switches to the contractor side (2026-11-18: on Zach's phone the switch
+  // went straight to sign-in with no connection, and "Email me a code" failed on 'sb.auth').
+  let cloudWired = false,
+    cloudUp = false;
+  async function startCloud() {
+    if (!Cloud.enabled || cloudUp) return cloudUp;
+    if (!cloudWired) {
+      cloudWired = true;
+      Cloud.setLocalJobs(() => jobs);
+      Cloud.on((what) => {
+        if (what === "signedOut") route();
+      });
+      // keep up with the rest of the crew while the app is open
+      setInterval(() => {
+        if (cloudUp && document.visibilityState === "visible") syncNow();
+      }, 30000);
+      document.addEventListener("visibilitychange", () => {
+        if (!cloudUp) return;
+        if (document.visibilityState === "visible") syncNow();
+        else Cloud.pushNow();
+      });
+    }
+    try {
+      await Cloud.start();
+      cloudUp = true;
+    } catch (e) {
+      // no signal: run on what's saved on the phone; the next switch or sign-in tries again
+      console.warn("Couldn't reach the server", e);
+    }
+    return cloudUp;
+  }
+
   async function boot() {
     if (!Cloud.enabled || isHome()) {
       await paymentReturn();
       return route();
     }
-    Cloud.setLocalJobs(() => jobs);
-    Cloud.on((what) => {
-      if (what === "signedOut") route();
-    });
-    try {
-      await Cloud.start();
-    } catch (e) {
-      // no signal on launch: run on what's saved on the phone and sync later
-      console.warn("Couldn't reach the server", e);
-      await paymentReturn();
-      return route();
-    }
+    await startCloud();
     // after the session is back, so a contractor's paid yard is queued to go up to the company
     await paymentReturn();
-    if (Cloud.session && Cloud.company) await afterSignIn();
+    if (cloudUp && Cloud.session && Cloud.company) await afterSignIn();
     else route();
-    // keep up with the rest of the crew while the app is open
-    setInterval(() => {
-      if (document.visibilityState === "visible") syncNow();
-    }, 30000);
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") syncNow();
-      else Cloud.pushNow();
-    });
   }
 
   // opening animation (Zach's pick 2026-11-15, "the rain one"): three small drops fall, and where
