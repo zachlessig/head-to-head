@@ -6,7 +6,7 @@ irrigation rules come from him. Every rule below has a test in `test/engine.test
 yards with every feature, runs them the way the app does, and checks the rules independently; run
 seeds 1 to 3 after engine changes. Coverage under 98% is flagged: Zach accepts single coverage
 in strips a couple of feet wide (a bed 2.4 ft from a fence) rather than adding 4VANs there
-(2026-11-10). The one known flag is a fence running lengthwise down a narrow strip lawn (95.6%). Timing on a loaded Mac
+(2026-11-10). The one known flag is a fence running lengthwise down a narrow strip lawn (random yard 41, seed 3: 96.8%, single coverage along the fence only, no dry ground since the 4VAN sliver fill; Zach 2026-11-17: "thats fine"). Timing on a loaded Mac
 swings 10x, so compare old and new engines back to back before calling anything slow.
 
 ## Never
@@ -57,6 +57,11 @@ swings 10x, so compare old and new engines back to back before calling anything 
 
 - Overspray: zero on straight edges. Up to 1 ft past a curve, "nothing over a foot ever".
   A spot past the corner where a curve meets a straight edge counts as straight.
+- Fence slivers (Zach 2026-11-17, random yard 41): a sliver under 2.3 ft wide between a fence and an
+  open lawn edge gets 4VANs ("just put 4 vans in there"), turned all the way down, on the fence
+  line aimed away from it, head to head along it. Found by walking the edge, since the tip of a
+  wedge can be narrower than the 1 ft coverage grid. The little past the open side is accepted;
+  never across the fence or into a bed.
 - Curves: "overspray is better than a bunch of small heads". Use 8VAN and up first, and add
   4VAN or 6VAN only where a tight curve is still dry.
 - Rotors: 3504 throws 18 to 23 ft, 5004 throws 24 to 30 ft. Use rotors only where 3 or more fit
@@ -210,6 +215,9 @@ swings 10x, so compare old and new engines back to back before calling anything 
   Measure, Heads, Plan and parts, and how to start a job. Homeowners get their own wording for
   Heads and Plan. "Take the tour" on the home screen runs it again. When a feature is added, add a
   line to the tip for its tab.
+- Sod calculator (Zach 2026-11-17, Measure tab, `sodBlock` and `sodPallets`): the lawn's total
+  square feet (beds inside lawns taken out), and pallets of 500 sq ft after adding 10% for edges
+  and cuts, rounded up to the half pallet, with a note saying so.
 - Example yard: "Try an example yard" on the home screen builds a made-up yard with every
   feature, on a plain background (no satellite photo of a real place), and lays it out.
   When a feature is added, add it to `exampleJob()` in `js/app.js` too.
@@ -278,7 +286,7 @@ swings 10x, so compare old and new engines back to back before calling anything 
 4. The website vs the app: decided and built 2026-11-16 (see Website and iPhone app under His rules).
 5. Security and liability (added 2026-11-17): "a way im not liable for if someones map is wrong
    because in reality, this is just a tool for contractors, we aren't actually installing the yard."
-6. A sod calculator (added 2026-11-17).
+6. A sod calculator: built 2026-11-17 (see Sod calculator).
 
 ## Payments and server scripts
 

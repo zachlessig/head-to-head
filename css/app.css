@@ -1134,3 +1134,15 @@ table.parts td.q {
 @media (min-width: 900px) {
   .overlay .body { max-width: 860px; margin-left: auto; margin-right: auto; }
 }
+.sod {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: var(--soft);
+}
+.sod > b {
+  display: block;
+  font: 700 17px Fraunces, Georgia, serif;
+  margin-bottom: 6px;
+}

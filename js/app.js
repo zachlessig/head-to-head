@@ -294,7 +294,7 @@
         mode: "measure",
         tab: "measure",
         title: "Measure",
-        text: "Tap two spots to check a length. If it doesn't match your tape, enter the real number and the whole yard rescales.",
+        text: "Tap two spots to check a length. If it doesn't match your tape, enter the real number and the whole yard rescales. The lawn's square feet and how many pallets of sod it takes are here too.",
       },
       {
         mode: "heads",
@@ -2952,6 +2952,30 @@
     else toast(name + " saved: " + parts + ". Drag any dot to fix it up.");
   }
 
+  // Sod calculator (Zach 2026-11-17): the lawn's total square feet, and pallets of 500 sq ft with
+  // 10% added for cuts and edges. Beds inside a lawn come out of the total.
+  function sodBlock(job) {
+    const sqft = buildAreas(job).reduce(
+      (t, a) =>
+        t +
+        Math.abs(ringArea(densify(a.outer, true))) -
+        (a.holes || []).reduce((u, hl) => u + Math.abs(ringArea(densify(hl, true))), 0),
+      0,
+    );
+    if (sqft < 1) return "";
+    const sod = E.sodPallets(sqft);
+    return (
+      '<div class="sod"><b>Sod</b><dl class="kv"><dt>Lawn</dt><dd>' +
+      Math.round(sqft).toLocaleString() +
+      " sq ft</dd><dt>Pallets</dt><dd>" +
+      sod.pallets +
+      "</dd></dl>" +
+      '<p class="note">Based on 500 sq ft pallets, with 10% added for edges and cuts (' +
+      Math.round(sod.withExtra).toLocaleString() +
+      " sq ft).</p></div>"
+    );
+  }
+
   function panelMeasure(el) {
     const job = J.job;
     const ft = measureFeet();
@@ -2973,7 +2997,7 @@
           '<p class="hint">That\'s <b>' +
           ft.toFixed(1) +
           " ft</b> on the grid.</p>";
-      el.innerHTML = h;
+      el.innerHTML = h + sodBlock(job);
       return;
     }
     const pct = (job.scale - 1) * 100;
@@ -2988,7 +3012,7 @@
       "</p>";
     if (Math.abs(pct) >= 0.05)
       h += '<button class="btn small" id="rs">Reset scale</button>';
-    el.innerHTML = h;
+    el.innerHTML = h + sodBlock(job);
     const ap = el.querySelector("#ap");
     if (ap)
       ap.onclick = () => {

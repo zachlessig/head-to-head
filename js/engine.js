@@ -72,6 +72,13 @@
     TRUNKS = (G && G.trunks) || [];
     FENCES = (G && G.fences) || [];
   }
+  // near the edge of a bed (a hole in the lawn), for the sliver step
+  let NEAR_HOLE_G = null;
+  function nearHole(x, y) {
+    const G = NEAR_HOLE_G;
+    if (!G) return false;
+    return G.segs.some((q, i) => i >= G.rings[0].length && segDist(q, x, y) < 0.3);
+  }
   function onFence(x, y) {
     return FENCES.some((f) =>
       f.some((b, i) => {
@@ -1234,6 +1241,55 @@
       greedy(smallCands, S, cov, all, minGain, heads, 600);
     }
 
+    // 6. a sliver too narrow for any head (a fence running at a slant beside a lawn edge left a
+    // wedge 0 to 2 ft wide dry in random yard 41). Zach 2026-11-17: "just put 4 vans in there".
+    // 4VANs turned all the way down, on the fence line aimed away from it so the little that lands
+    // past the far side goes on the open edge, never across the fence, head to head along the
+    // sliver. Found by walking the edge: the tip of that wedge was under a foot wide, narrower than
+    // the 1 ft coverage grid, so the grid never saw it was dry.
+    if (spray) {
+      NEAR_HOLE_G = G;
+      const nz = nozzle("VAN", 180, THROTTLE * VAN[4].design + 1e-6);
+      const width = (smp) => {
+        let across = 0;
+        while (across < 2.3 && inLawn(G, smp.x + smp.nx * (across + 0.05), smp.y + smp.ny * (across + 0.05))) across += 0.05;
+        return across;
+      };
+      const pick = (fenceOnly) => {
+        const out = [];
+        G.ringSamples.forEach((list) =>
+          list.forEach((smp) => {
+            if (smp.ring !== 0 || smp.corner || (fenceOnly && !onFence(smp.x, smp.y))) return;
+            const w = width(smp);
+            if (w >= 2.3) return;
+            // the far side has to be open lawn edge, not another fence or a bed
+            const fx = smp.x + smp.nx * (w + 0.15), fy = smp.y + smp.ny * (w + 0.15);
+            if (onFence(fx, fy) || (G.rings.length > 1 && nearHole(fx, fy))) return;
+            // the middle of the sliver straight across: is it already double covered?
+            const mx = smp.x + (smp.nx * w) / 2, my = smp.y + (smp.ny * w) / 2;
+            let c = 0;
+            for (const h of heads) if (covers(h, mx, my) && ++c >= 2) break;
+            if (c < 2) out.push(smp);
+          }),
+        );
+        return out;
+      };
+      // only beside a fence: a fence at a slant to the lawn edge is what leaves these slivers
+      const need = nz && FENCES.length ? pick(true) : [];
+      // head to head along the sliver: a new 4VAN once the last one is a throw away
+      let last = null;
+      need.forEach((smp) => {
+        if (last && Math.hypot(smp.x - last.x, smp.y - last.y) < nz.r) return;
+        if (heads.some((h) => h.sliver && Math.hypot(h.x - smp.x, h.y - smp.y) < nz.r)) return;
+        const h = makeHead(smp.x, smp.y, nz, Math.atan2(smp.ny, smp.nx) / DEG, 180, "sliver");
+        h.sliver = true;
+        if (!treeOk(h)) return;
+        heads.push(h);
+        mark(h);
+        last = h;
+      });
+    }
+
     // No sliver-filling pass. A strip a couple of feet wide (a bed 2.4 ft from a fence) can end up
     // single covered; extra 4VANs would fix it, and Zach said 2026-11-10 "just leave it. its
     // probably fine without those heads" after seeing the 3 extra heads it cost on a test yard.
@@ -1412,6 +1468,9 @@
     const bad = [];
     for (const h of heads) {
       if (h.strip) continue; // sized to the strip's own width and length
+      // a 4VAN filling a sliver too narrow for any head lands a little past the open side (Zach
+      // 2026-11-17, "just put 4 vans in there")
+      if (h.sliver) continue;
       let hWorst = 0;
       const full = h.arc >= 359.5;
       const a0 = full ? 0 : h.dir - h.arc / 2;
@@ -2169,6 +2228,15 @@
   // just a tool for contractors, we aren't actually installing the yard." On every plan and parts list.
   const DISCLAIMER =
     "This is an estimate from the map it was drawn on. Check measurements, water pressure and local codes, and call 811 before you dig. Head to Head doesn't install systems and isn't responsible for errors in the map, layout or parts list. See the Terms of Use.";
+  // Sod (Zach 2026-11-17): total lawn square feet, then pallets of 500 sq ft after adding 10% "to
+  // account for cuts and edges".
+  const SOD_PALLET_SQFT = 500;
+  const SOD_EXTRA = 0.1;
+  function sodPallets(sqft) {
+    const withExtra = sqft * (1 + SOD_EXTRA);
+    // rounded up to the half pallet (Zach 2026-11-17: "round it to the half pallet")
+    return { sqft, withExtra, pallets: sqft > 0 ? Math.ceil((2 * withExtra) / SOD_PALLET_SQFT - 1e-9) / 2 : 0 };
+  }
   const PIPE_ROLLS = { mainline: [100, 300], lateral: [100, 400] };
   function lateralExtra(ft) {
     return ft > 3000 ? 400 : ft > 1300 ? 200 : 100;
@@ -3162,6 +3230,7 @@
     arcPoints,
     orient,
     trenchPlan,
+    sodPallets,
     DISCLAIMER,
     pipePlan,
     rollMix,
