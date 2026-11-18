@@ -3455,7 +3455,7 @@
         (!pro && !J.job.example && (PAY_HERE || PAY_LINK)
           ? '<label class="f" for="pe">Your email</label><input id="pe" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" value="' +
             esc(prefs.homeEmail || "") +
-            '"><p class="note" style="margin-top:4px">Once it\'s paid we email you the plan, the parts list and a link back to this yard, so it\'s never lost.</p>'
+            '"><p class="note" style="margin-top:4px">Once it\'s paid we email you the plan and a link back to this yard and its parts list, so it\'s never lost.</p>'
           : "") +
         '<p class="note">It\'s an estimate from your map. By paying you agree to the <a href="terms.html">Terms of Use</a>.</p>' +
         // the example yard shows the lock but can't be bought (payments live 2026-11-18)
@@ -3902,20 +3902,17 @@
   }
 
   // what a homeowner's plan email carries (Zach 2026-11-18): the yard itself, so the link in the
-  // email can open it again anywhere, plus the finished plan picture and the parts list
+  // email can open it again anywhere with its parts list, plus the finished plan picture
   function yardCopy() {
     const job = JSON.parse(JSON.stringify(J.job));
-    const L0 = J.job.layout;
     let png = "";
-    let parts = "";
-    if (L0) {
+    if (J.job.layout) {
       const cv = document.createElement("canvas");
       cv.width = 1700;
       cv.height = 2200;
       png = planPng(cv);
-      parts = partsText(shownParts(L0));
     }
-    return { job, plan_png: png, parts_text: parts };
+    return { job, plan_png: png };
   }
 
   // a browser that won't let a page read back a canvas with the logo on it still gets the plan,

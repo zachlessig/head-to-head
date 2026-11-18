@@ -15,7 +15,10 @@ const SITE = "https://headtoheadapp.com/";
 // again. Sent once; claiming emailed_at first means a retried message can't send it twice.
 const escHtml = (t: string) =>
   t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-async function sendYardCopy(token: string, sessionId: string) {
+// security review 2026-11-18: the email is built from what the server controls. It goes to the
+// address typed into Stripe's checkout, the subject is fixed, the yard's name and parts list stay
+// out of it (the link opens both), and only a checked plan picture is attached.
+async function sendYardCopy(token: string, sessionId: string, stripeEmail: string) {
   const headers = { apikey: SERVICE_KEY, Authorization: "Bearer " + SERVICE_KEY, "Content-Type": "application/json" };
   const base = SUPABASE_URL + "/rest/v1/yard_copies?token=eq." + encodeURIComponent(token);
   const claim = await fetch(base + "&emailed_at=is.null", {
@@ -27,32 +30,32 @@ async function sendYardCopy(token: string, sessionId: string) {
   const rows = await claim.json();
   const row = rows[0];
   if (!row) return; // already emailed, or no such copy
-  const name = (row.job && row.job.name) || "Your yard";
-  const address = (row.job && row.job.address) || "";
+  const address = String((row.job && row.job.address) || "")
+    .replace(/[^A-Za-z0-9 .,#'\-\/]/g, "")
+    .slice(0, 100)
+    .trim();
   const link = SITE + "?yard=" + token;
-  const parts = row.parts_text || "";
+  const to = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(stripeEmail) ? stripeEmail : row.email;
   const text =
     "Thanks for unlocking " + (address ? "your yard at " + address : "your yard") + " on Head to Head.\n\n" +
     "Your sprinkler plan is attached. To open the yard again with every head, the plan and the parts list, use this link:\n" +
-    link + "\n\nAnyone with this link can open your yard, so keep it to yourself.\n\n" +
-    (parts ? "Parts list\n\n" + parts + "\n" : "") +
+    link + "\n\nThe link also has your parts list. Anyone with this link can open your yard, so keep it to yourself.\n\n" +
     "Questions? Just reply to this email.\n\nHead to Head";
   const html =
     '<div style="font-family:-apple-system,Segoe UI,Arial,sans-serif;color:#1d2320;max-width:560px">' +
     "<p>Thanks for unlocking " + escHtml(address ? "your yard at " + address : "your yard") + " on Head to Head.</p>" +
     "<p>Your sprinkler plan is attached. To open the yard again with every head, the plan and the parts list, use this link:</p>" +
     '<p><a href="' + link + '" style="display:inline-block;background:#1d6e47;color:#fff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:600">Open my yard</a></p>' +
-    '<p style="color:#5f6964;font-size:13px">Anyone with this link can open your yard, so keep it to yourself.</p>' +
-    (parts ? '<h3 style="margin-top:24px">Parts list</h3><pre style="font:13px/1.5 Menlo,Consolas,monospace;white-space:pre-wrap">' + escHtml(parts) + "</pre>" : "") +
+    '<p style="color:#5f6964;font-size:13px">The link also has your parts list. Anyone with this link can open your yard, so keep it to yourself.</p>' +
     "<p>Questions? Just reply to this email.</p><p>Head to Head</p></div>";
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: "Bearer " + RESEND_KEY, "Content-Type": "application/json" },
     body: JSON.stringify({
       from: "Head to Head <noreply@headtoheadapp.com>",
-      to: [row.email],
+      to: [to],
       reply_to: "zach@headtoheadapp.com",
-      subject: "Your sprinkler plan: " + name,
+      subject: "Your Head to Head sprinkler plan",
       text,
       html,
       attachments: row.plan_png ? [{ filename: "sprinkler-plan.png", content: row.plan_png }] : undefined,
@@ -373,7 +376,11 @@ Deno.serve(async (req) => {
       obj.metadata && obj.metadata.copy &&
       obj.payment_status === "paid"
     ) {
-      await sendYardCopy(String(obj.metadata.copy), String(obj.id));
+      await sendYardCopy(
+        String(obj.metadata.copy),
+        String(obj.id),
+        String((obj.customer_details && obj.customer_details.email) || "").trim().toLowerCase(),
+      );
       return new Response("ok", { status: 200 });
     }
     if (

@@ -75,6 +75,21 @@ async function stripe(
   return json;
 }
 
+// the plan picture a homeowner's browser draws: a PNG exactly the size the app draws (1700 x 2200)
+function isPlanPng(b64: string) {
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(b64)) return false;
+  let head: Uint8Array;
+  try {
+    head = Uint8Array.from(atob(b64.slice(0, 44)), (ch) => ch.charCodeAt(0));
+  } catch {
+    return false;
+  }
+  const sig = [137, 80, 78, 71, 13, 10, 26, 10];
+  if (!sig.every((v, i) => head[i] === v)) return false;
+  const dv = new DataView(head.buffer);
+  return dv.getUint32(16) === 1700 && dv.getUint32(20) === 2200;
+}
+
 async function db(path: string, init: RequestInit = {}) {
   const res = await fetch(SUPABASE_URL + "/rest/v1/" + path, {
     ...init,
@@ -385,18 +400,28 @@ Deno.serve(async (req) => {
         const c = input.copy || {};
         const job = c.job;
         const png = typeof c.plan_png === "string" ? c.plan_png : "";
-        const parts = typeof c.parts_text === "string" ? c.parts_text : "";
         if (!job || typeof job !== "object" || String(job.id) !== jobId)
           return reply({ error: "Bad yard" }, 400);
-        if (JSON.stringify(job).length > 600_000 || png.length > 4_000_000 || parts.length > 60_000)
+        // security review 2026-11-18: this is written before anyone pays, so it's kept small, only
+        // a real plan picture is accepted, unpaid copies are cleared after two days, and one email
+        // can't pile up more than a few unpaid ones
+        if (JSON.stringify(job).length > 300_000 || png.length > 3_000_000)
           return reply({ error: "That yard is too big to save. Try again." }, 400);
-        if (png && !/^[A-Za-z0-9+/=]+$/.test(png)) return reply({ error: "Bad plan" }, 400);
+        if (png && !isPlanPng(png)) return reply({ error: "Bad plan" }, 400);
+        const twoDaysAgo = new Date(Date.now() - 2 * 86400_000).toISOString();
+        await db("yard_copies?paid=eq.false&created_at=lt." + twoDaysAgo, { method: "DELETE" });
+        const dayAgo = new Date(Date.now() - 86400_000).toISOString();
+        const recent = await db(
+          "yard_copies?select=token&paid=eq.false&email=eq." + encodeURIComponent(email) + "&created_at=gt." + dayAgo,
+        );
+        if (Array.isArray(recent) && recent.length >= 5)
+          return reply({ error: "Too many tries with that email today. Try again tomorrow." }, 429);
         const raw = new Uint8Array(24);
         crypto.getRandomValues(raw);
         copyToken = btoa(String.fromCharCode(...raw)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
         await db("yard_copies", {
           method: "POST",
-          body: JSON.stringify({ token: copyToken, job_id: jobId, job, email, plan_png: png || null, parts_text: parts || null }),
+          body: JSON.stringify({ token: copyToken, job_id: jobId, job, email, plan_png: png || null }),
         });
       }
       const s = await stripe("checkout/sessions", {
