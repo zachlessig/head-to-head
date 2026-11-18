@@ -4399,7 +4399,14 @@
       '<section class="l-sec"><h2>Pricing</h2><div class="l-prices">' +
       '<div class="l-price"><b>Contractors</b><div class="l-amt">$30<span>/month</span></div>' +
       "<p>The first contractors on Head to Head lock in <b>$20 a month</b>.</p>" +
-      "<p>Jobs save online and your whole crew can open them.</p>" +
+      "<p>Jobs save online and your whole crew can open them. " +
+      FREE_CREW +
+      " crew members are included, then " +
+      CREW_PRICE +
+      " for each person after that.</p>" +
+      "<p>Got a referral code from another contractor? Take " +
+      REFERRAL_OFF +
+      " off your first month.</p>" +
       "<p>Or pay for the year up front: <b>" +
       SEASON_PRICE +
       "</b>, or <b>" +
@@ -4935,6 +4942,38 @@
   const SEASON_PRICE = "$250";
   const FOUNDING_SEASON_PRICE = "$200";
   const FOUNDING_PRICE = "$20 a month";
+  // Zach 2026-11-17: "lets just say you can have 5 crew members on the app before you need $5 more
+  // a month". The owner isn't counted. Billing is in the billing function (FREE_CREW there too).
+  const FREE_CREW = 5;
+  const CREW_PRICE = "$5 a month";
+  // Referrals (Zach 2026-11-17): the new contractor gets $5 off their first month; the company
+  // that shared the code gets a free month after the new contractor's first payment; they stack.
+  const REFERRAL_OFF = "$5";
+  function crewNote(crew) {
+    const extra = Math.max(0, crew - FREE_CREW);
+    return (
+      '<p class="note" id="crewn">' +
+      FREE_CREW +
+      " crew members come with the plan, not counting you. " +
+      (extra
+        ? "You have " + crew + ", so " + extra + " extra at " + CREW_PRICE + " each."
+        : "You have " + crew + ". After " + FREE_CREW + ", each person is " + CREW_PRICE + ".") +
+      "</p>"
+    );
+  }
+  function referralBlock() {
+    const code = Cloud.company && Cloud.company.referral_code;
+    if (!code) return "";
+    return (
+      '<label class="f" style="margin-top:14px">Your referral code</label>' +
+      '<div class="row" style="align-items:center"><b class="grow" style="font-size:20px;letter-spacing:2px">' +
+      esc(code) +
+      '</b><button class="btn small" id="rc">Copy</button></div>' +
+      '<p class="note">Give it to another contractor. They get ' +
+      REFERRAL_OFF +
+      " off their first month, and you get a free month once they make their first payment. Free months stack.</p>"
+    );
+  }
   function planBlock() {
     return '<label class="f" style="margin-top:14px">Plan</label><div class="plan" id="plan"><p class="note" style="margin:0">Loading your plan...</p></div>';
   }
@@ -5005,6 +5044,11 @@
       btn = owner ? ["portal", "Update the card"] : null;
     } else {
       h = offer;
+      // a code only counts on a company's first plan; the server checks that
+      if (owner && !(b && b.status))
+        h +=
+          '<label class="f" for="rf">Referral code (optional)</label>' +
+          '<input class="t" id="rf" autocapitalize="characters" autocomplete="off" maxlength="12" placeholder="From another contractor" style="margin-bottom:10px">';
       btn = owner ? ["subscribe", "Start the plan · " + FOUNDING_PRICE] : null;
       if (owner) yearly = "Pay for the year · " + FOUNDING_SEASON_PRICE;
       if (!owner)
@@ -5028,9 +5072,14 @@
         el.disabled = true;
         el.textContent = "Opening Stripe...";
         try {
+          const rf = box.querySelector("#rf");
           const r = await Cloud.pay(action, {
             company_id: Cloud.company.id,
             interval,
+            referral_code:
+              action === "subscribe" && rf && rf.value.trim()
+                ? rf.value.trim()
+                : undefined,
           });
           location.assign(r.url);
         } catch (e) {
@@ -5230,7 +5279,11 @@
               .join("") +
             "</select>"
           : "") +
+        (owner
+          ? crewNote(people.filter((m) => m.role !== "owner").length)
+          : "") +
         planBlock() +
+        (owner ? referralBlock() : "") +
         (NATIVE
           ? ""
           : '<p class="note" style="margin-top:12px">On iPhone, add this app to your home screen (Share, then Add to Home Screen) so Safari doesn\'t sign you out after a week away.</p>') +
@@ -5343,6 +5396,19 @@
         );
         invitesBlock(el.querySelector("#myiv"), close);
         fillPlan(el.querySelector("#plan"), owner);
+        // the owner opening this screen also squares the plan's extra-crew line with the crew
+        if (owner && ENFORCE) Cloud.crewSync(c.id);
+        const rc = el.querySelector("#rc");
+        if (rc)
+          rc.onclick = async () => {
+            try {
+              await navigator.clipboard.writeText(c.referral_code);
+              toast("Referral code copied.");
+            } catch (e) {
+              console.warn("Copy failed", e);
+              toast("Couldn't copy. The code is " + c.referral_code + ".");
+            }
+          };
         const sw = el.querySelector("#sw");
         if (sw)
           sw.onchange = async () => {

@@ -45,7 +45,15 @@ const yard = await product(
   "Head to Head yard unlock",
   "Every head, a printable plan and the parts list for one yard.",
 );
+// Zach 2026-11-17: 5 crew included, "$5 more a month" each after; $60 a year on a yearly plan,
+// since every line on one subscription bills on the same schedule
+const crew = await product(
+  "Head to Head extra crew",
+  "Each crew member past the 5 that come with the plan.",
+);
 const want = [
+  ["extra_crew_monthly", crew, 500, true, "Extra crew member"],
+  ["extra_crew_yearly", crew, 6000, "year", "Extra crew member, yearly"],
   ["founding_monthly", plan, 2000, true, "Founding contractor"],
   ["standard_monthly", plan, 3000, true, "Contractor"],
   ["yard_unlock", yard, 1500, false, "One yard"], // $15 since 2026-11-17 (was $10)
@@ -76,4 +84,18 @@ for (const [lookup_key, product_id, cents, recurring, nickname] of want) {
     "created at $" + p.unit_amount / 100,
     recurring ? (recurring === "year" ? "a year" : "a month") : "once",
   );
+}
+
+// Referral (Zach 2026-11-17): $5 off the new contractor's first payment
+const coupon = await api("coupons/referral_5_off").catch(() => null);
+if (coupon) console.log("coupon referral_5_off already exists");
+else {
+  await api("coupons", {
+    id: "referral_5_off",
+    name: "Referral: $5 off your first month",
+    amount_off: 500,
+    currency: "usd",
+    duration: "once",
+  });
+  console.log("coupon referral_5_off created");
 }

@@ -118,6 +118,7 @@
   async function acceptInvite(id) {
     const { data, error } = await sb.rpc("accept_invite", { invite_id: id });
     if (error) throw error;
+    if (data) crewSync(data);
     await loadCompany();
     if (data) await switchCompany(data);
   }
@@ -151,7 +152,7 @@
   async function loadCompany() {
     const { data, error } = await sb
       .from("members")
-      .select("role, company:companies(id, name, settings)")
+      .select("role, company:companies(id, name, settings, referral_code)")
       .eq("user_id", session.user.id);
     if (error) throw error;
     companies = (data || [])
@@ -221,6 +222,19 @@
       .eq("company_id", company.id)
       .eq("user_id", userId);
     if (error) throw error;
+    crewSync(company.id);
+  }
+  // Crew (Zach 2026-11-17): 5 people besides the owner come with the plan, $5 a month each after.
+  // Asks the server to recount and set the plan's extra-crew line. The server does the counting;
+  // a missed call is caught by the owner's company screen and by the recount before each renewal.
+  async function crewSync(companyId) {
+    if (!session || !companyId) return null;
+    try {
+      return await pay("crew-sync", { company_id: companyId });
+    } catch (e) {
+      console.warn("Crew count not synced", e);
+      return null;
+    }
   }
   async function saveSettings(settings) {
     const { error } = await sb.rpc("save_company_settings", {
@@ -430,6 +444,7 @@
     removeMember,
     saveSettings,
     billing,
+    crewSync,
     pay,
     folders,
     addFolder,

@@ -34,6 +34,9 @@ if (mode === "hook") {
     "customer.subscription.created",
     "customer.subscription.updated",
     "customer.subscription.deleted",
+    // referral reward after the first payment, and the crew recount before each renewal
+    "invoice.paid",
+    "invoice.upcoming",
   ];
   const d = { url: URL_HOOK, description: "Head to Head plan status" };
   events.forEach((e, i) => (d["enabled_events[" + i + "]"] = e));

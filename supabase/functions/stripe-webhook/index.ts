@@ -28,6 +28,118 @@ async function currentBilling(companyId: string) {
   const rows = await res.json();
   return rows[0] || null;
 }
+async function stripe(path: string, body?: Record<string, string>, method = body ? "POST" : "GET", idem?: string) {
+  const headers: Record<string, string> = {
+    Authorization: "Bearer " + STRIPE_KEY,
+    "Content-Type": "application/x-www-form-urlencoded",
+  };
+  if (idem) headers["Idempotency-Key"] = idem;
+  const res = await fetch("https://api.stripe.com/v1/" + path, {
+    method,
+    headers,
+    body: body ? new URLSearchParams(body) : undefined,
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error("stripe " + path + " " + res.status + " " + (json.error && json.error.message));
+  return json;
+}
+
+async function db(path: string, init: RequestInit = {}) {
+  const res = await fetch(SUPABASE_URL + "/rest/v1/" + path, {
+    ...init,
+    headers: {
+      apikey: SERVICE_KEY,
+      Authorization: "Bearer " + SERVICE_KEY,
+      "Content-Type": "application/json",
+      ...(init.headers || {}),
+    },
+  });
+  if (!res.ok) throw new Error("db " + path.split("?")[0] + " " + res.status + " " + (await res.text()));
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+async function priceOf(lookup: string) {
+  const r = await stripe("prices?active=true&lookup_keys[]=" + encodeURIComponent(lookup));
+  if (!r.data || !r.data.length) throw new Error("no price " + lookup);
+  return r.data[0];
+}
+
+// newer Stripe versions moved the subscription id under parent.subscription_details
+function invoiceSubscription(inv: Record<string, any>) {
+  return inv.subscription ||
+    (inv.parent && inv.parent.subscription_details && inv.parent.subscription_details.subscription) ||
+    null;
+}
+
+// Crew (Zach 2026-11-17): 5 people besides the owner are included, $5 a month each after that.
+// The billing function keeps the plan's extra-crew line in step when people join; this runs the
+// same count a few days before every renewal (invoice.upcoming), so someone who left is never
+// billed for. Kept in step with syncCrew in the billing function.
+const FREE_CREW = 5;
+async function syncCrew(companyId: string, sub: Record<string, any>) {
+  const rows = await db("members?select=user_id&role=eq.member&company_id=eq." + companyId);
+  const extra = Math.max(0, (Array.isArray(rows) ? rows.length : 0) - FREE_CREW);
+  const items = (sub.items && sub.items.data) || [];
+  const isCrew = (it: Record<string, any>) =>
+    !!(it.price && it.price.lookup_key && String(it.price.lookup_key).startsWith("extra_crew_"));
+  const crewItem = items.find(isCrew);
+  const planItem = items.find((it: Record<string, any>) => !isCrew(it));
+  const yearly = !!(planItem && planItem.price && planItem.price.recurring &&
+    planItem.price.recurring.interval === "year");
+  if (extra > 0 && !crewItem)
+    await stripe("subscription_items", {
+      subscription: sub.id,
+      price: (await priceOf(yearly ? "extra_crew_yearly" : "extra_crew_monthly")).id,
+      quantity: String(extra),
+    });
+  else if (extra > 0 && crewItem.quantity !== extra)
+    await stripe("subscription_items/" + crewItem.id, { quantity: String(extra) });
+  else if (extra === 0 && crewItem)
+    await stripe("subscription_items/" + crewItem.id, undefined, "DELETE");
+}
+
+// Referrals (Zach 2026-11-17): the company whose code was used gets one free month, only after the
+// new contractor's first payment goes through. The free month is credit on the referrer's Stripe
+// customer worth one month of their plan (founding $20, standard $30), so it comes off their next
+// bill and several stack. A referrer with no plan yet keeps the credit for when they start one.
+async function rewardReferrer(companyId: string, referrerId: string) {
+  const done = await db("referrals?select=company_id&company_id=eq." + companyId);
+  if (Array.isArray(done) && done.length) return;
+  const ref = await db("companies?select=id,name&id=eq." + referrerId);
+  if (!Array.isArray(ref) || !ref.length) return; // the referrer deleted their account
+  const rows = await db("billing?select=stripe_customer_id,plan&company_id=eq." + referrerId);
+  const bill = Array.isArray(rows) && rows[0] ? rows[0] : null;
+  let customer = bill && bill.stripe_customer_id;
+  if (!customer) {
+    const owner = await db("members?select=email&role=eq.owner&company_id=eq." + referrerId);
+    const c = await stripe("customers", {
+      email: Array.isArray(owner) && owner[0] ? owner[0].email : "",
+      name: ref[0].name,
+      "metadata[company_id]": referrerId,
+    }, "POST", "referrer-customer-" + referrerId);
+    customer = c.id;
+    await db("billing?on_conflict=company_id", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates" },
+      body: JSON.stringify({ company_id: referrerId, stripe_customer_id: customer }),
+    });
+  }
+  const month = await priceOf((bill && bill.plan === "standard" ? "standard" : "founding") + "_monthly");
+  // the same key twice (Stripe sending the payment message again) credits once
+  await stripe("customers/" + customer + "/balance_transactions", {
+    amount: String(-month.unit_amount),
+    currency: "usd",
+    description: "Free month: a contractor you referred started their plan",
+    "metadata[referred_company]": companyId,
+  }, "POST", "referral-" + companyId);
+  await db("referrals?on_conflict=company_id", {
+    method: "POST",
+    headers: { Prefer: "resolution=ignore-duplicates" },
+    body: JSON.stringify({ company_id: companyId, referrer_id: referrerId, rewarded_at: new Date().toISOString() }),
+  });
+}
+
 // Stripe's own libraries refuse signatures older than 300 seconds; same here
 const TOLERANCE_S = 300;
 
@@ -134,6 +246,20 @@ Deno.serve(async (req) => {
         cancel_at_period_end: !!(sub.cancel_at_period_end || sub.cancel_at),
         pending_checkout: null,
       });
+    }
+    if (event.type === "invoice.paid" || event.type === "invoice.upcoming") {
+      const subId = invoiceSubscription(obj);
+      if (!subId) return new Response("no subscription", { status: 200 });
+      const sub = await freshSubscription(String(subId));
+      const companyId = sub.metadata && sub.metadata.company_id;
+      if (!companyId || !UUID.test(companyId)) return new Response("no company", { status: 200 });
+      const co = await db("companies?select=id&id=eq." + companyId);
+      if (!Array.isArray(co) || !co.length) return new Response("company gone", { status: 200 });
+      if (event.type === "invoice.upcoming") await syncCrew(companyId, sub);
+      const referrer = sub.metadata.referrer;
+      if (event.type === "invoice.paid" && obj.billing_reason === "subscription_create" &&
+        referrer && UUID.test(referrer) && referrer !== companyId)
+        await rewardReferrer(companyId, referrer);
     }
     return new Response("ok", { status: 200 });
   } catch (e) {

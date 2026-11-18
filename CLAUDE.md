@@ -156,11 +156,20 @@ swings 10x, so compare old and new engines back to back before calling anything 
   longer takes payment types per checkout).
 - Pricing (Zach 2026-11-15, standard changed to $30 on 2026-11-16): contractors pay $30 a month (Stripe lookup key standard_monthly). The first contractors on the app
   lock in $20 a month. Homeowners pay $15 once per yard (was $10; Zach 2026-11-17: "each yard is $15 for a homeowner/contractor"). Nothing is charged yet.
-  Crew (Zach 2026-11-17): a contractor account includes 2 crew members free; each person after
-  that is $5 a month (not built into billing yet). Referrals (Zach 2026-11-17, not built yet): every
-  contractor company has a referral code to give another contractor; the new contractor who enters
-  it gets $5 off their first month; the contractor who shared it gets one free month, only after
-  the new contractor's first payment goes through; free months stack.
+  Crew (Zach 2026-11-17, changed from 2 the same day): "lets just say you can have 5 crew members on
+  the app before you need $5 more a month". The owner isn't counted (`FREE_CREW` in `js/app.js`,
+  the billing function and stripe-webhook). Extra people are a second line on the plan's
+  subscription: extra_crew_monthly $5, or extra_crew_yearly $60 on a yearly plan (Stripe bills every
+  line on one schedule). The billing function's crew-sync action recounts on the server after a
+  join or removal and when the owner opens the company screen; stripe-webhook recounts on
+  invoice.upcoming before each renewal. Referrals (Zach 2026-11-17): every company has an 8
+  character `companies.referral_code` (migration 0007), shown to the owner with a Copy button. A new
+  contractor types it before Start the plan and gets Stripe coupon referral_5_off ($5 off the first
+  payment), only on the company's first plan and never its own code. The referrer is kept in the
+  subscription's metadata; after the first payment (invoice.paid, subscription_create) the webhook
+  credits the referrer one month of their plan ($20 founding, $30 standard) as Stripe customer
+  balance and records it in `referrals`. Credit comes off their next bill, and free months stack.
+  Test: `test/crew-referral.e2e.mjs` (env SUPA_TOKEN, ANON, STRIPE_KEY).
 - Trench (Zach 2026-11-16, `trenchPlan` in `js/engine.js`): zones (drip too) are grouped by
   closeness into valve boxes sized by `valveBoxes`; each box goes on the lawn edge at the spot
   closest on average to its zones; the meter, every box and the middle of every zone are joined by
@@ -296,7 +305,7 @@ them. Run with Node 18+:
 
 - `scripts/supabase.mjs` (env SUPA_TOKEN): `query "<sql>"`, `sqlfile <migration>`, `deploy <slug>
   supabase/functions/<slug> <verify_jwt>`, `secrets NAME=ENVVAR`, `list-functions`. Migrations are
-  run by hand with `sqlfile`, in order; 0001 to 0006 are on the live project.
+  run by hand with `sqlfile`, in order; 0001 to 0007 are on the live project.
 - `scripts/stripe-prices.mjs` (env STRIPE_KEY): makes the products and lookup-key prices; leaves
   existing ones alone (changing a price means a new price with `transfer_lookup_key`).
 - `scripts/stripe-webhook-setup.mjs hook|portal` (env STRIPE_KEY): creates the webhook (prints its
