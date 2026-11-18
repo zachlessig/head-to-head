@@ -374,6 +374,31 @@ Deno.serve(async (req) => {
         ? ((await db("members?select=company_id&user_id=eq." + asker.id + "&limit=1")) || []).length > 0
         : false;
       input.kind = inCompany ? "contractor" : "homeowner";
+      // a homeowner's email and a copy of their yard, so the plan is emailed once it's paid and
+      // the yard can be opened again from that email (Zach 2026-11-18)
+      let copyToken = "";
+      let email = "";
+      if (input.kind === "homeowner" && input.email) {
+        email = String(input.email).trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200)
+          return reply({ error: "That email doesn't look right." }, 400);
+        const c = input.copy || {};
+        const job = c.job;
+        const png = typeof c.plan_png === "string" ? c.plan_png : "";
+        const parts = typeof c.parts_text === "string" ? c.parts_text : "";
+        if (!job || typeof job !== "object" || String(job.id) !== jobId)
+          return reply({ error: "Bad yard" }, 400);
+        if (JSON.stringify(job).length > 600_000 || png.length > 4_000_000 || parts.length > 60_000)
+          return reply({ error: "That yard is too big to save. Try again." }, 400);
+        if (png && !/^[A-Za-z0-9+/=]+$/.test(png)) return reply({ error: "Bad plan" }, 400);
+        const raw = new Uint8Array(24);
+        crypto.getRandomValues(raw);
+        copyToken = btoa(String.fromCharCode(...raw)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+        await db("yard_copies", {
+          method: "POST",
+          body: JSON.stringify({ token: copyToken, job_id: jobId, job, email, plan_png: png || null, parts_text: parts || null }),
+        });
+      }
       const s = await stripe("checkout/sessions", {
         mode: "payment",
         line_items: {
@@ -382,7 +407,12 @@ Deno.serve(async (req) => {
             quantity: 1,
           },
         },
-        metadata: { job_id: jobId, kind: input.kind === "contractor" ? "contractor_yard" : "yard_unlock" },
+        metadata: {
+          job_id: jobId,
+          kind: input.kind === "contractor" ? "contractor_yard" : "yard_unlock",
+          ...(copyToken ? { copy: copyToken } : {}),
+        },
+        ...(email ? { customer_email: email } : {}),
         // Stripe fills in {CHECKOUT_SESSION_ID}; the app checks it on the way back. Checkout opened
         // from the iPhone app (US storefront, Zach 2026-11-18) ends on the website in Safari, which
         // says to go back to the app; the app confirms the payment itself when it comes back.
@@ -392,6 +422,16 @@ Deno.serve(async (req) => {
         cancel_url: input.from === "app" ? SITE + "?paid=app-cancel" : backTo(origin, "#/job/" + jobId),
       });
       return reply({ url: s.url });
+    }
+
+    // the link in a homeowner's plan email: the paid yard comes back on whatever device opens it
+    if (input.action === "yard-copy") {
+      const token = String(input.token || "");
+      if (!/^[A-Za-z0-9_-]{20,64}$/.test(token)) return reply({ error: "Bad link" }, 400);
+      const rows = await db("yard_copies?select=job,paid&token=eq." + token);
+      const row = Array.isArray(rows) && rows[0] ? rows[0] : null;
+      if (!row || !row.paid) return reply({ error: "That link doesn't open a paid yard." }, 404);
+      return reply({ job: row.job });
     }
 
     if (input.action === "unlock-check") {

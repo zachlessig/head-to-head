@@ -703,8 +703,24 @@ table.parts td.q {
   #print-area {
     display: block !important;
   }
-  #print-area img {
+  #print-area > img {
     width: 100%;
+  }
+  #print-area .print-parts {
+    break-before: page;
+  }
+  #print-area .print-logo {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 18px;
+    font: 700 13px Inter, sans-serif;
+    color: #1d6e47;
+  }
+  #print-area .print-logo img {
+    width: 40px;
+    height: auto;
   }
   #print-area table {
     width: 100%;

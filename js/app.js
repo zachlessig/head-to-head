@@ -217,9 +217,11 @@
     !NATIVE &&
     prefs.homeowner &&
     !location.hash &&
-    !/[?&]unlock=/.test(location.search)
+    !/[?&](unlock|yard)=/.test(location.search)
   )
     prefs.homeowner = false;
+  // the link in a homeowner's plan email always opens the homeowner side
+  if (!NATIVE && /[?&]yard=/.test(location.search)) prefs.homeowner = true;
   const DEVICE = NATIVE ? "phone" : "device";
   function setHomeowner(on) {
     prefs.homeowner = !!on;
@@ -3444,11 +3446,17 @@
         (pro
           ? "Your company doesn't have an active plan, so this yard is " +
             price +
-            ". You get every head, the customer and contractor plans, and the parts list. It stays in your job log for your crew."
+            ". You get every head, the printable plan, and the parts list. It stays in your job log for your crew."
           : "One payment of " +
             price +
             ", no subscription. You get every head on the map with its nozzle, a printable plan, and the full parts list to take to the store.") +
         "</p>" +
+        // Zach 2026-11-18: the homeowner types an email and gets the plan sent once it's paid
+        (!pro && !J.job.example && (PAY_HERE || PAY_LINK)
+          ? '<label class="f" for="pe">Your email</label><input id="pe" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" value="' +
+            esc(prefs.homeEmail || "") +
+            '"><p class="note" style="margin-top:4px">Once it\'s paid we email you the plan, the parts list and a link back to this yard, so it\'s never lost.</p>'
+          : "") +
         '<p class="note">It\'s an estimate from your map. By paying you agree to the <a href="terms.html">Terms of Use</a>.</p>' +
         // the example yard shows the lock but can't be bought (payments live 2026-11-18)
         (J.job.example
@@ -3480,6 +3488,16 @@
         const pay = el.querySelector("#pay");
         if (pay)
           pay.onclick = async () => {
+            const emBox = el.querySelector("#pe");
+            const email = emBox ? emBox.value.trim() : "";
+            if (emBox && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+              toast("Enter your email so we can send you the plan.");
+              return emBox.focus();
+            }
+            if (email) {
+              prefs.homeEmail = email;
+              savePrefs();
+            }
             pay.disabled = true;
             pay.textContent = "Opening Stripe...";
             try {
@@ -3487,6 +3505,7 @@
                 job_id: J.job.id,
                 kind: pro ? "contractor" : "homeowner",
                 from: PAY_LINK ? "app" : undefined,
+                ...(email ? { email, copy: yardCopy() } : {}),
               });
               if (PAY_LINK) {
                 // the session id is in Stripe's checkout address; it's checked when the app comes back
@@ -3730,7 +3749,7 @@
   }
 
   /* ---------------- plan and parts ---------------- */
-  function planData(copy) {
+  function planData() {
     const job = J.job;
     const P = proj(job);
     const shapes = job.shapes
@@ -3745,7 +3764,6 @@
     const L0 = job.layout;
     return {
       fences: fenceLines(job, P),
-      copy,
       // Zach 2026-11-17: a homeowner's plan says "Homeowner plan" and carries no company name, and a
       // contractor's carries theirs, so the homeowner side is no use for handing plans to customers
       homeowner: isHome(),
@@ -3769,7 +3787,6 @@
 
   function openPlan() {
     if (locked(J.job)) return unlockSheet();
-    let copy = "customer";
     const ov = document.createElement("div");
     ov.className = "overlay";
     ov.innerHTML =
@@ -3781,7 +3798,8 @@
       '<button class="iconbtn" id="pp" aria-label="Print or save PDF">' +
       icon("print") +
       "</button></header>" +
-      '<div class="body"><div class="seg" style="margin-bottom:10px"><button data-c="customer" aria-pressed="true">Customer copy</button><button data-c="contractor" aria-pressed="false">Contractor copy</button></div>' +
+      // one plan for everyone (Zach 2026-11-18: "get rid of the contractor copy and the customer copy")
+      '<div class="body">' +
       (isStale()
         ? '<div class="badge warn">The yard or settings changed since the last Generate. Generate again before using this.</div>'
         : "") +
@@ -3796,23 +3814,14 @@
       "Print or save PDF</button></div></div>";
     document.body.appendChild(ov);
     const cv = ov.querySelector("#pcv");
-    const draw = () => Plan.drawPlan(cv, planData(copy));
+    const draw = () => Plan.drawPlan(cv, planData());
     draw();
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
-    ov.querySelectorAll("[data-c]").forEach(
-      (b) =>
-        (b.onclick = () => {
-          copy = b.dataset.c;
-          ov.querySelectorAll("[data-c]").forEach((x) =>
-            x.setAttribute("aria-pressed", String(x === b)),
-          );
-          draw();
-        }),
-    );
+    Plan.whenLogo(draw);
     const doPrint = () => {
       if (isStale())
         return toast("Generate again first. This layout is out of date.");
-      printPlan(cv, copy);
+      printPlan(cv);
     };
     ov.querySelector("#pp").onclick = doPrint;
     ov.querySelector("#pr").onclick = doPrint;
@@ -3892,14 +3901,52 @@
     return t;
   }
 
-  function printPlan(cv, copy) {
+  // what a homeowner's plan email carries (Zach 2026-11-18): the yard itself, so the link in the
+  // email can open it again anywhere, plus the finished plan picture and the parts list
+  function yardCopy() {
+    const job = JSON.parse(JSON.stringify(J.job));
+    const L0 = J.job.layout;
+    let png = "";
+    let parts = "";
+    if (L0) {
+      const cv = document.createElement("canvas");
+      cv.width = 1700;
+      cv.height = 2200;
+      png = planPng(cv);
+      parts = partsText(shownParts(L0));
+    }
+    return { job, plan_png: png, parts_text: parts };
+  }
+
+  // a browser that won't let a page read back a canvas with the logo on it still gets the plan,
+  // just without the logo
+  function planPng(cv) {
+    Plan.drawPlan(cv, planData());
+    try {
+      return cv.toDataURL("image/png").split(",")[1] || "";
+    } catch (e) {
+      console.warn("Plan drawn without the logo", e);
+      Plan.drawPlan(cv, Object.assign(planData(), { noLogo: true }));
+      return cv.toDataURL("image/png").split(",")[1] || "";
+    }
+  }
+
+  function printPlan(cv) {
     const area = document.getElementById("print-area");
     const L0 = J.job.layout;
+    const png = planPng(cv);
+    // the plan, then the parts list on its own page with the logo at its foot
     area.innerHTML =
-      '<img alt="Sprinkler plan" src="' +
-      cv.toDataURL("image/png") +
+      '<img alt="Sprinkler plan" src="data:image/png;base64,' +
+      png +
       '">' +
-      (copy === "contractor" && L0 ? partsTable(shownParts(L0)) : "");
+      (L0
+        ? '<div class="print-parts">' +
+          partsTable(shownParts(L0)) +
+          '<div class="print-logo"><img src="' +
+          Plan.LOGO_SRC +
+          '" alt=""><span>Head to Head</span></div></div>'
+        : "");
     setTimeout(() => window.print(), 50);
   }
 
@@ -5247,6 +5294,27 @@
 
   async function paymentReturn() {
     const q = new URLSearchParams(location.search);
+    const yard = q.get("yard");
+    if (yard) {
+      history.replaceState(null, "", location.pathname);
+      try {
+        const r = await Cloud.pay("yard-copy", { token: yard });
+        // the copy on this device wins if it's here; otherwise the saved one comes back
+        let job = jobs.find((j) => j.id === r.job.id);
+        if (!job) {
+          job = r.job;
+          jobs.unshift(job);
+        }
+        if (!job.unlocked) markPaid(job);
+        saveJobs();
+        location.hash = "#/job/" + job.id;
+        toast("Here's your yard.");
+      } catch (e) {
+        console.warn("Yard link not opened", e);
+        toast(e.message);
+      }
+      return;
+    }
     const sid = q.get("unlock"),
       jid = q.get("job"),
       bill = q.get("billing"),

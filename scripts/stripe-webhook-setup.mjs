@@ -37,6 +37,8 @@ if (mode === "hook") {
     // referral reward after the first payment, and the crew recount before each renewal
     "invoice.paid",
     "invoice.upcoming",
+    // a homeowner's paid yard gets its plan emailed (Zach 2026-11-18)
+    "checkout.session.completed",
   ];
   const d = { url: URL_HOOK, description: "Head to Head plan status" };
   events.forEach((e, i) => (d["enabled_events[" + i + "]"] = e));

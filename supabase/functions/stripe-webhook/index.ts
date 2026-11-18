@@ -7,6 +7,63 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const STRIPE_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
 const LIVE = ["active", "trialing", "past_due"];
+const RESEND_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
+const SITE = "https://headtoheadapp.com/";
+
+// Zach 2026-11-18: once a homeowner's yard is paid, the plan goes to their email "in case they
+// exit the page its not lost": the plan picture, the parts list, and a link that opens the yard
+// again. Sent once; claiming emailed_at first means a retried message can't send it twice.
+const escHtml = (t: string) =>
+  t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+async function sendYardCopy(token: string, sessionId: string) {
+  const headers = { apikey: SERVICE_KEY, Authorization: "Bearer " + SERVICE_KEY, "Content-Type": "application/json" };
+  const base = SUPABASE_URL + "/rest/v1/yard_copies?token=eq." + encodeURIComponent(token);
+  const claim = await fetch(base + "&emailed_at=is.null", {
+    method: "PATCH",
+    headers: { ...headers, Prefer: "return=representation" },
+    body: JSON.stringify({ paid: true, session_id: sessionId, emailed_at: new Date().toISOString() }),
+  });
+  if (!claim.ok) throw new Error("yard copy claim " + claim.status + " " + (await claim.text()));
+  const rows = await claim.json();
+  const row = rows[0];
+  if (!row) return; // already emailed, or no such copy
+  const name = (row.job && row.job.name) || "Your yard";
+  const address = (row.job && row.job.address) || "";
+  const link = SITE + "?yard=" + token;
+  const parts = row.parts_text || "";
+  const text =
+    "Thanks for unlocking " + (address ? "your yard at " + address : "your yard") + " on Head to Head.\n\n" +
+    "Your sprinkler plan is attached. To open the yard again with every head, the plan and the parts list, use this link:\n" +
+    link + "\n\nAnyone with this link can open your yard, so keep it to yourself.\n\n" +
+    (parts ? "Parts list\n\n" + parts + "\n" : "") +
+    "Questions? Just reply to this email.\n\nHead to Head";
+  const html =
+    '<div style="font-family:-apple-system,Segoe UI,Arial,sans-serif;color:#1d2320;max-width:560px">' +
+    "<p>Thanks for unlocking " + escHtml(address ? "your yard at " + address : "your yard") + " on Head to Head.</p>" +
+    "<p>Your sprinkler plan is attached. To open the yard again with every head, the plan and the parts list, use this link:</p>" +
+    '<p><a href="' + link + '" style="display:inline-block;background:#1d6e47;color:#fff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:600">Open my yard</a></p>' +
+    '<p style="color:#5f6964;font-size:13px">Anyone with this link can open your yard, so keep it to yourself.</p>' +
+    (parts ? '<h3 style="margin-top:24px">Parts list</h3><pre style="font:13px/1.5 Menlo,Consolas,monospace;white-space:pre-wrap">' + escHtml(parts) + "</pre>" : "") +
+    "<p>Questions? Just reply to this email.</p><p>Head to Head</p></div>";
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + RESEND_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: "Head to Head <noreply@headtoheadapp.com>",
+      to: [row.email],
+      reply_to: "zach@headtoheadapp.com",
+      subject: "Your sprinkler plan: " + name,
+      text,
+      html,
+      attachments: row.plan_png ? [{ filename: "sprinkler-plan.png", content: row.plan_png }] : undefined,
+    }),
+  });
+  if (!res.ok) {
+    // let it go out again on Stripe's retry
+    await fetch(base, { method: "PATCH", headers, body: JSON.stringify({ emailed_at: null }) });
+    throw new Error("plan email " + res.status + " " + (await res.text()));
+  }
+}
 
 // Stripe doesn't promise messages arrive in order, so the subscription is read fresh from Stripe
 // and that's what gets saved, never the copy inside the message (review 2026-11-17: a late
@@ -311,6 +368,14 @@ Deno.serve(async (req) => {
   const event = JSON.parse(raw);
   const obj = event.data && event.data.object;
   try {
+    if (
+      event.type === "checkout.session.completed" &&
+      obj.metadata && obj.metadata.copy &&
+      obj.payment_status === "paid"
+    ) {
+      await sendYardCopy(String(obj.metadata.copy), String(obj.id));
+      return new Response("ok", { status: 200 });
+    }
     if (
       event.type === "customer.subscription.created" ||
       event.type === "customer.subscription.updated" ||

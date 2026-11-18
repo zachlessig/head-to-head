@@ -1,7 +1,25 @@
 /* Draws the printable plan: the yard to scale, every head with its arc and label, colored by zone.
- * Customer copy hides GPM. Contractor copy adds zone flow. */
+ * One plan for everyone (Zach 2026-11-18: no more customer and contractor copies): zone flow and
+ * rotor throw are always on it, and the Head to Head logo sits at the bottom of the page. */
 (function () {
   "use strict";
+
+  // the logo for the bottom of the page; whoever draws a plan can redraw once it has loaded
+  const LOGO = new Image();
+  const logoWaiters = [];
+  LOGO.onload = () => logoWaiters.splice(0).forEach((f) => f());
+  LOGO.src = "icons/logo.svg";
+  function whenLogo(f) {
+    if (LOGO.complete && LOGO.naturalWidth) return;
+    logoWaiters.push(f);
+  }
+  // text cut to a width, with an ellipsis, so nothing in the title block runs into the legend
+  function fit(ctx, text, max) {
+    if (ctx.measureText(text).width <= max) return text;
+    let t = text;
+    while (t.length > 1 && ctx.measureText(t + "...").width > max) t = t.slice(0, -1);
+    return t.trimEnd() + "...";
+  }
 
   const ZONE_COLORS = [
     "#e4572e",
@@ -21,6 +39,8 @@
     "#16a085",
     "#d35400",
   ];
+
+  const LOGO_W = 170; // room kept clear for the logo and its name at the bottom right
 
   function zoneColor(n) {
     return ZONE_COLORS[(n - 1) % ZONE_COLORS.length];
@@ -57,7 +77,7 @@
       { key: "3504", name: "3504 rotor, 18 to 23 ft", count: d.heads.filter((h) => h.kind === "R" && h.model === "3504").length },
     ].filter((t) => t.count);
     const head = 130 + Math.max(1, kinds.length) * 32,
-      foot = (d.legendRows ? 70 + Math.ceil(d.legendRows / 2) * 34 : 90) + 64 + (d.homeowner ? 22 : 0),
+      foot = (d.legendRows ? 70 + Math.ceil(d.legendRows / 2) * 34 : 90) + 84 + (d.homeowner ? 22 : 0),
       side = 70;
     const k = Math.min(
       (W - 2 * side) / Math.max(1, x1 - x0),
@@ -68,14 +88,17 @@
     const X = (x) => ox + (x - x0) * k;
     const Y = (y) => oy + (y1 - y) * k;
 
-    // title block
+    // title block. The name, address and date each get their own line, cut to the room left of the
+    // head-type legend (Zach 2026-11-18: the date printed on top of "Pop-up spray")
+    const room = (kinds.length ? W - 400 - 24 : W - 48) - 48;
     ctx.fillStyle = "#1d2320";
     ctx.textAlign = "left";
     ctx.font = "800 40px Inter, sans-serif";
-    ctx.fillText(d.title || "Sprinkler plan", 48, 70);
-    ctx.font = "500 24px Inter, sans-serif";
+    ctx.fillText(fit(ctx, d.title || "Sprinkler plan", W - 48 - 48 - 460), 48, 70);
+    ctx.font = "500 22px Inter, sans-serif";
     ctx.fillStyle = "#5f6964";
-    ctx.fillText([d.address, d.date].filter(Boolean).join("   "), 48, 108);
+    if (d.address) ctx.fillText(fit(ctx, d.address, room), 48, 104);
+    if (d.date) ctx.fillText(d.date, 48, d.address ? 134 : 104);
     ctx.textAlign = "right";
     if (d.homeowner) {
       // a homeowner's plan is marked as one, top and bottom, with no company name anywhere
@@ -85,7 +108,7 @@
       // the bottom line rides with the estimate note below, so the two never print on each other
       // (2026-11-17 test: drawn separately at H - 16 they overlapped)
     } else {
-      // the contractor's company name goes on both copies; long names shrink to fit beside the title
+      // the contractor's company name goes on the plan; long names shrink to fit beside the title
       const label = d.company || "Sprinkler plan";
       let size = 30;
       ctx.font = "800 " + size + "px Inter, sans-serif";
@@ -95,11 +118,6 @@
       }
       ctx.fillStyle = d.company ? "#1d6e47" : "#5f6964";
       ctx.fillText(label, W - 48, 70);
-      if (d.copy === "contractor") {
-        ctx.font = "600 20px Inter, sans-serif";
-        ctx.fillStyle = "#5f6964";
-        ctx.fillText("Contractor copy", W - 48, 40);
-      }
     }
     ctx.fillStyle = "#5f6964";
     // symbol legend, top right
@@ -254,8 +272,8 @@
         ty = len ? Y(h.y) + n.dy + (n.dy / len) * 26 + 7 : Y(h.y) - 14;
       ctx.lineWidth = 4;
       ctx.strokeStyle = "#fff";
-      // the contractor copy shows how far to dial each rotor in, since the screw sets the throw
-      const label = d.copy === "contractor" && h.kind === "R" ? h.label + " " + Math.round(h.r) + "'" : h.label;
+      // rotors show how far to dial them in, since the screw sets the throw
+      const label = h.kind === "R" ? h.label + " " + Math.round(h.r) + "'" : h.label;
       ctx.strokeText(label, tx, ty);
       ctx.fillStyle = "#1d2320";
       ctx.fillText(label, tx, ty);
@@ -286,14 +304,24 @@
       let row = "";
       words.forEach((w) => {
         const t = row ? row + " " + w : w;
-        if (ctx.measureText(t).width > W - 96 && row) {
+        if (ctx.measureText(t).width > W - 96 - LOGO_W && row) {
           rows.push(row);
           row = w;
         } else row = t;
       });
       if (row) rows.push(row);
-      if (ownerLine) rows.push(ownerLine);
+      if (ownerLine) rows.push(fit(ctx, ownerLine, W - 96 - LOGO_W));
       rows.forEach((r, i) => ctx.fillText(r, 48, H - 20 - (rows.length - 1 - i) * 20));
+    }
+
+    // the Head to Head logo, bottom right of every plan
+    if (!d.noLogo && LOGO.complete && LOGO.naturalWidth) {
+      const lh = 64, lw = (lh * 440) / 480;
+      ctx.drawImage(LOGO, W - 48 - lw, H - 16 - lh, lw, lh);
+      ctx.font = "700 15px Inter, sans-serif";
+      ctx.fillStyle = "#1d6e47";
+      ctx.textAlign = "right";
+      ctx.fillText("Head to Head", W - 48 - lw - 10, H - 20);
     }
 
     // zone legend
@@ -310,18 +338,7 @@
         ctx.fill();
         ctx.fillStyle = "#1d2320";
         const kind = z.family === "rotor" ? "rotors" : "sprays";
-        const txt =
-          d.copy === "contractor"
-            ? "Zone " +
-              z.n +
-              ": " +
-              z.count +
-              " " +
-              kind +
-              ", " +
-              z.gpm.toFixed(1) +
-              " GPM"
-            : "Zone " + z.n + ": " + z.count + " " + kind;
+        const txt = "Zone " + z.n + ": " + z.count + " " + kind + ", " + z.gpm.toFixed(1) + " GPM";
         ctx.fillText(txt, cx + 18, cy + 6);
       });
     }
@@ -412,5 +429,5 @@
     });
   }
 
-  window.SprinklerPlan = { drawPlan, zoneColor, ZONE_COLORS, shapeKey, nudges };
+  window.SprinklerPlan = { drawPlan, zoneColor, ZONE_COLORS, shapeKey, nudges, whenLogo, LOGO_SRC: "icons/logo.svg" };
 })();
