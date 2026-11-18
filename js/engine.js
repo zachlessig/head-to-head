@@ -59,7 +59,7 @@
   const TREE_KEEP = 7; // ft from the trunk, his number
   // The ground this close to a big trunk is pop-up ground from the start: rotors can't water it
   // without hitting the bark, and left on rotor ground the thin ring there dropped every rotor in
-  // the example yard's backyard (26 zones). 15 ft is a guess, not his number.
+  // the example yard's backyard (26 zones). 15 ft: Zach okayed it 2026-11-18 ("lets do that").
   const TREE_POPUPS = 15;
   function nearTrunk(x, y, rad) {
     return TRUNKS.some((t) => Math.hypot(x - t.x, y - t.y) < t.r + rad);

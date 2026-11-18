@@ -204,7 +204,7 @@ swings 10x, so compare old and new engines back to back before calling anything 
   ("the fence boundary should override that"; areas carry `fences` for this), and no rotor whose
   spray reaches the trunk, at any distance ("as long as the rotor spray isnt hitting the trunk then
   it doesnt matter"). A rotor that would reach a trunk is screwed down to stop short of it if it can
-  still throw its 18 ft minimum. Ground within `TREE_POPUPS` (15 ft, guess) of a big trunk is
+  still throw its 18 ft minimum. Ground within `TREE_POPUPS` (15 ft, Zach okayed 2026-11-18) of a big trunk is
   pop-up ground from the start. Big trees show a dashed 7 ft ring on the map. Tests: "Trees" in
   `test/engine.test.js`, checked by tracing spray lines past the trunk independently.
 - Park strips (Zach 2026-11-15): a lawn 3 to 6 ft wide (`STRIP_MIN_W`, `STRIP_MAX_W`, his numbers),
@@ -292,10 +292,11 @@ swings 10x, so compare old and new engines back to back before calling anything 
 
 ## Zach's list before he feels good about the app (2026-11-15)
 
-1. Trenching for homeowners: built 2026-11-16 to his method (see Trench). Next: pipe lengths on the
-   parts list the same way.
-2. Rework tree mechanics: built 2026-11-15 (see Trees under His rules). Open: TREE_POPUPS (15 ft)
-   is still a guess.
+1. Trenching for homeowners: built 2026-11-16 to his method (see Trench). Pipe lengths on the parts list
+   built the same way 2026-11-17.
+2. Rework tree mechanics: built 2026-11-15 (see Trees under His rules). TREE_POPUPS (15 ft) okayed by
+   Zach 2026-11-18. Pipe lengths on the parts list checked by Zach on two drawn yards 2026-11-18:
+   "that looks right to me".
 3. Google ratings for the installer list, for when that list is switched on (`SHOW_INSTALLERS`).
 4. The website vs the app: decided and built 2026-11-16 (see Website and iPhone app under His rules).
 5. Security and liability (added 2026-11-17): "a way im not liable for if someones map is wrong
