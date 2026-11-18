@@ -340,7 +340,8 @@
             ? el.remove()
             : el.classList.remove("tour-hl"),
         );
-      if (!J || i >= steps.length) return;
+      if (!J) return;
+      if (i >= steps.length) return backTip();
       const st = steps[i];
       if (st.mode && J.mode !== st.mode) setMode(st.mode);
       const tab =
@@ -396,6 +397,34 @@
         };
     };
     show();
+  }
+
+  // Zach 2026-11-18: after the tour, homeowners get a small tip pointing at the back button, so they
+  // know how to leave the example yard and map their own
+  function backTip() {
+    const back = app.querySelector("#back");
+    if (!J || !J.job.example || !isHome() || !back) return;
+    const box = document.createElement("div");
+    box.className = "tour at-back";
+    box.setAttribute("role", "dialog");
+    box.innerHTML =
+      '<button class="tour-x" aria-label="Close tip">' +
+      icon("x") +
+      "</button><b>Ready for your yard?</b><p>Tap the back arrow up here to leave the example yard, then tap Map my yard to start your own map.</p>";
+    document.body.appendChild(box);
+    const r = back.getBoundingClientRect();
+    box.style.top = r.bottom + 12 + "px";
+    box.style.setProperty(
+      "--arrow",
+      Math.max(24, r.left + r.width / 2 - box.getBoundingClientRect().left) + "px",
+    );
+    back.classList.add("tour-hl");
+    const close = () => {
+      box.remove();
+      back.classList.remove("tour-hl");
+    };
+    box.querySelector(".tour-x").onclick = close;
+    back.addEventListener("click", close, { once: true });
   }
 
   function route() {
@@ -3411,7 +3440,10 @@
             ", no subscription. You get every head on the map with its nozzle, a printable plan, and the full parts list to take to the store.") +
         "</p>" +
         '<p class="note">It\'s an estimate from your map. By paying you agree to the <a href="terms.html">Terms of Use</a>.</p>' +
-        (PAY_HERE
+        // the example yard shows the lock but can't be bought (payments live 2026-11-18)
+        (J.job.example
+          ? '<p class="hint"><b>This is the example yard, so it can\'t be unlocked.</b> Go back and tap Map my yard to make your own.</p>'
+          : PAY_HERE
           ? '<button class="btn primary" style="width:100%" id="pay">Pay ' +
             price +
             "</button>" +

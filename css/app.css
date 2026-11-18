@@ -1043,6 +1043,26 @@ table.parts td.q {
   transform: rotate(45deg);
   border-radius: 3px;
 }
+.tour.at-back {
+  top: auto;
+  transform: none;
+}
+.tour.at-back::after {
+  content: "";
+  position: absolute;
+  top: -8px;
+  left: var(--arrow, 32px);
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
+  background: var(--card);
+  transform: rotate(45deg);
+  border-radius: 3px;
+}
+.iconbtn.tour-hl {
+  color: var(--flag);
+  box-shadow: 0 0 0 2px var(--flag) inset;
+}
 .tour b {
   display: block;
   font: 700 18px Fraunces, Georgia, serif;
