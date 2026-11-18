@@ -169,7 +169,8 @@ swings 10x, so compare old and new engines back to back before calling anything 
   subscription's metadata; after the first payment (invoice.paid, subscription_create) the webhook
   credits the referrer one month of their plan ($20 founding, $30 standard) as Stripe customer
   balance and records it in `referrals`. No free month if the two companies share an owner, a person or email, or a card
-  (every saved card and every card that paid a charge), or the first payment was $0 (security
+  (every saved card or bank account and every one that paid a charge, all pages), or the first
+  payment was $0 or can't be matched to a card or bank account (security
   review 2026-11-17). A referrer with no live plan and card has the free month held (`referrals.held`,
   migration 0008) until their own plan's first payment, then the cards are compared. Credit comes off their next bill, and free months stack.
   Test: `test/crew-referral.e2e.mjs` (env SUPA_TOKEN, ANON, STRIPE_KEY).

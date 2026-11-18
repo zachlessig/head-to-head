@@ -107,15 +107,25 @@ async function syncCrew(companyId: string, sub: Record<string, any>) {
 // the second company's first month and collect a $20 free month on the first. So no reward when the
 // first payment wasn't real money, or the two companies share an owner, any person or email, or a
 // card. Cards are every card on the customer plus every card that ever paid a charge.
+// Bank accounts carry a fingerprint too, so they're compared the same way. Every page is read.
 async function cardsOf(customer: string) {
   const out = new Set<string>();
-  const pms = await stripe("customers/" + customer + "/payment_methods?type=card&limit=100");
-  for (const p of pms.data || []) if (p.card && p.card.fingerprint) out.add(p.card.fingerprint);
-  const ch = await stripe("charges?limit=100&customer=" + customer);
-  for (const c of ch.data || []) {
-    const f = c.payment_method_details && c.payment_method_details.card && c.payment_method_details.card.fingerprint;
-    if (f) out.add(f);
-  }
+  const fp = (d: Record<string, any> | undefined) => {
+    if (!d) return;
+    for (const k of ["card", "us_bank_account", "sepa_debit", "bacs_debit", "au_becs_debit", "acss_debit"])
+      if (d[k] && d[k].fingerprint) out.add(k + ":" + d[k].fingerprint);
+  };
+  const all = async (path: string, each: (o: Record<string, any>) => void) => {
+    let after = "";
+    for (let page = 0; page < 50; page++) {
+      const r = await stripe(path + (after ? "&starting_after=" + after : ""));
+      (r.data || []).forEach(each);
+      if (!r.has_more || !r.data || !r.data.length) break;
+      after = r.data[r.data.length - 1].id;
+    }
+  };
+  await all("customers/" + customer + "/payment_methods?limit=100", fp);
+  await all("charges?limit=100&customer=" + customer, (c) => fp(c.payment_method_details));
   return out;
 }
 
@@ -171,6 +181,12 @@ async function rewardReferrer(companyId: string, referrerId: string, inv: Record
     return;
   }
   const paidWith = await cardsOf(String(inv.customer));
+  // fail closed: a payment that can't be matched to a card or bank account earns nothing
+  if (!paidWith.size) {
+    console.warn("referral not rewarded: payer can't be identified");
+    await saveReferral(base);
+    return;
+  }
   const bill = await referrerBilling(referrerId);
   const theirs = bill && bill.stripe_customer_id && LIVE.includes(bill.status)
     ? await cardsOf(bill.stripe_customer_id)
