@@ -4947,7 +4947,7 @@
   const FREE_CREW = 5;
   const CREW_PRICE = "$5 a month";
   // Referrals (Zach 2026-11-17): the new contractor gets $5 off their first month; the company
-  // that shared the code gets a free month after the new contractor's first payment; they stack.
+  // that shared the code gets a free month after the new contractor's second payment; they stack.
   const REFERRAL_OFF = "$5";
   function crewNote(crew) {
     const extra = Math.max(0, crew - FREE_CREW);
@@ -4971,7 +4971,7 @@
       '</b><button class="btn small" id="rc">Copy</button></div>' +
       '<p class="note">Give it to another contractor. They get ' +
       REFERRAL_OFF +
-      " off their first month, and you get a free month once they make their first payment. Free months stack.</p>"
+      " off their first month, and you get a free month once they've made their second payment. Free months stack.</p>"
     );
   }
   function planBlock() {

@@ -100,7 +100,8 @@ async function syncCrew(companyId: string, sub: Record<string, any>) {
 }
 
 // Referrals (Zach 2026-11-17): the company whose code was used gets one free month, only after the
-// new contractor's first payment goes through. The free month is credit on the referrer's Stripe
+// new contractor's second payment goes through ("lets say they get the free month after the second
+// payment"; it was the first until a fake company paying once and cancelling was raised). The free month is credit on the referrer's Stripe
 // customer worth one month of their plan (founding $20, standard $30), so it comes off their next
 // bill and several stack. A referrer with no plan yet keeps the credit for when they start one.
 // Security review 2026-11-17: one person owning two companies could refer themselves, pay $15 for
@@ -109,11 +110,15 @@ async function syncCrew(companyId: string, sub: Record<string, any>) {
 // card. Cards are every card on the customer plus every card that ever paid a charge.
 // Bank accounts carry a fingerprint too, so they're compared the same way. Every page is read.
 async function cardsOf(customer: string) {
+  // a payment method of any kind with no fingerprint (Link, a wallet) can't be compared, so it
+  // marks the whole customer unknown and blocks the free month (security review 2026-11-17)
   const out = new Set<string>();
   const fp = (d: Record<string, any> | undefined) => {
     if (!d) return;
-    for (const k of ["card", "us_bank_account", "sepa_debit", "bacs_debit", "au_becs_debit", "acss_debit"])
-      if (d[k] && d[k].fingerprint) out.add(k + ":" + d[k].fingerprint);
+    const t = d.type;
+    const f = t && d[t] && d[t].fingerprint;
+    if (f) out.add(t + ":" + f);
+    else out.add("unknown");
   };
   const all = async (path: string, each: (o: Record<string, any>) => void) => {
     let after = "";
@@ -159,6 +164,18 @@ async function credit(referrerId: string, companyId: string, bill: Record<string
   }, "POST", "referral-" + companyId);
 }
 
+// invoices on this subscription that took real money (the referral's $5-off first one counts)
+async function paidInvoices(subId: string) {
+  let n = 0, after = "";
+  for (let page = 0; page < 20; page++) {
+    const r = await stripe("invoices?status=paid&limit=100&subscription=" + subId + (after ? "&starting_after=" + after : ""));
+    n += (r.data || []).filter((i: Record<string, any>) => i.amount_paid > 0).length;
+    if (!r.has_more || !r.data || !r.data.length) break;
+    after = r.data[r.data.length - 1].id;
+  }
+  return n;
+}
+
 const saveReferral = (row: Record<string, unknown>) =>
   db("referrals?on_conflict=company_id", {
     method: "POST",
@@ -182,7 +199,7 @@ async function rewardReferrer(companyId: string, referrerId: string, inv: Record
   }
   const paidWith = await cardsOf(String(inv.customer));
   // fail closed: a payment that can't be matched to a card or bank account earns nothing
-  if (!paidWith.size) {
+  if (!paidWith.size || paidWith.has("unknown")) {
     console.warn("referral not rewarded: payer can't be identified");
     await saveReferral(base);
     return;
@@ -195,7 +212,7 @@ async function rewardReferrer(companyId: string, referrerId: string, inv: Record
     await saveReferral({ ...base, held: true, referred_cards: [...paidWith] });
     return;
   }
-  for (const f of paidWith) if (theirs.has(f)) {
+  for (const f of paidWith) if (theirs.has(f) || theirs.has("unknown")) {
     console.warn("referral not rewarded: same card");
     await saveReferral(base);
     return;
@@ -214,7 +231,7 @@ async function releaseHeld(referrerId: string) {
   const theirs = await cardsOf(bill.stripe_customer_id);
   if (!theirs.size) return;
   for (const r of held) {
-    const clash = (r.referred_cards || []).some((f: string) => theirs.has(f));
+    const clash = theirs.has("unknown") || (r.referred_cards || []).some((f: string) => theirs.has(f));
     if (clash) console.warn("held referral not rewarded: same card");
     else await credit(referrerId, r.company_id, bill);
     await db("referrals?company_id=eq." + r.company_id, {
@@ -348,8 +365,9 @@ Deno.serve(async (req) => {
         await releaseHeld(companyId);
       }
       const referrer = sub.metadata.referrer;
-      if (event.type === "invoice.paid" && obj.billing_reason === "subscription_create" &&
-        referrer && UUID.test(referrer) && referrer !== companyId)
+      if (event.type === "invoice.paid" && obj.amount_paid > 0 &&
+        referrer && UUID.test(referrer) && referrer !== companyId &&
+        (await paidInvoices(sub.id)) >= 2)
         await rewardReferrer(companyId, referrer, obj);
     }
     return new Response("ok", { status: 200 });

@@ -3,7 +3,7 @@
 -- The billing function counts members itself; nothing here stores a count the app could fake.
 -- Referrals: every company gets a code to hand another contractor. The new contractor gets $5 off
 -- their first month; the company that shared it gets one free month once the new contractor's
--- first payment goes through. Free months stack (they're credit on the Stripe customer).
+-- second payment goes through (changed from first the same day). Free months stack (they're credit on the Stripe customer).
 
 -- 8 letters and digits with no 0/O or 1/I, so it reads back over the phone
 create function public.new_referral_code() returns text

@@ -1,6 +1,6 @@
 // Crew and referrals against the Stripe sandbox and the live Supabase project (Zach 2026-11-17):
 // 5 crew included, $5 a month each after; a referral code takes $5 off the new contractor's first
-// month and gives the referrer a free month after that first payment. Throwaway h2h-test accounts
+// month and gives the referrer a free month after the new contractor's second payment. Throwaway h2h-test accounts
 // only; everything it makes is deleted at the end. Env: SUPA_TOKEN, ANON, STRIPE_KEY.
 const REF = "vqgbtssybgaqietjbqms",
   BASE = `https://${REF}.supabase.co`;
@@ -103,7 +103,24 @@ const billing = async (who, body) => {
   return { status: r.status, body: await r.json().catch(() => ({})) };
 };
 
-const made = { customers: [], subs: [] };
+const made = { customers: [], subs: [], clocks: [] };
+// Stripe test clocks let a renewal happen now: the free month comes after the second payment
+// (Zach 2026-11-17), so the referred companies' plans run on a clock that's pushed a month ahead.
+async function clockCustomer(cid) {
+  const clock = await stripe("test_helpers/test_clocks", { frozen_time: String(Math.floor(Date.now() / 1000)) });
+  made.clocks.push(clock.id);
+  const c = await stripe("customers", { test_clock: clock.id, "metadata[company_id]": cid });
+  return { cust: c.id, clock: clock.id };
+}
+async function nextMonth(clock) {
+  const now = (await stripe("test_helpers/test_clocks/" + clock)).frozen_time;
+  await stripe("test_helpers/test_clocks/" + clock + "/advance", { frozen_time: String(now + 32 * 86400) });
+  for (let i = 0; i < 60; i++) {
+    await sleep(2000);
+    if ((await stripe("test_helpers/test_clocks/" + clock)).status === "ready") return;
+  }
+  throw new Error("test clock stuck");
+}
 try {
   // A shares a code; B is the new contractor with 6 crew
   const a = await person("ref"),
@@ -219,12 +236,7 @@ try {
   await stripe("checkout/sessions/" + sid + "/expire", {});
 
   // Stand in for the checkout page: the same subscription it would make, paid with Stripe's test card
-  const cust = (
-    await sql(
-      `select stripe_customer_id from billing where company_id = '${bid}'`,
-    )
-  )[0].stripe_customer_id;
-  made.customers.push(cust);
+  const { cust, clock: bclock } = await clockCustomer(bid);
   const pm = await stripe("payment_methods/pm_card_visa/attach", {
     customer: cust,
   });
@@ -245,6 +257,10 @@ try {
   });
   made.subs.push(sub.id);
   check(sub.status === "active", "test subscription active");
+  await sleep(12000);
+  const early = await sql(`select company_id from referrals where company_id = '${bid}'`);
+  check(early.length === 0, "after the first payment alone: no free month yet");
+  await nextMonth(bclock);
 
   // A has no plan or card yet, so the free month waits (security review 2026-11-17)
   let ref = [];
@@ -347,8 +363,8 @@ try {
   check(selfTry.status === 400, "referrer's own second company refused: " + selfTry.body.error);
   const d = await person("same-card");
   const did = (await rest(d, "rpc/create_company", { method: "POST", body: JSON.stringify({ company_name: "Test Same Card" }) })).body;
-  const dcust = await stripe("customers", { "metadata[company_id]": did });
-  made.customers.push(dcust.id);
+  const { cust: dcid, clock: dclock } = await clockCustomer(did);
+  const dcust = { id: dcid };
   const dpm = await stripe("payment_methods/pm_card_mastercard/attach", { customer: dcust.id });
   await stripe("customers/" + dcust.id, { "invoice_settings[default_payment_method]": dpm.id });
   const dsub = await stripe("subscriptions", {
@@ -360,6 +376,7 @@ try {
     "metadata[referrer]": aid,
   });
   made.subs.push(dsub.id);
+  await nextMonth(dclock);
   let drow = [];
   for (let i = 0; i < 20 && !drow.length; i++) {
     await sleep(3000);
@@ -374,9 +391,13 @@ try {
   const e = await person("held-ref"), f = await person("held-new");
   const eid = (await rest(e, "rpc/create_company", { method: "POST", body: JSON.stringify({ company_name: "Test Held Referrer" }) })).body;
   const fid = (await rest(f, "rpc/create_company", { method: "POST", body: JSON.stringify({ company_name: "Test Held New" }) })).body;
-  const paidSub = async (cid, extra) => {
-    const c = (await stripe("customers", { "metadata[company_id]": cid })).id;
-    made.customers.push(c);
+  const paidSub = async (cid, extra, clocked) => {
+    let c, clk = null;
+    if (clocked) ({ cust: c, clock: clk } = await clockCustomer(cid));
+    else {
+      c = (await stripe("customers", { "metadata[company_id]": cid })).id;
+      made.customers.push(c);
+    }
     const pm = await stripe("payment_methods/pm_card_amex/attach", { customer: c });
     await stripe("customers/" + c, { "invoice_settings[default_payment_method]": pm.id });
     const sub = await stripe("subscriptions", {
@@ -387,9 +408,10 @@ try {
       ...extra,
     });
     made.subs.push(sub.id);
+    if (clk) await nextMonth(clk);
     return c;
   };
-  await paidSub(fid, { "discounts[0][coupon]": "referral_5_off", "metadata[referrer]": eid });
+  await paidSub(fid, { "discounts[0][coupon]": "referral_5_off", "metadata[referrer]": eid }, true);
   let erow = [];
   for (let i = 0; i < 20 && !erow.length; i++) {
     await sleep(3000);
@@ -413,6 +435,8 @@ try {
     await stripe("subscriptions/" + s, undefined, "DELETE").catch(() => null);
   for (const c of made.customers)
     await stripe("customers/" + c, undefined, "DELETE").catch(() => null);
+  for (const k of made.clocks)
+    await stripe("test_helpers/test_clocks/" + k, undefined, "DELETE").catch(() => null);
   console.log("cleaned up:", await clearOld(), "test accounts");
 }
 console.log(fails ? fails + " failing" : "all passing");

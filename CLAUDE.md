@@ -166,7 +166,8 @@ swings 10x, so compare old and new engines back to back before calling anything 
   character `companies.referral_code` (migration 0007), shown to the owner with a Copy button. A new
   contractor types it before Start the plan and gets Stripe coupon referral_5_off ($5 off the first
   payment), only on the company's first plan and never its own code. The referrer is kept in the
-  subscription's metadata; after the first payment (invoice.paid, subscription_create) the webhook
+  subscription's metadata; after the new contractor's second paid invoice (Zach 2026-11-17: "lets
+  say they get the free month after the second payment"; `paidInvoices`) the webhook
   credits the referrer one month of their plan ($20 founding, $30 standard) as Stripe customer
   balance and records it in `referrals`. No free month if the two companies share an owner, a person or email, or a card
   (every saved card or bank account and every one that paid a charge, all pages), or the first
