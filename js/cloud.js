@@ -67,7 +67,8 @@
   /* ---------- signing in ---------- */
 
   // Apple's App Review needs an account it can sign in to (Guideline 2.1), but sign-in codes go to
-  // the person's own inbox. This one address signs in with a fixed 8-digit code instead (a password
+  // the person's own inbox. This one address signs in with a fixed 16-digit code instead (security review 2026-11-18:
+  // 8 digits could be guessed on an account with a free plan; a password
   // on that account, kept in the Mac keychain as app-review-code and given to Apple in the review
   // notes). No email is sent to it. Every other address works as before.
   const REVIEW_EMAIL = "appreview@headtoheadapp.com";

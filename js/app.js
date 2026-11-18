@@ -4554,7 +4554,7 @@
           : '<p class="lede">We sent a 6-digit code to <b>' +
             esc(email) +
             "</b>.</p>" +
-            '<label class="f" for="cd">Code</label><input class="t" id="cd" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456">' +
+            '<label class="f" for="cd">Code</label><input class="t" id="cd" inputmode="numeric" autocomplete="one-time-code" maxlength="16" placeholder="123456">' +
             '<button class="btn primary" style="width:100%;margin-top:12px" id="vf">Sign in</button>' +
             '<button class="btn small ghost" style="width:100%;margin-top:8px" id="back">Use a different email</button>') +
         (msg
