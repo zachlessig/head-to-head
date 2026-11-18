@@ -210,6 +210,16 @@
   );
   // where people land from an invite or "manage your plan"; headtoheadapp.com once it points here
   const SITE_URL = "https://headtoheadapp.com/";
+  // Zach 2026-11-18: opening headtoheadapp.com should show the front page, not the homeowner screen
+  // left over from an earlier visit. On the website, homeowner mode lasts for the visit; a link to
+  // a job or the trip back from paying keeps it.
+  if (
+    !NATIVE &&
+    prefs.homeowner &&
+    !location.hash &&
+    !/[?&]unlock=/.test(location.search)
+  )
+    prefs.homeowner = false;
   const DEVICE = NATIVE ? "phone" : "device";
   function setHomeowner(on) {
     prefs.homeowner = !!on;
