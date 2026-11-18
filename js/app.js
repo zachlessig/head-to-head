@@ -4426,7 +4426,7 @@
       "<p>Only pay once the yard and part list has been generated.</p>" +
       '<button class="btn" id="l-ho">Map my yard</button></div>' +
       "</div>" +
-      '<p class="note">Payments open soon. Nothing is charged yet.</p></section>' +
+      '<p class="note">Stripe takes the card. Head to Head never sees it.</p></section>' +
       '<footer class="l-foot">Built by a landscaper who ran a sprinkler supply counter. © ' +
       new Date().getFullYear() +
       ' Head to Head App LLC · <a href="terms.html">Terms of Use</a></footer>' +
@@ -4927,9 +4927,9 @@
   }
 
   // Plan and billing (Zach picked Stripe 2026-11-16): paying happens on the website, where Apple
-  // takes no cut. The iPhone app only says where to go. PAYMENTS_ON stays false while the Stripe
-  // account is a sandbox (test cards only); the test copy on this Mac uses the sandbox anyway.
-  const PAYMENTS_ON = false;
+  // takes no cut. The iPhone app only says where to go. Live since 2026-11-18 (Head to Head App
+  // LLC verified on Stripe; the server's key is the live one, so the test copy charges real cards too).
+  const PAYMENTS_ON = true;
   const PAY_HERE = !NATIVE && (PAYMENTS_ON || TEST_COPY);
   // locks only apply once someone could actually pay (the iPhone app sends them to the website)
   const ENFORCE = PAYMENTS_ON || TEST_COPY;
