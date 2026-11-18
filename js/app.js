@@ -3453,7 +3453,7 @@
         "</p>" +
         // Zach 2026-11-18: the homeowner types an email and gets the plan sent once it's paid
         (!pro && !J.job.example && (PAY_HERE || PAY_LINK)
-          ? '<label class="f" for="pe">Your email</label><input id="pe" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" value="' +
+          ? '<label class="f" for="pe">Your email</label><input class="t" id="pe" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" value="' +
             esc(prefs.homeEmail || "") +
             '"><p class="note" style="margin-top:4px">Once it\'s paid we email you the plan and a link back to this yard and its parts list, so it\'s never lost.</p>'
           : "") +
