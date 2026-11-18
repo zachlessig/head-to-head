@@ -266,6 +266,12 @@ Deno.serve(async (req) => {
           return reply({ error: "That referral code isn't right. Check it with whoever gave it to you." }, 400);
         if (found[0].id === companyId)
           return reply({ error: "That's your own company's code. Share it with another contractor instead." }, 400);
+        // the same person on both sides isn't a referral (security review 2026-11-17); the webhook
+        // checks again, and checks cards, before any free month
+        const both = await db("members?select=company_id,user_id&company_id=in.(" + companyId + "," + found[0].id + ")");
+        const theirs = new Set((both || []).filter((m: { company_id: string }) => m.company_id === found[0].id).map((m: { user_id: string }) => m.user_id));
+        if ((both || []).some((m: { company_id: string; user_id: string }) => m.company_id === companyId && theirs.has(m.user_id)))
+          return reply({ error: "That code is from a company you're part of. Referral codes are for another contractor." }, 400);
         const before = await db("billing?select=subscription_id&company_id=eq." + companyId);
         const had = await db("referrals?select=company_id&company_id=eq." + companyId);
         if ((Array.isArray(before) && before[0] && before[0].subscription_id) ||

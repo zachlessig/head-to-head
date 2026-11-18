@@ -337,6 +337,37 @@ try {
     s2.body.extra === 2 && items.includes("extra_crew_monthlyx2"),
     "7 crew bills 2 extra: " + items.join(", "),
   );
+
+  // self-referral (security review 2026-11-17): the referrer's own second company is refused at
+  // checkout, and a different sign-in paying with the referrer's card gets no free month
+  const a2 = (await rest(a, "rpc/create_company", { method: "POST", body: JSON.stringify({ company_name: "Test Referrer Two" }) })).body;
+  const selfTry = await billing(a, { action: "subscribe", company_id: a2, referral_code: code });
+  check(selfTry.status === 400, "referrer's own second company refused: " + selfTry.body.error);
+  const acus = (await sql(`select stripe_customer_id from billing where company_id = '${aid}'`))[0].stripe_customer_id;
+  await stripe("payment_methods/pm_card_visa/attach", { customer: acus });
+  const d = await person("same-card");
+  const did = (await rest(d, "rpc/create_company", { method: "POST", body: JSON.stringify({ company_name: "Test Same Card" }) })).body;
+  const dcust = await stripe("customers", { "metadata[company_id]": did });
+  made.customers.push(dcust.id);
+  const dpm = await stripe("payment_methods/pm_card_visa/attach", { customer: dcust.id });
+  await stripe("customers/" + dcust.id, { "invoice_settings[default_payment_method]": dpm.id });
+  const dsub = await stripe("subscriptions", {
+    customer: dcust.id,
+    "items[0][price]": (await stripe("prices?active=true&lookup_keys[]=founding_monthly")).data[0].id,
+    "discounts[0][coupon]": "referral_5_off",
+    "metadata[company_id]": did,
+    "metadata[plan]": "founding",
+    "metadata[referrer]": aid,
+  });
+  made.subs.push(dsub.id);
+  let drow = [];
+  for (let i = 0; i < 20 && !drow.length; i++) {
+    await sleep(3000);
+    drow = await sql(`select rewarded_at from referrals where company_id = '${did}'`);
+  }
+  check(drow.length === 1 && drow[0].rewarded_at === null, "same card: referral recorded but not rewarded");
+  const bal2 = (await stripe("customers/" + acus)).balance;
+  check(bal2 === -2000, "referrer still has just the one free month: balance " + bal2);
 } catch (e) {
   console.log("FAIL error:", e.message);
   fails++;

@@ -103,11 +103,48 @@ async function syncCrew(companyId: string, sub: Record<string, any>) {
 // new contractor's first payment goes through. The free month is credit on the referrer's Stripe
 // customer worth one month of their plan (founding $20, standard $30), so it comes off their next
 // bill and several stack. A referrer with no plan yet keeps the credit for when they start one.
-async function rewardReferrer(companyId: string, referrerId: string) {
+// Security review 2026-11-17: one person owning two companies could refer themselves, pay $15 for
+// the second company's first month and collect a $20 free month on the first. So no reward when the
+// first payment wasn't real money, or the two companies share an owner, any person, or a card.
+async function selfReferral(companyId: string, referrerId: string, customer: string) {
+  const cos = await db("companies?select=id,owner_id&id=in.(" + companyId + "," + referrerId + ")");
+  if (!Array.isArray(cos) || cos.length !== 2 || cos[0].owner_id === cos[1].owner_id) return "same owner";
+  const people = await db("members?select=company_id,user_id,email&company_id=in.(" + companyId + "," + referrerId + ")");
+  const side = (id: string, k: string) =>
+    new Set((people || []).filter((m: Record<string, string>) => m.company_id === id).map((m: Record<string, string>) => m[k]));
+  for (const k of ["user_id", "email"]) {
+    const a = side(companyId, k), b = side(referrerId, k);
+    for (const v of a) if (b.has(v)) return "shared " + k;
+  }
+  const cards = async (cust: string) => {
+    const r = await stripe("customers/" + cust + "/payment_methods?type=card&limit=100");
+    return new Set((r.data || []).map((p: Record<string, any>) => p.card && p.card.fingerprint).filter(Boolean));
+  };
+  const rb = await db("billing?select=stripe_customer_id&company_id=eq." + referrerId);
+  const refCust = Array.isArray(rb) && rb[0] && rb[0].stripe_customer_id;
+  if (refCust) {
+    const mine = await cards(customer), theirs = await cards(refCust);
+    for (const f of mine) if (theirs.has(f)) return "same card";
+  }
+  return null;
+}
+
+async function rewardReferrer(companyId: string, referrerId: string, inv: Record<string, any>) {
   const done = await db("referrals?select=company_id&company_id=eq." + companyId);
   if (Array.isArray(done) && done.length) return;
   const ref = await db("companies?select=id,name&id=eq." + referrerId);
   if (!Array.isArray(ref) || !ref.length) return; // the referrer deleted their account
+  const why = !(inv.amount_paid > 0) ? "nothing paid" : await selfReferral(companyId, referrerId, String(inv.customer));
+  if (why) {
+    console.warn("referral not rewarded: " + why);
+    // recorded with no rewarded_at, so a resent message doesn't try again
+    await db("referrals?on_conflict=company_id", {
+      method: "POST",
+      headers: { Prefer: "resolution=ignore-duplicates" },
+      body: JSON.stringify({ company_id: companyId, referrer_id: referrerId }),
+    });
+    return;
+  }
   const rows = await db("billing?select=stripe_customer_id,plan&company_id=eq." + referrerId);
   const bill = Array.isArray(rows) && rows[0] ? rows[0] : null;
   let customer = bill && bill.stripe_customer_id;
@@ -259,7 +296,7 @@ Deno.serve(async (req) => {
       const referrer = sub.metadata.referrer;
       if (event.type === "invoice.paid" && obj.billing_reason === "subscription_create" &&
         referrer && UUID.test(referrer) && referrer !== companyId)
-        await rewardReferrer(companyId, referrer);
+        await rewardReferrer(companyId, referrer, obj);
     }
     return new Response("ok", { status: 200 });
   } catch (e) {
