@@ -303,6 +303,16 @@ swings 10x, so compare old and new engines back to back before calling anything 
    because in reality, this is just a tool for contractors, we aren't actually installing the yard."
 6. A sod calculator: built 2026-11-17 (see Sod calculator).
 
+## App Store
+
+US storefront only (Zach 2026-11-18). Everything for submission, and what's still Zach's, is in
+`appstore/RELEASE.md`; listing text, privacy answers and review notes in `appstore/LISTING.md`.
+Inside the iPhone app, paying opens Stripe's checkout in Safari (`PAY_LINK`, Guideline 3.1.1(a),
+US only) and the yard unlocks when the app comes back (`checkPendingUnlock`). App Review signs in
+as appreview@headtoheadapp.com with the 16-digit code in the keychain (app-review-code), company
+"Head to Head Demo" with a plan row and no Stripe subscription; no email is sent to that address.
+Release builds: `scripts/release-ios.sh` (add `upload` to send one).
+
 ## Payments and server scripts
 
 Keys live in the Mac's keychain (account head-to-head): supabase-access-token,
