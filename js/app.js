@@ -4497,7 +4497,7 @@
       step(
         3,
         "Print and buy",
-        "A plan for the customer, a plan for the crew, and a parts list ready for the counter.",
+        "A to-scale plan to print, and a parts list ready for the counter.",
       ) +
       '</ol></div><figure class="l-shot"><img src="img/app-layout.jpg" width="508" height="1100" loading="lazy" alt="A laid-out yard in Head to Head: sprinkler heads, spray patterns and zones on a lawn, with a list of zones and their GPM"></figure></section>' +
       '<section class="l-sec"><h2>Pricing</h2><div class="l-prices">' +
