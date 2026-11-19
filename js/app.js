@@ -4474,7 +4474,7 @@
       walkDemo() +
       "<figcaption>Camera walk is coming to the App Store. On the website you trace the yard on the satellite photo today.</figcaption></figure></section>" +
       '<section class="l-sec l-founder"><h2>Built on my own jobs</h2>' +
-      "<p>I'm a landscaper, and I used to work the counter at a sprinkler supply store. Every sprinkler job started the same way: measure the yard, sketch it out, figure out heads and zones, then guess on a parts list once I got in the store. I built Head to Head to save time on my own jobs.</p>" +
+      "<p>I'm a landscaper, and I used to work the counter at a sprinkler and plumbing supply store. Every sprinkler job started the same way: measure the yard, sketch it out, figure out heads and zones, then guess on a parts list once I got in the store. I built Head to Head to save time on my own jobs.</p>" +
       "<p>The layout follows the rules I'd use myself. The yard gets double coverage, it's split into zones by pressure and flow rate, and the heads are strategically placed to make the install easy.</p>" +
       '<p class="l-sign">Zach, founder</p></section>' +
       '<section class="l-sec"><h2>The yard measures itself</h2><div class="l-vs">' +
@@ -4531,7 +4531,7 @@
       '<button class="btn" id="l-ho">Map my yard</button></div>' +
       "</div>" +
       '<p class="note">Stripe takes the card. Head to Head never sees it.</p></section>' +
-      '<footer class="l-foot">Built by a landscaper who ran a sprinkler supply counter. © ' +
+      '<footer class="l-foot">Built by a landscaper who ran a sprinkler and plumbing supply counter. © ' +
       new Date().getFullYear() +
       ' Head to Head App LLC · <a href="terms.html">Terms of Use</a> · <a href="privacy.html">Privacy Policy</a></footer>' +
       "</main>"
