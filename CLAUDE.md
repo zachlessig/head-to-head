@@ -53,6 +53,21 @@ swings 10x, so compare old and new engines back to back before calling anything 
   change all three together.
 - Never list rotor nozzles on the parts list. Rotors come with every nozzle (Zach, 2026-11-08).
 
+- Never write outward copy (App Store listing, screenshots, flyer, card) from memory of how the app
+  worked earlier in the session. On 2026-11-18 the listing, a screenshot caption and the flyer said
+  "a plan for the customer and one for the crew" after the other terminal had shipped one plan for
+  everyone. `git fetch` and read the current `js/app.js` and `js/plan.js` before writing claims, and
+  regenerate screenshots with `appstore/capture-screens.cjs` after any visible change.
+- Never leave Zach waiting on a check that can't finish. On 2026-11-18 a loop waited on one of
+  GitHub's four Pages servers that this Mac can't reach at all (github.io failed there too), and he
+  asked "whats the hold up". Give every network wait a timeout, and compare against a known-good
+  address before blaming the site.
+- Web consoles (Cloudflare, Stripe, Apple, Supabase) are signed in only in Zach's own Chrome, which
+  this agent can't drive (chrome-js sees another window; the browser bridge can't read Chrome's
+  profile from the sandbox). When he asked "can you just do it for me" on 2026-11-18, the answer took
+  three tries to reach. Say it in the first reply: the page is open, here are the clicks, and use
+  "look at my screen" to check each step. Prefer an API key in the keychain when one exists.
+
 ## His rules
 
 - Overspray: zero on straight edges. Up to 1 ft past a curve, "nothing over a foot ever".
