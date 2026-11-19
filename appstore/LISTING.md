@@ -43,7 +43,7 @@ yard so the trenching stays simple.
 
 You get:
 
-- A to-scale plan for the customer and one for the crew, ready to print or save as a PDF
+- A to-scale plan with every zone, ready to print or save as a PDF
 - A parts list for the counter: spray bodies, nozzles, rotors, pipe, fittings, valves and boxes
 - Trench and pipe lengths, drip zones for the beds, and sod pallets for the lawn
 - Trees, fences, beds, the meter and spigots taken into account
@@ -70,7 +70,7 @@ sprinkler,irrigation,landscaping,contractor,lawn,zones,rotor,spray head,parts li
    feature, so it goes first once it exists. Screenshot the phone mid-walk in a real yard and it
    gets framed like the others.
 2. `1-layout.png`: Every head placed for you
-3. `2-plan.png`: A plan for the customer and the crew
+3. `2-plan.png`: A plan you can hand over
 4. `3-parts.png`: The parts list, ready for the counter
 5. `4-sod.png`: Sod and square footage too
 
