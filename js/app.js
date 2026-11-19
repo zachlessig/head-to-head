@@ -4531,7 +4531,7 @@
       '<button class="btn" id="l-ho">Map my yard</button></div>' +
       "</div>" +
       '<p class="note">Stripe takes the card. Head to Head never sees it.</p></section>' +
-      '<footer class="l-foot">Built by a landscaper who ran a sprinkler and plumbing supply counter. © ' +
+      '<footer class="l-foot">Built by a landscaper who worked at a sprinkler and plumbing supply store. © ' +
       new Date().getFullYear() +
       ' Head to Head App LLC · <a href="terms.html">Terms of Use</a> · <a href="privacy.html">Privacy Policy</a></footer>' +
       "</main>"
