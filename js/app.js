@@ -4451,117 +4451,195 @@
     );
   }
 
-  function landingPage() {
-    const step = (n, t, d) =>
-      '<li><span class="l-n">' +
-      n +
-      "</span><b>" +
-      t +
-      "</b><span>" +
-      d +
-      "</span></li>";
-    return (
-      '<main class="landing">' +
-      '<header class="l-top"><img src="icons/logo.svg" alt=""><b>Head to Head</b>' +
-      '<a href="#signin" class="btn small ghost" id="l-in">Sign in</a></header>' +
-      '<section class="l-hero"><div class="l-copy">' +
-      '<p class="l-kicker">Built by a landscaper</p>' +
-      "<h1>Walk the yard. Get the sprinkler layout.</h1>" +
-      '<p class="l-sub">Walk the edge of the lawn with your iPhone and Head to Head maps it as you go. About 5 minutes for a whole yard. No measuring wheel, no tape, no drawing it up later.</p>' +
-      '<p class="l-sub">Then it places every head, splits the zones to fit your water, and writes the parts list for the counter.</p>' +
-      '<div class="l-card" id="signin"></div>' +
-      '</div><figure class="l-demo">' +
-      walkDemo() +
-      "<figcaption>Camera walk is coming to the App Store. On the website you trace the yard on the satellite photo today.</figcaption></figure></section>" +
-      '<section class="l-sec l-founder"><h2>Built on my own jobs</h2>' +
-      "<p>I'm a landscaper, and I used to work the counter at a sprinkler and plumbing supply store. Every sprinkler job started the same way: measure the yard, sketch it out, figure out heads and zones, then guess on a parts list once I got in the store. I built Head to Head to save time on my own jobs.</p>" +
-      "<p>The layout follows the rules I'd use myself. The yard gets double coverage, it's split into zones by pressure and flow rate, and the heads are strategically placed to make the install easy.</p>" +
-      '<p class="l-sign">Zach, founder</p></section>' +
-      '<section class="l-sec"><h2>The yard measures itself</h2><div class="l-vs">' +
-      '<div class="l-old"><b>How mapping usually goes</b><ul>' +
-      "<li>Roll a measuring wheel down every side</li><li>Pull tape to the house corners</li><li>Sketch it on paper in the truck</li><li>Redraw it and count heads at home</li></ul></div>" +
-      '<div class="l-new"><b>With Head to Head</b><ul>' +
-      "<li>Walk the edge of the lawn with your phone</li><li>Tap Corner at each corner</li><li>Heads, zones and parts list come out the other end</li></ul></div>" +
-      "</div></section>" +
-      '<section class="l-sec l-split"><div><h2>Then it lays it out</h2><ol class="l-steps">' +
-      step(
-        1,
-        "Map it",
-        "Walk it with the iPhone camera, or trace it on the satellite photo or grid paper.",
-      ) +
-      step(
-        2,
-        "Lay it out",
-        "Heads and nozzles placed head to head, with zones sized to your GPM and pressure.",
-      ) +
-      step(
-        3,
-        "Print and buy",
-        "A to-scale plan to print, and a parts list ready for the counter.",
-      ) +
-      '</ol></div><figure class="l-shot"><img src="img/app-layout.jpg" width="508" height="1100" loading="lazy" alt="A laid-out yard in Head to Head: sprinkler heads, spray patterns and zones on a lawn, with a list of zones and their GPM"></figure></section>' +
-      '<section class="l-sec"><h2>Pricing</h2><div class="l-prices">' +
-      '<div class="l-price"><b>Contractors</b><div class="l-amt">$30<span>/month</span></div>' +
-      "<p>The first contractors on Head to Head lock in <b>$20 a month</b>.</p>" +
-      "<p>Jobs save online and your whole crew can open them. " +
-      FREE_CREW +
-      " crew members are included, then " +
-      CREW_PRICE +
-      " for each person after that.</p>" +
-      "<p>Got a referral code from another contractor? Take " +
-      REFERRAL_OFF +
-      " off your first month.</p>" +
-      "<p>Or pay for the year up front: <b>" +
-      SEASON_PRICE +
-      "</b>, or <b>" +
-      FOUNDING_SEASON_PRICE +
-      "</b> for founding contractors.</p>" +
-      '<a href="#signin" class="btn primary" id="l-co">Start my company</a></div>' +
-      '<div class="l-price"><b>Contractors, a few yards a month</b><div class="l-amt">' +
-      YARD_PRICE +
-      "<span> per yard</span></div>" +
-      "<p>Only do a couple of sprinkler installs a month? Pay for each yard you lay out, nothing in the slow months.</p>" +
-      "<p>You still keep a log of every job you've done, and your crew can open them too.</p>" +
-      "<p>Three or more yards a month, and the monthly plan costs less.</p>" +
-      '<a href="#signin" class="btn" id="l-py">Start my company</a></div>' +
-      '<div class="l-price"><b>Homeowners</b><div class="l-amt">$15<span> once per yard</span></div>' +
-      "<p>Map your yard for free and see how many heads and zones it needs.</p>" +
-      // Zach's words, 2026-11-17
-      "<p>Only pay once the yard and part list has been generated.</p>" +
-      '<button class="btn" id="l-ho">Map my yard</button></div>' +
-      "</div>" +
-      '<p class="note">Stripe takes the card. Head to Head never sees it.</p></section>' +
-      '<footer class="l-foot">Built by a landscaper who worked at a sprinkler and plumbing supply store. © ' +
-      new Date().getFullYear() +
-      ' Head to Head App LLC · <a href="terms.html">Terms of Use</a> · <a href="privacy.html">Privacy Policy</a></footer>' +
-      "</main>"
-    );
-  }
+function landingPage() {
+  // Front page, redone 2026-11-23 with Zach's colors (lawn green on cream, Fraunces) pushed
+  // further: grid-paper ground like the app's own grid jobs, real captures of the example yard
+  // (img/screen-*.jpg, from appstore/capture-screens.cjs), one screen per section. Words are
+  // his from the earlier page and the 2026-11-18 flyer; the four layout rules are his rules
+  // from CLAUDE.md.
+  const phone = (src, alt, cls) =>
+    '<figure class="lp-phone' +
+    (cls ? " " + cls : "") +
+    '"><img src="' +
+    src +
+    '" width="630" height="1370" alt="' +
+    alt +
+    '"' +
+    (cls && cls.includes("lp-in") ? "" : ' loading="lazy"') +
+    "></figure>";
+  const toSign = (label, cls, id) =>
+    '<a href="#signin" class="lp-btn ' +
+    cls +
+    '" data-signin' +
+    (id ? ' id="' + id + '"' : "") +
+    ">" +
+    label +
+    "</a>";
+  const step = (n, title, text, src, alt) =>
+    '<li class="lp-step"><div class="lp-step-t"><span class="lp-n">' +
+    n +
+    "</span><h3>" +
+    title +
+    "</h3><p>" +
+    text +
+    "</p></div>" +
+    phone(src, alt) +
+    "</li>";
+  return (
+    '<main class="landing lp">' +
+    '<section class="lp-hero lp-grid-paper">' +
+    '<header class="lp-top lp-wrap"><a class="lp-brand" href="./" aria-label="Head to Head home"><img src="icons/logo.svg" alt="" width="34" height="37"><span>Head to Head</span></a>' +
+    toSign("Sign in", "lp-ghost lp-small", "l-in") +
+    "</header>" +
+    '<div class="lp-wrap lp-hero-in">' +
+    '<div class="lp-hero-copy">' +
+    '<p class="lp-eyebrow lp-in" style="--d:0">Sprinkler layouts, built by a landscaper</p>' +
+    '<h1 class="lp-in" style="--d:1">Map a whole yard in <em>about 5 minutes.</em></h1>' +
+    '<p class="lp-lede lp-in" style="--d:2">Walk the edge of the lawn with your iPhone. Head to Head draws the yard, places every head, zones it to your water and writes the parts list.</p>' +
+    '<div class="lp-actions lp-in" style="--d:3">' +
+    toSign("Start my company", "lp-primary", "l-co") +
+    '<button type="button" class="lp-btn lp-ghost" id="l-ho">Map my own yard</button></div>' +
+    '<p class="lp-fine lp-in" style="--d:4">The camera walk is in the iPhone app, coming to the App Store. On the website you trace the yard on a satellite photo or grid paper today.</p>' +
+    "</div>" +
+    phone(
+      "img/screen-layout.jpg",
+      "The example yard laid out in Head to Head: heads, spray circles and valve boxes on the lawn, a note that says no overspray and 99.9% double covered, and 16 zones with their GPM",
+      "lp-hero-phone lp-in",
+    ) +
+    "</div></section>" +
+    '<section class="lp-sec lp-vs-sec"><div class="lp-wrap lp-vs-wrap">' +
+    '<div class="lp-vs-copy"><h2>The yard measures itself</h2>' +
+    '<div class="lp-vs">' +
+    '<div class="lp-old"><h3>The old way</h3><ol>' +
+    "<li>Roll a measuring wheel down every side</li><li>Pull tape to the house corners</li><li>Sketch it on paper in the truck</li><li>Redraw it and count heads at home</li><li>Guess the parts list at the counter</li></ol></div>" +
+    '<div class="lp-new"><h3>With Head to Head</h3><ol>' +
+    "<li>Walk the edge of the lawn</li><li>Tap Generate</li><li>Print the plan and parts list</li></ol>" +
+    '<p class="lp-big">~5 min<span>to map a whole yard</span></p></div>' +
+    "</div></div>" +
+    '<figure class="lp-demo">' +
+    walkDemo() +
+    '<button type="button" class="lp-pause" id="lp-pause" aria-pressed="false">Pause</button></figure>' +
+    "</div></section>" +
+    '<section class="lp-sec lp-steps-sec"><div class="lp-wrap">' +
+    "<h2>Heads, zones and parts from one walk</h2>" +
+    '<p class="lp-sec-lede">Heads and nozzles go in head to head, with zones sized to your GPM and pressure. The plan and the parts list come from the same map.</p>' +
+    '<ol class="lp-steps">' +
+    step(
+      1,
+      "Map it",
+      "Walk it with the iPhone camera, or trace it on the satellite photo or grid paper.",
+      "img/screen-draw.jpg",
+      "Drawing the example yard: lawns, a tree, a spigot and measurements in feet, with buttons to add a lawn, bed, fence or marker",
+    ) +
+    step(
+      2,
+      "A plan to scale",
+      "One plan for you, the crew and the customer. Print it or save a PDF.",
+      "img/screen-plan.jpg",
+      "The to-scale sprinkler plan for the example yard, with a Print or save PDF button",
+    ) +
+    step(
+      3,
+      "Parts for the counter",
+      "Heads, nozzles, pipe, fittings and valves, already counted.",
+      "img/screen-parts.jpg",
+      "The parts list for the example yard: pop-up bodies and spray nozzles with counts",
+    ) +
+    "</ol></div></section>" +
+    '<section class="lp-sec lp-founder"><div class="lp-wrap lp-founder-in">' +
+    '<div class="lp-founder-copy"><h2>Built on my own jobs</h2>' +
+    "<p>I'm a landscaper, and I used to work the counter at a sprinkler and plumbing supply store. Every sprinkler job started the same way: measure the yard, sketch it out, figure out heads and zones, then guess on a parts list once I got in the store. I built Head to Head to save time on my own jobs.</p>" +
+    "<p>The layout follows the rules I'd use myself. The yard gets double coverage, it's split into zones by pressure and flow rate, and the heads are strategically placed to make the install easy.</p>" +
+    '<p class="lp-sign">Zach, founder</p></div>' +
+    '<div class="lp-rules"><h3>The rules it lays out by</h3><ul>' +
+    "<li><b>0 ft</b><span>of overspray on a straight edge</span></li>" +
+    "<li><b>1 ft</b><span>past a curve, never more</span></li>" +
+    "<li><b>3+</b><span>rotors in a zone, or it goes pop-ups</span></li>" +
+    "</ul></div>" +
+    "</div></section>" +
+    '<section class="lp-sec lp-price-sec" id="pricing"><div class="lp-wrap">' +
+    "<h2>Pricing</h2>" +
+    '<div class="lp-prices">' +
+    '<div class="lp-price lp-price-main"><h3>Contractors</h3><p class="lp-amt">$30<span>/month</span></p>' +
+    "<p>The first contractors on Head to Head lock in <b>$20 a month</b>.</p>" +
+    "<p>Jobs save online and your whole crew can open them. " +
+    FREE_CREW +
+    " crew members are included, then " +
+    CREW_PRICE +
+    " for each person after that.</p>" +
+    "<p>Got a referral code from another contractor? Take " +
+    REFERRAL_OFF +
+    " off your first month.</p>" +
+    "<p>Or pay for the year up front: <b>" +
+    SEASON_PRICE +
+    "</b>, or <b>" +
+    FOUNDING_SEASON_PRICE +
+    "</b> for founding contractors.</p>" +
+    toSign("Start my company", "lp-primary", "l-py") +
+    "</div>" +
+    '<div class="lp-price"><h3>Contractors, a few yards a month</h3><p class="lp-amt">' +
+    YARD_PRICE +
+    "<span> per yard</span></p>" +
+    "<p>Only do a couple of sprinkler installs a month? Pay for each yard you lay out, nothing in the slow months.</p>" +
+    "<p>You still keep a log of every job you've done, and your crew can open them too.</p>" +
+    "<p>Three or more yards a month, and the monthly plan costs less.</p>" +
+    toSign("Start my company", "lp-ghost") +
+    "</div>" +
+    '<div class="lp-price"><h3>Homeowners</h3><p class="lp-amt">$15<span> once per yard</span></p>' +
+    "<p>Map your yard for free and see how many heads and zones it needs.</p>" +
+    // Zach's words, 2026-11-17
+    "<p>Only pay once the yard and part list has been generated.</p>" +
+    '<button type="button" class="lp-btn lp-ghost" data-homeowner>Map my yard</button></div>' +
+    "</div>" +
+    '<p class="lp-fine">Stripe takes the card. Head to Head never sees it.</p>' +
+    "</div></section>" +
+    '<section class="lp-sec lp-close lp-grid-paper"><div class="lp-wrap lp-close-in">' +
+    '<div class="lp-close-copy"><h2>Set up your company</h2>' +
+    "<p>Jobs save online and your whole crew can open them. The first contractors on Head to Head lock in $20 a month.</p>" +
+    "</div>" +
+    '<div class="l-card lp-form" id="signin"></div>' +
+    "</div>" +
+    '<footer class="lp-foot lp-wrap"><span>Built by a landscaper who worked at a sprinkler and plumbing supply store.</span><span>© ' +
+    new Date().getFullYear() +
+    ' Head to Head App LLC · <a href="terms.html">Terms of Use</a> · <a href="privacy.html">Privacy Policy</a></span></footer>' +
+    "</section>" +
+    "</main>"
+  );
+}
 
-  // the front page is long; the next screen would otherwise open at the old scroll spot (a phone
-  // that tapped "Map my yard" down in Pricing landed on the home screen's footer)
-  function leaveLanding() {
-    if (app.querySelector(".landing")) window.scrollTo(0, 0);
-  }
+// the front page is long; the next screen would otherwise open at the old scroll spot (a phone
+// that tapped "Map my yard" down in Pricing landed on the home screen's footer)
+function leaveLanding() {
+  if (app.querySelector(".landing")) window.scrollTo(0, 0);
+}
 
-  function wireLanding() {
-    const toForm = (e) => {
-      e.preventDefault();
-      const box = app.querySelector("#signin");
-      box.scrollIntoView({
-        behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? "auto"
-          : "smooth",
-        block: "center",
-      });
-      const em = box.querySelector("#em");
-      if (em) em.focus({ preventScroll: true });
+function wireLanding() {
+  const toForm = (e) => {
+    e.preventDefault();
+    const box = app.querySelector("#signin");
+    box.scrollIntoView({
+      behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+      block: "center",
+    });
+    const em = box.querySelector("#em");
+    if (em) em.focus({ preventScroll: true });
+  };
+  app.querySelectorAll("[data-signin]").forEach((a) => (a.onclick = toForm));
+  app
+    .querySelectorAll("#l-ho, [data-homeowner]")
+    .forEach((b) => (b.onclick = () => setHomeowner(true)));
+  // the walk animation loops every 9 s, so it gets a pause button
+  const pause = app.querySelector("#lp-pause");
+  const demo = app.querySelector(".lp-demo");
+  if (pause && demo)
+    pause.onclick = () => {
+      const on = demo.classList.toggle("is-paused");
+      pause.setAttribute("aria-pressed", on ? "true" : "false");
+      pause.textContent = on ? "Play" : "Pause";
     };
-    app.querySelector("#l-in").onclick = toForm;
-    app.querySelector("#l-co").onclick = toForm;
-    app.querySelector("#l-py").onclick = toForm;
-    app.querySelector("#l-ho").onclick = () => setHomeowner(true);
-  }
+}
 
   function renderSignIn() {
     teardownJob();
