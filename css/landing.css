@@ -710,3 +710,130 @@
   .lp-step { grid-row: span 2; grid-template-rows: subgrid; align-items: end; }
   .lp-step-t { align-self: start; }
 }
+
+/* the old way vs walking it: now the cards alone, side by side */
+@media (min-width: 900px) {
+  .lp-vs-wrap { grid-template-columns: 1fr; }
+  .lp-vs-copy { gap: 40px; }
+  .lp-vs ol { font-size: 19px; gap: 14px; }
+  .lp-old, .lp-new { padding: 32px 36px; }
+}
+
+/* The scroll moment: a 30 x 30 ft lawn laid out as you scroll. The section is four screens of
+   scroll with the stage pinned; the script sets --k on each head, spray and part row, --z for
+   the zones and --q for the parts card. At rest (reduced motion) it shows the finished layout. */
+.lp-walk { position: relative; height: 400svh; background: var(--lp-paper); }
+.lp-walk-pin { position: sticky; top: 0; height: 100svh; display: flex; align-items: center; overflow: hidden; }
+.lp-walk-in { display: grid; gap: 56px; align-items: center; }
+.lp-walk-copy { display: grid; gap: 18px; align-content: center; }
+.lp-chapters { list-style: none; padding: 0; margin-top: 18px; display: grid; gap: 6px; }
+.lp-chapters li { padding: 14px 0 14px 22px; border-left: 3px solid var(--lp-line); opacity: 0.36; transition: opacity 220ms ease, border-color 220ms ease; }
+.lp-chapters li.is-on { opacity: 1; border-left-color: var(--lp-green); }
+.lp-chapters h3 { font-family: var(--lp-display); font-size: 24px; letter-spacing: -0.01em; text-transform: none; }
+.lp-chapters p { margin-top: 6px; font-size: 17px; line-height: 1.5; color: var(--lp-muted); max-width: 30em; }
+.lp-walk-stage { position: relative; justify-self: center; width: min(560px, 100%); }
+.lp-yard { display: block; width: 100%; height: auto; overflow: visible; }
+.lp-y-label { font: 700 15px var(--lp-text); fill: var(--lp-ink); letter-spacing: 0.02em; }
+.lp-y-lawn { fill: #d4e8c8; stroke: #b9d6a8; stroke-width: 1.5; }
+.lp-y-trail { fill: none; stroke: var(--lp-green); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 100; stroke-dashoffset: 100; }
+.lp-y-walker circle { fill: #fff; stroke: var(--lp-green); stroke-width: 3.5; }
+.lp-y-walker .lp-y-dot { fill: var(--lp-green); stroke: none; }
+.lp-y-corner circle { fill: var(--lp-paper); stroke: var(--lp-green); stroke-width: 3; transform: scale(0); transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1); }
+.lp-y-corner.is-on circle { transform: scale(1); }
+.lp-y-spray {
+  --k: 0;
+  fill: color-mix(in srgb, var(--zc) calc(var(--z, 0) * 100%), var(--lp-green-2));
+  fill-opacity: calc(0.2 - var(--z, 0) * 0.06);
+  stroke: color-mix(in srgb, var(--zc) calc(var(--z, 0) * 100%), var(--lp-green));
+  stroke-opacity: calc(0.55 + var(--z, 0) * 0.3);
+  stroke-width: 1.5;
+  transform: scale(var(--k));
+}
+.lp-y-head {
+  --k: 0;
+  fill: #fff;
+  stroke: color-mix(in srgb, var(--zc) calc(var(--z, 0) * 100%), var(--lp-ink));
+  stroke-width: 4;
+  transform: scale(var(--k));
+  opacity: var(--k);
+}
+.lp-y-trench { fill: none; stroke: #8a6a45; stroke-width: 3; stroke-dasharray: 7 6; opacity: var(--z, 0); }
+.lp-y-vb { opacity: var(--z, 0); }
+.lp-y-vb rect { fill: #6b5236; }
+.lp-y-vb text { font: 700 12px var(--lp-text); fill: #fff; text-anchor: middle; }
+.lp-y-scale path { fill: none; stroke: var(--lp-ink); stroke-width: 2; }
+.lp-y-scale text { font: 600 13px var(--lp-text); fill: var(--lp-muted); }
+.lp-y-zones { opacity: var(--z, 0); }
+.lp-y-zones text { font: 700 14px var(--lp-text); fill: var(--lp-ink); }
+.lp-parts {
+  position: absolute;
+  right: -8px;
+  bottom: 6%;
+  width: min(270px, 62%);
+  background: var(--lp-card);
+  border: 1px solid var(--lp-line);
+  border-radius: 18px;
+  padding: 16px 18px 10px;
+  box-shadow: 0 24px 60px rgba(20, 48, 32, 0.18), 0 4px 12px rgba(20, 48, 32, 0.08);
+  opacity: var(--q, 0);
+  transform: translateY(calc((1 - var(--q, 0)) * 24px));
+}
+.lp-parts-h { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--lp-green); margin-bottom: 6px; }
+.lp-parts ul { list-style: none; padding: 0; margin: 0; }
+.lp-parts li { --k: 0; display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--lp-line); font-size: 14px; opacity: calc(0.25 + var(--k) * 0.75); }
+.lp-parts b { font-variant-numeric: tabular-nums; min-width: 2ch; text-align: right; }
+@media (min-width: 900px) {
+  .lp-walk-in { grid-template-columns: 0.8fr 1.2fr; }
+  .lp-walk-stage { width: min(600px, calc((100svh - 80px) * 0.98)); }
+}
+/* a phone: the drawing on top, only the current chapter's words under it */
+@media (max-width: 899px) {
+  .lp-walk-in { gap: 8px; align-content: center; }
+  .lp-walk-copy { order: 2; gap: 6px; }
+  .lp-walk-copy .lp-eyebrow,
+  .lp-walk-copy h2 { display: none; }
+  .lp-chapters { position: relative; margin-top: 0; min-height: 7.5em; }
+  .lp-chapters li { position: absolute; inset: 0 0 auto 0; border-left: 0; padding: 0; opacity: 0; }
+  .lp-chapters li.is-on { opacity: 1; }
+  .lp-chapters h3 { font-size: 22px; }
+  .lp-walk-stage { width: min(420px, 100%, calc((100svh - 220px) * 0.98)); }
+  .lp-parts { right: 0; bottom: 2%; width: 64%; padding: 12px 14px 6px; }
+  .lp-parts li { padding: 5px 0; font-size: 13px; }
+}
+/* still: the finished layout, every chapter's words, no pinning */
+.lp-walk.is-still { height: auto; }
+.lp-walk.is-still .lp-walk-pin { position: static; height: auto; padding: 96px 0; }
+.lp-walk.is-still .lp-chapters li { position: static; opacity: 1; }
+.lp-walk.is-still .lp-walk-copy .lp-eyebrow,
+.lp-walk.is-still .lp-walk-copy h2 { display: block; }
+.lp-walk.is-still .lp-chapters { min-height: 0; gap: 18px; }
+@media (prefers-reduced-motion: reduce) {
+  .lp-walk { height: auto; }
+  .lp-walk-pin { position: static; height: auto; }
+  .lp-chapters li, .lp-y-corner circle { transition: none; }
+}
+
+/* the zone key sits under the lawn on the right, across from the scale bar */
+.lp-y-zones text { text-anchor: start; }
+/* a wide screen: the parts card stands beside the drawing instead of over it */
+@media (min-width: 1100px) {
+  .lp-walk-in { grid-template-columns: 0.72fr 1.28fr; }
+  .lp-walk-stage { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 28px; align-items: center; }
+  .lp-yard { max-height: calc(100svh - 120px); }
+  .lp-parts { position: static; width: auto; }
+}
+/* a phone: heading, drawing, then the chapter */
+@media (max-width: 899px) {
+  .lp-walk-copy { display: contents; }
+  .lp-walk-copy h2 { display: block; order: 0; font-size: 30px; }
+  .lp-walk-stage { order: 1; }
+  .lp-chapters { order: 2; margin-top: 10px; }
+  .lp-walk-stage { width: min(460px, 100%, calc((100svh - 300px) * 0.98)); }
+}
+@media (min-width: 1100px) {
+  .lp-walk-in { grid-template-columns: 0.62fr 1.38fr; gap: 40px; }
+  .lp-walk-stage { grid-template-columns: minmax(0, 1fr) 236px; gap: 20px; }
+}
+@media (max-width: 899px) {
+  .lp-walk-stage { justify-self: center; }
+}

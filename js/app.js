@@ -432,7 +432,8 @@
     box.style.top = r.bottom + 12 + "px";
     box.style.setProperty(
       "--arrow",
-      Math.max(24, r.left + r.width / 2 - box.getBoundingClientRect().left) + "px",
+      Math.max(24, r.left + r.width / 2 - box.getBoundingClientRect().left) +
+        "px",
     );
     back.classList.add("tour-hl");
     const close = () => {
@@ -3004,7 +3005,10 @@
       (t, a) =>
         t +
         Math.abs(ringArea(densify(a.outer, true))) -
-        (a.holes || []).reduce((u, hl) => u + Math.abs(ringArea(densify(hl, true))), 0),
+        (a.holes || []).reduce(
+          (u, hl) => u + Math.abs(ringArea(densify(hl, true))),
+          0,
+        ),
       0,
     );
     if (sqft < 1) return "";
@@ -3417,7 +3421,9 @@
       trenchLine(job);
     h +=
       '<button class="btn primary" style="width:100%;margin:6px 0 10px" id="ul">' +
-      (contractor() ? "Unlock the heads, plans and parts list · " : "Unlock the heads and parts list · ") +
+      (contractor()
+        ? "Unlock the heads, plans and parts list · "
+        : "Unlock the heads and parts list · ") +
       (contractor() ? YARD_PRICE : UNLOCK_PRICE) +
       "</button>" +
       '<button class="btn small" style="width:100%" id="gen">Generate again</button>' +
@@ -3466,16 +3472,16 @@
         (J.job.example
           ? '<p class="hint"><b>This is the example yard, so it can\'t be unlocked.</b> Go back and tap Map my yard to make your own.</p>'
           : PAY_HERE || PAY_LINK
-          ? '<button class="btn primary" style="width:100%" id="pay">Pay ' +
-            price +
-            (PAY_LINK ? " on the website" : "") +
-            "</button>" +
-            '<p class="note">' +
-            (PAY_LINK
-              ? "Opens Stripe's checkout in Safari. Come back to the app when you're done and the yard unlocks."
-              : "Stripe takes the card. Head to Head never sees it.") +
-            "</p>"
-          : '<button class="btn primary" style="width:100%" disabled>Payments open soon</button>') +
+            ? '<button class="btn primary" style="width:100%" id="pay">Pay ' +
+              price +
+              (PAY_LINK ? " on the website" : "") +
+              "</button>" +
+              '<p class="note">' +
+              (PAY_LINK
+                ? "Opens Stripe's checkout in Safari. Come back to the app when you're done and the yard unlocks."
+                : "Stripe takes the card. Head to Head never sees it.") +
+              "</p>"
+            : '<button class="btn primary" style="width:100%" disabled>Payments open soon</button>') +
         (TEST_COPY
           ? '<button class="btn small" style="width:100%;margin-top:8px" id="tu">Unlock (test copy, no charge)</button>'
           : "") +
@@ -3513,7 +3519,9 @@
               });
               if (PAY_LINK) {
                 // the session id is in Stripe's checkout address; it's checked when the app comes back
-                const sid = (String(r.url).match(/cs_(?:test|live)_[A-Za-z0-9]+/) || [])[0];
+                const sid = (String(r.url).match(
+                  /cs_(?:test|live)_[A-Za-z0-9]+/,
+                ) || [])[0];
                 if (sid) savePendingUnlock({ sid, job: J.job.id });
                 window.open(r.url, "_blank");
                 close();
@@ -4451,195 +4459,354 @@
     );
   }
 
-function landingPage() {
-  // Front page, redone 2026-11-23 with Zach's colors (lawn green on cream, Fraunces) pushed
-  // further: grid-paper ground like the app's own grid jobs, real captures of the example yard
-  // (img/screen-*.jpg, from appstore/capture-screens.cjs), one screen per section. Words are
-  // his from the earlier page and the 2026-11-18 flyer; the four layout rules are his rules
-  // from CLAUDE.md.
-  const phone = (src, alt, cls) =>
-    '<figure class="lp-phone' +
-    (cls ? " " + cls : "") +
-    '"><img src="' +
-    src +
-    '" width="630" height="1370" alt="' +
-    alt +
-    '"' +
-    (cls && cls.includes("lp-in") ? "" : ' loading="lazy"') +
-    "></figure>";
-  const toSign = (label, cls, id) =>
-    '<a href="#signin" class="lp-btn ' +
-    cls +
-    '" data-signin' +
-    (id ? ' id="' + id + '"' : "") +
-    ">" +
-    label +
-    "</a>";
-  const step = (n, title, text, src, alt) =>
-    '<li class="lp-step"><div class="lp-step-t"><span class="lp-n">' +
-    n +
-    "</span><h3>" +
-    title +
-    "</h3><p>" +
-    text +
-    "</p></div>" +
-    phone(src, alt) +
-    "</li>";
-  return (
-    '<main class="landing lp">' +
-    '<section class="lp-hero lp-grid-paper">' +
-    '<header class="lp-top lp-wrap"><a class="lp-brand" href="./" aria-label="Head to Head home"><img src="icons/logo.svg" alt="" width="34" height="37"><span>Head to Head</span></a>' +
-    toSign("Sign in", "lp-ghost lp-small", "l-in") +
-    "</header>" +
-    '<div class="lp-wrap lp-hero-in">' +
-    '<div class="lp-hero-copy">' +
-    '<p class="lp-eyebrow lp-in" style="--d:0">Sprinkler layouts, built by a landscaper</p>' +
-    '<h1 class="lp-in" style="--d:1">Map a whole yard in <em>about 5 minutes.</em></h1>' +
-    '<p class="lp-lede lp-in" style="--d:2">Walk the edge of the lawn with your iPhone. Head to Head draws the yard, places every head, zones it to your water and writes the parts list.</p>' +
-    '<div class="lp-actions lp-in" style="--d:3">' +
-    toSign("Start my company", "lp-primary", "l-co") +
-    '<button type="button" class="lp-btn lp-ghost" id="l-ho">Map my own yard</button></div>' +
-    '<p class="lp-fine lp-in" style="--d:4">The camera walk is in the iPhone app, coming to the App Store. On the website you trace the yard on a satellite photo or grid paper today.</p>' +
-    "</div>" +
-    phone(
-      "img/screen-layout.jpg",
-      "The example yard laid out in Head to Head: heads, spray circles and valve boxes on the lawn, a note that says no overspray and 99.9% double covered, and 16 zones with their GPM",
-      "lp-hero-phone lp-in",
-    ) +
-    "</div></section>" +
-    '<section class="lp-sec lp-vs-sec"><div class="lp-wrap lp-vs-wrap">' +
-    '<div class="lp-vs-copy"><h2>The yard measures itself</h2>' +
-    '<div class="lp-vs">' +
-    '<div class="lp-old"><h3>The old way</h3><ol>' +
-    "<li>Roll a measuring wheel down every side</li><li>Pull tape to the house corners</li><li>Sketch it on paper in the truck</li><li>Redraw it and count heads at home</li><li>Guess the parts list at the counter</li></ol></div>" +
-    '<div class="lp-new"><h3>With Head to Head</h3><ol>' +
-    "<li>Walk the edge of the lawn</li><li>Tap Generate</li><li>Print the plan and parts list</li></ol>" +
-    '<p class="lp-big">~5 min<span>to map a whole yard</span></p></div>' +
-    "</div></div>" +
-    '<figure class="lp-demo">' +
-    walkDemo() +
-    '<button type="button" class="lp-pause" id="lp-pause" aria-pressed="false">Pause</button></figure>' +
-    "</div></section>" +
-    '<section class="lp-sec lp-steps-sec"><div class="lp-wrap">' +
-    "<h2>Heads, zones and parts from one walk</h2>" +
-    '<p class="lp-sec-lede">Heads and nozzles go in head to head, with zones sized to your GPM and pressure. The plan and the parts list come from the same map.</p>' +
-    '<ol class="lp-steps">' +
-    step(
-      1,
-      "Map it",
-      "Walk it with the iPhone camera, or trace it on the satellite photo or grid paper.",
-      "img/screen-draw.jpg",
-      "Drawing the example yard: lawns, a tree, a spigot and measurements in feet, with buttons to add a lawn, bed, fence or marker",
-    ) +
-    step(
-      2,
-      "A plan to scale",
-      "One plan for you, the crew and the customer. Print it or save a PDF.",
-      "img/screen-plan.jpg",
-      "The to-scale sprinkler plan for the example yard, with a Print or save PDF button",
-    ) +
-    step(
-      3,
-      "Parts for the counter",
-      "Heads, nozzles, pipe, fittings and valves, already counted.",
-      "img/screen-parts.jpg",
-      "The parts list for the example yard: pop-up bodies and spray nozzles with counts",
-    ) +
-    "</ol></div></section>" +
-    '<section class="lp-sec lp-founder"><div class="lp-wrap lp-founder-in">' +
-    '<div class="lp-founder-copy"><h2>Built on my own jobs</h2>' +
-    "<p>I'm a landscaper, and I used to work the counter at a sprinkler and plumbing supply store. Every sprinkler job started the same way: measure the yard, sketch it out, figure out heads and zones, then guess on a parts list once I got in the store. I built Head to Head to save time on my own jobs.</p>" +
-    "<p>The layout follows the rules I'd use myself. The yard gets double coverage, it's split into zones by pressure and flow rate, and the heads are strategically placed to make the install easy.</p>" +
-    '<p class="lp-sign">Zach, founder</p></div>' +
-    '<div class="lp-rules"><h3>The rules it lays out by</h3><ul>' +
-    "<li><b>0 ft</b><span>of overspray on a straight edge</span></li>" +
-    "<li><b>1 ft</b><span>past a curve, never more</span></li>" +
-    "<li><b>3+</b><span>rotors in a zone, or it goes pop-ups</span></li>" +
-    "</ul></div>" +
-    "</div></section>" +
-    '<section class="lp-sec lp-price-sec" id="pricing"><div class="lp-wrap">' +
-    "<h2>Pricing</h2>" +
-    '<div class="lp-prices">' +
-    '<div class="lp-price lp-price-main"><h3>Contractors</h3><p class="lp-amt">$30<span>/month</span></p>' +
-    "<p>The first contractors on Head to Head lock in <b>$20 a month</b>.</p>" +
-    "<p>Jobs save online and your whole crew can open them. " +
-    FREE_CREW +
-    " crew members are included, then " +
-    CREW_PRICE +
-    " for each person after that.</p>" +
-    "<p>Got a referral code from another contractor? Take " +
-    REFERRAL_OFF +
-    " off your first month.</p>" +
-    "<p>Or pay for the year up front: <b>" +
-    SEASON_PRICE +
-    "</b>, or <b>" +
-    FOUNDING_SEASON_PRICE +
-    "</b> for founding contractors.</p>" +
-    toSign("Start my company", "lp-primary", "l-py") +
-    "</div>" +
-    '<div class="lp-price"><h3>Contractors, a few yards a month</h3><p class="lp-amt">' +
-    YARD_PRICE +
-    "<span> per yard</span></p>" +
-    "<p>Only do a couple of sprinkler installs a month? Pay for each yard you lay out, nothing in the slow months.</p>" +
-    "<p>You still keep a log of every job you've done, and your crew can open them too.</p>" +
-    "<p>Three or more yards a month, and the monthly plan costs less.</p>" +
-    toSign("Start my company", "lp-ghost") +
-    "</div>" +
-    '<div class="lp-price"><h3>Homeowners</h3><p class="lp-amt">$15<span> once per yard</span></p>' +
-    "<p>Map your yard for free and see how many heads and zones it needs.</p>" +
-    // Zach's words, 2026-11-17
-    "<p>Only pay once the yard and part list has been generated.</p>" +
-    '<button type="button" class="lp-btn lp-ghost" data-homeowner>Map my yard</button></div>' +
-    "</div>" +
-    '<p class="lp-fine">Stripe takes the card. Head to Head never sees it.</p>' +
-    "</div></section>" +
-    '<section class="lp-sec lp-close lp-grid-paper"><div class="lp-wrap lp-close-in">' +
-    '<div class="lp-close-copy"><h2>Set up your company</h2>' +
-    "<p>Jobs save online and your whole crew can open them. The first contractors on Head to Head lock in $20 a month.</p>" +
-    "</div>" +
-    '<div class="l-card lp-form" id="signin"></div>' +
-    "</div>" +
-    '<footer class="lp-foot lp-wrap"><span>Built by a landscaper who worked at a sprinkler and plumbing supply store.</span><span>© ' +
-    new Date().getFullYear() +
-    ' Head to Head App LLC · <a href="terms.html">Terms of Use</a> · <a href="privacy.html">Privacy Policy</a></span></footer>' +
-    "</section>" +
-    "</main>"
-  );
-}
+  function landingPage() {
+    // Front page, redone 2026-11-23 with Zach's colors (lawn green on cream, Fraunces) pushed
+    // further: grid-paper ground like the app's own grid jobs, real captures of the example yard
+    // (img/screen-*.jpg, from appstore/capture-screens.cjs), one screen per section. Words are
+    // his from the earlier page and the 2026-11-18 flyer; the four layout rules are his rules
+    // from CLAUDE.md.
+    const phone = (src, alt, cls) =>
+      '<figure class="lp-phone' +
+      (cls ? " " + cls : "") +
+      '"><img src="' +
+      src +
+      '" width="630" height="1370" alt="' +
+      alt +
+      '"' +
+      (cls && cls.includes("lp-in") ? "" : ' loading="lazy"') +
+      "></figure>";
+    const toSign = (label, cls, id) =>
+      '<a href="#signin" class="lp-btn ' +
+      cls +
+      '" data-signin' +
+      (id ? ' id="' + id + '"' : "") +
+      ">" +
+      label +
+      "</a>";
+    const step = (n, title, text, src, alt) =>
+      '<li class="lp-step"><div class="lp-step-t"><span class="lp-n">' +
+      n +
+      "</span><h3>" +
+      title +
+      "</h3><p>" +
+      text +
+      "</p></div>" +
+      phone(src, alt) +
+      "</li>";
+    return (
+      '<main class="landing lp">' +
+      '<section class="lp-hero lp-grid-paper">' +
+      '<header class="lp-top lp-wrap"><a class="lp-brand" href="./" aria-label="Head to Head home"><img src="icons/logo.svg" alt="" width="34" height="37"><span>Head to Head</span></a>' +
+      toSign("Sign in", "lp-ghost lp-small", "l-in") +
+      "</header>" +
+      '<div class="lp-wrap lp-hero-in">' +
+      '<div class="lp-hero-copy">' +
+      '<p class="lp-eyebrow lp-in" style="--d:0">Sprinkler layouts, built by a landscaper</p>' +
+      '<h1 class="lp-in" style="--d:1">Map a whole yard in <em>about 5 minutes.</em></h1>' +
+      '<p class="lp-lede lp-in" style="--d:2">Walk the edge of the lawn with your iPhone. Head to Head draws the yard, places every head, zones it to your water and writes the parts list.</p>' +
+      '<div class="lp-actions lp-in" style="--d:3">' +
+      toSign("Start my company", "lp-primary", "l-co") +
+      '<button type="button" class="lp-btn lp-ghost" id="l-ho">Map my own yard</button></div>' +
+      '<p class="lp-fine lp-in" style="--d:4">The camera walk is in the iPhone app, coming to the App Store. On the website you trace the yard on a satellite photo or grid paper today.</p>' +
+      "</div>" +
+      phone(
+        "img/screen-layout.jpg",
+        "The example yard laid out in Head to Head: heads, spray circles and valve boxes on the lawn, a note that says no overspray and 99.9% double covered, and 16 zones with their GPM",
+        "lp-hero-phone lp-in",
+      ) +
+      "</div></section>" +
+      walkScene() +
+      '<section class="lp-sec lp-vs-sec"><div class="lp-wrap lp-vs-wrap">' +
+      '<div class="lp-vs-copy"><h2>The yard measures itself</h2>' +
+      '<div class="lp-vs">' +
+      '<div class="lp-old"><h3>The old way</h3><ol>' +
+      "<li>Roll a measuring wheel down every side</li><li>Pull tape to the house corners</li><li>Sketch it on paper in the truck</li><li>Redraw it and count heads at home</li><li>Guess the parts list at the counter</li></ol></div>" +
+      '<div class="lp-new"><h3>With Head to Head</h3><ol>' +
+      "<li>Walk the edge of the lawn</li><li>Tap Generate</li><li>Print the plan and parts list</li></ol>" +
+      '<p class="lp-big">~5 min<span>to map a whole yard</span></p></div>' +
+      "</div></div>" +
+      "</div></section>" +
+      '<section class="lp-sec lp-steps-sec"><div class="lp-wrap">' +
+      "<h2>Heads, zones and parts from one walk</h2>" +
+      '<p class="lp-sec-lede">Heads and nozzles go in head to head, with zones sized to your GPM and pressure. The plan and the parts list come from the same map.</p>' +
+      '<ol class="lp-steps">' +
+      step(
+        1,
+        "Map it",
+        "Walk it with the iPhone camera, or trace it on the satellite photo or grid paper.",
+        "img/screen-draw.jpg",
+        "Drawing the example yard: lawns, a tree, a spigot and measurements in feet, with buttons to add a lawn, bed, fence or marker",
+      ) +
+      step(
+        2,
+        "A plan to scale",
+        "One plan for you, the crew and the customer. Print it or save a PDF.",
+        "img/screen-plan.jpg",
+        "The to-scale sprinkler plan for the example yard, with a Print or save PDF button",
+      ) +
+      step(
+        3,
+        "Parts for the counter",
+        "Heads, nozzles, pipe, fittings and valves, already counted.",
+        "img/screen-parts.jpg",
+        "The parts list for the example yard: pop-up bodies and spray nozzles with counts",
+      ) +
+      "</ol></div></section>" +
+      '<section class="lp-sec lp-founder"><div class="lp-wrap lp-founder-in">' +
+      '<div class="lp-founder-copy"><h2>Built on my own jobs</h2>' +
+      "<p>I'm a landscaper, and I used to work the counter at a sprinkler and plumbing supply store. Every sprinkler job started the same way: measure the yard, sketch it out, figure out heads and zones, then guess on a parts list once I got in the store. I built Head to Head to save time on my own jobs.</p>" +
+      "<p>The layout follows the rules I'd use myself. The yard gets double coverage, it's split into zones by pressure and flow rate, and the heads are strategically placed to make the install easy.</p>" +
+      '<p class="lp-sign">Zach, founder</p></div>' +
+      '<div class="lp-rules"><h3>The rules it lays out by</h3><ul>' +
+      "<li><b>0 ft</b><span>of overspray on a straight edge</span></li>" +
+      "<li><b>1 ft</b><span>past a curve, never more</span></li>" +
+      "<li><b>3+</b><span>rotors in a zone, or it goes pop-ups</span></li>" +
+      "</ul></div>" +
+      "</div></section>" +
+      '<section class="lp-sec lp-price-sec" id="pricing"><div class="lp-wrap">' +
+      "<h2>Pricing</h2>" +
+      '<div class="lp-prices">' +
+      '<div class="lp-price lp-price-main"><h3>Contractors</h3><p class="lp-amt">$30<span>/month</span></p>' +
+      "<p>The first contractors on Head to Head lock in <b>$20 a month</b>.</p>" +
+      "<p>Jobs save online and your whole crew can open them. " +
+      FREE_CREW +
+      " crew members are included, then " +
+      CREW_PRICE +
+      " for each person after that.</p>" +
+      "<p>Got a referral code from another contractor? Take " +
+      REFERRAL_OFF +
+      " off your first month.</p>" +
+      "<p>Or pay for the year up front: <b>" +
+      SEASON_PRICE +
+      "</b>, or <b>" +
+      FOUNDING_SEASON_PRICE +
+      "</b> for founding contractors.</p>" +
+      toSign("Start my company", "lp-primary", "l-py") +
+      "</div>" +
+      '<div class="lp-price"><h3>Contractors, a few yards a month</h3><p class="lp-amt">' +
+      YARD_PRICE +
+      "<span> per yard</span></p>" +
+      "<p>Only do a couple of sprinkler installs a month? Pay for each yard you lay out, nothing in the slow months.</p>" +
+      "<p>You still keep a log of every job you've done, and your crew can open them too.</p>" +
+      "<p>Three or more yards a month, and the monthly plan costs less.</p>" +
+      toSign("Start my company", "lp-ghost") +
+      "</div>" +
+      '<div class="lp-price"><h3>Homeowners</h3><p class="lp-amt">$15<span> once per yard</span></p>' +
+      "<p>Map your yard for free and see how many heads and zones it needs.</p>" +
+      // Zach's words, 2026-11-17
+      "<p>Only pay once the yard and part list has been generated.</p>" +
+      '<button type="button" class="lp-btn lp-ghost" data-homeowner>Map my yard</button></div>' +
+      "</div>" +
+      '<p class="lp-fine">Stripe takes the card. Head to Head never sees it.</p>' +
+      "</div></section>" +
+      '<section class="lp-sec lp-close lp-grid-paper"><div class="lp-wrap lp-close-in">' +
+      '<div class="lp-close-copy"><h2>Set up your company</h2>' +
+      "<p>Jobs save online and your whole crew can open them. The first contractors on Head to Head lock in $20 a month.</p>" +
+      "</div>" +
+      '<div class="l-card lp-form" id="signin"></div>' +
+      "</div>" +
+      '<footer class="lp-foot lp-wrap"><span>Built by a landscaper who worked at a sprinkler and plumbing supply store.</span><span>© ' +
+      new Date().getFullYear() +
+      ' Head to Head App LLC · <a href="terms.html">Terms of Use</a> · <a href="privacy.html">Privacy Policy</a></span></footer>' +
+      "</section>" +
+      "</main>"
+    );
+  }
 
-// the front page is long; the next screen would otherwise open at the old scroll spot (a phone
-// that tapped "Map my yard" down in Pricing landed on the home screen's footer)
-function leaveLanding() {
-  if (app.querySelector(".landing")) window.scrollTo(0, 0);
-}
+  // the front page is long; the next screen would otherwise open at the old scroll spot (a phone
+  // that tapped "Map my yard" down in Pricing landed on the home screen's footer)
+  function leaveLanding() {
+    if (app.querySelector(".landing")) window.scrollTo(0, 0);
+  }
 
-function wireLanding() {
-  const toForm = (e) => {
-    e.preventDefault();
-    const box = app.querySelector("#signin");
-    box.scrollIntoView({
-      behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "auto"
-        : "smooth",
-      block: "center",
-    });
-    const em = box.querySelector("#em");
-    if (em) em.focus({ preventScroll: true });
-  };
-  app.querySelectorAll("[data-signin]").forEach((a) => (a.onclick = toForm));
-  app
-    .querySelectorAll("#l-ho, [data-homeowner]")
-    .forEach((b) => (b.onclick = () => setHomeowner(true)));
-  // the walk animation loops every 9 s, so it gets a pause button
-  const pause = app.querySelector("#lp-pause");
-  const demo = app.querySelector(".lp-demo");
-  if (pause && demo)
-    pause.onclick = () => {
-      const on = demo.classList.toggle("is-paused");
-      pause.setAttribute("aria-pressed", on ? "true" : "false");
-      pause.textContent = on ? "Play" : "Pause";
+  function wireLanding() {
+    const toForm = (e) => {
+      e.preventDefault();
+      const box = app.querySelector("#signin");
+      box.scrollIntoView({
+        behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "auto"
+          : "smooth",
+        block: "center",
+      });
+      const em = box.querySelector("#em");
+      if (em) em.focus({ preventScroll: true });
     };
-}
+    app.querySelectorAll("[data-signin]").forEach((a) => (a.onclick = toForm));
+    app
+      .querySelectorAll("#l-ho, [data-homeowner]")
+      .forEach((b) => (b.onclick = () => setHomeowner(true)));
+    wireWalkScene();
+  }
+
+  // The scroll moment under the hero (2026-11-23, Zach: "create some animations that animate as
+  // you scroll through the site"). One pinned section, scrubbed to the scrollbar: the walk draws
+  // the lawn, the heads go in head to head, the sprays split into two zones, and the parts list
+  // counts up. It's a drawing made for the page, not an engine run: a 30 x 30 ft lawn at 10 units
+  // a foot with 15 ft sprays, so every spray reaches the next head along the edge (four 15Q
+  // corners, four 15H sides). The counts match that drawing by Zach's parts rules (one 1804 body
+  // and one 1/2" swing elbow per pop-up, one valve per zone, up to 4 valves in a standard box).
+  const WALK_HEADS = [
+    // x, y, zone, start angle, sweep: corners throw a quarter, sides a half, into the lawn
+    [0, 300, 0, -90, 90],
+    [0, 150, 0, -90, 180],
+    [0, 0, 0, 0, 90],
+    [150, 0, 0, 0, 180],
+    [300, 0, 1, 90, 90],
+    [300, 150, 1, 90, 180],
+    [300, 300, 1, 180, 90],
+    [150, 300, 1, 180, 180],
+  ];
+  const WALK_ZONES = ["#2b7bd8", "#e07a2e"];
+  const WALK_PARTS = [
+    ["1804 pop-up spray body", 8],
+    ["15Q nozzle", 4],
+    ["15H nozzle", 4],
+    ['1/2" swing elbow', 8],
+    ["Zone valve", 2],
+    ["Standard valve box", 1],
+  ];
+
+  function walkScene() {
+    // spray radius: 15 ft at 10 units a foot, the lawn's half width, so sprays meet head to head
+    const R = 150;
+    const arc = ([x, y, , a, sweep]) => {
+      const r1 = (a * Math.PI) / 180;
+      const r2 = ((a + sweep) * Math.PI) / 180;
+      const p = (r) =>
+        (x + R * Math.cos(r)).toFixed(1) +
+        " " +
+        (y + R * Math.sin(r)).toFixed(1);
+      return (
+        "M" + x + " " + y + " L" + p(r1) + " A" + R + " " + R + " 0 0 1 " + p(r2) + " Z"
+      );
+    };
+    const chapter = (i, title, text) =>
+      '<li data-ch="' + i + '"><h3>' + title + "</h3><p>" + text + "</p></li>";
+    const corners = [
+      [0, 0],
+      [300, 0],
+      [300, 300],
+      [0, 300],
+    ];
+    return (
+      '<section class="lp-walk" id="lp-walk" aria-labelledby="lp-walk-h">' +
+      '<div class="lp-walk-pin"><div class="lp-wrap lp-walk-in">' +
+      '<div class="lp-walk-copy">' +
+      '<p class="lp-eyebrow">One walk, start to finish</p>' +
+      '<h2 id="lp-walk-h">Watch a yard lay itself out</h2>' +
+      '<ol class="lp-chapters">' +
+      chapter(0, "Walk the edge", "Walk the edge of the lawn with your iPhone and tap Corner at each corner.") +
+      chapter(1, "Heads go in head to head", "Quarter sprays in the corners, halves along the sides, each one throwing to the next head.") +
+      chapter(2, "Zoned to your water", "Heads are split into zones by your GPM and pressure, and each zone stays in one part of the yard.") +
+      chapter(3, "Parts for the counter", "Bodies, nozzles, swing elbows, valves and the valve box, counted before you leave the yard.") +
+      "</ol></div>" +
+      '<div class="lp-walk-stage">' +
+      '<svg class="lp-yard" viewBox="-70 -78 440 446" role="img" aria-label="A 30 by 30 foot lawn: walked around its edge, then 8 sprinkler heads placed head to head, split into 2 zones, with a valve box">' +
+      '<defs><clipPath id="lp-lawn-clip"><rect x="0" y="0" width="300" height="300" rx="4"/></clipPath></defs>' +
+      '<text class="lp-y-label" x="0" y="-44">Front lawn · 30 × 30 ft</text>' +
+      '<rect class="lp-y-lawn" x="0" y="0" width="300" height="300" rx="4"/>' +
+      '<g clip-path="url(#lp-lawn-clip)">' +
+      WALK_HEADS.map(
+        (h, i) =>
+          '<path class="lp-y-spray" data-i="' + i + '" d="' + arc(h) + '" style="--zc:' + WALK_ZONES[h[2]] + ";transform-origin:" + h[0] + "px " + h[1] + 'px"/>',
+      ).join("") +
+      "</g>" +
+      '<path class="lp-y-trench" d="M225 300 V225 H75 V150 M225 225 V150"/>' +
+      '<path class="lp-y-trail" pathLength="100" d="M0 300 V0 H300 V300 Z"/>' +
+      corners
+        .map(([x, y], i) => '<g class="lp-y-corner" data-c="' + i + '" transform="translate(' + x + " " + y + ')"><circle r="7"/></g>')
+        .join("") +
+      WALK_HEADS.map(
+        ([x, y, z], i) =>
+          '<circle class="lp-y-head" data-i="' + i + '" cx="' + x + '" cy="' + y + '" r="8" style="--zc:' + WALK_ZONES[z] + ";transform-origin:" + x + "px " + y + 'px"/>',
+      ).join("") +
+      '<g class="lp-y-vb" transform="translate(225 300)"><rect x="-17" y="-11" width="34" height="22" rx="5"/><text y="4.5">VB</text></g>' +
+      '<g class="lp-y-walker"><circle r="13"/><circle r="5" class="lp-y-dot"/></g>' +
+      '<g class="lp-y-scale" transform="translate(0 336)"><path d="M0 -5 V5 M0 0 H100 M100 -5 V5"/><text x="112" y="5">10 ft</text></g>' +
+      '<g class="lp-y-zones" transform="translate(300 341)">' +
+      '<g class="lp-y-zk"><circle cx="-128" cy="-5" r="6" style="fill:' + WALK_ZONES[0] + '"/><text x="-118" y="0">Zone 1</text></g>' +
+      '<g class="lp-y-zk"><circle cx="-52" cy="-5" r="6" style="fill:' + WALK_ZONES[1] + '"/><text x="-42" y="0">Zone 2</text></g></g>' +
+      "</svg>" +
+      '<div class="lp-parts"><p class="lp-parts-h">Parts list</p><ul>' +
+      WALK_PARTS.map(([name, n], i) => '<li data-r="' + i + '"><span>' + name + '</span><b data-n="' + n + '">' + n + "</b></li>").join("") +
+      "</ul></div>" +
+      "</div>" +
+      "</div></div></section>"
+    );
+  }
+
+  function wireWalkScene() {
+    const sec = app.querySelector("#lp-walk");
+    if (!sec) return;
+    const still = matchMedia("(prefers-reduced-motion: reduce)");
+    const clamp = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+    const trail = sec.querySelector(".lp-y-trail");
+    const walker = sec.querySelector(".lp-y-walker");
+    const sprays = [...sec.querySelectorAll(".lp-y-spray")];
+    const heads = [...sec.querySelectorAll(".lp-y-head")];
+    const corners = [...sec.querySelectorAll(".lp-y-corner")];
+    const rows = [...sec.querySelectorAll(".lp-parts li")];
+    const chapters = [...sec.querySelectorAll(".lp-chapters li")];
+    const len = trail.getTotalLength();
+    let last = -1;
+    // Scroll shares, picked so each chapter gets about a quarter of the run and every step finishes
+    // with scroll to spare before the next starts (guessed, then checked in screenshots).
+    const paint = (p) => {
+      if (Math.abs(p - last) < 0.0005) return;
+      last = p;
+      // 1. the walk, 0 to 0.22
+      const w = clamp(p / 0.22);
+      trail.style.strokeDashoffset = String(100 - w * 100);
+      const pt = trail.getPointAtLength(w * len);
+      walker.setAttribute("transform", "translate(" + pt.x + " " + pt.y + ")");
+      walker.style.opacity = String(clamp(1 - (p - 0.22) / 0.04));
+      // the walk starts bottom left and goes up, so it passes the corners at each quarter
+      corners.forEach((c, i) => c.classList.toggle("is-on", w >= (i + 1) / 4 - 0.001));
+      // 2. heads, then their sprays, 0.26 to 0.5
+      const h = clamp((p - 0.26) / 0.24);
+      heads.forEach((el, i) => el.style.setProperty("--k", String(clamp((h - i * 0.07) / 0.2))));
+      sprays.forEach((el, i) => el.style.setProperty("--k", String(clamp((h - i * 0.07 - 0.12) / 0.3))));
+      // 3. zones, 0.52 to 0.68
+      sec.style.setProperty("--z", String(clamp((p - 0.52) / 0.16)));
+      // 4. parts, 0.74 to 0.96
+      const q = clamp((p - 0.74) / 0.22);
+      rows.forEach((r, i) => {
+        const k = clamp((q - i * 0.1) / 0.35);
+        r.style.setProperty("--k", String(k));
+        const b = r.querySelector("b");
+        b.textContent = String(Math.round(k * Number(b.dataset.n)));
+      });
+      sec.style.setProperty("--q", String(q));
+      const ch = Math.min(3, Math.floor(p * 4 + 0.02));
+      chapters.forEach((c, i) => c.classList.toggle("is-on", i === ch));
+    };
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+        if (!document.body.contains(sec)) {
+          removeEventListener("scroll", onScroll);
+          removeEventListener("resize", onScroll);
+          return;
+        }
+        if (still.matches) {
+          sec.classList.add("is-still");
+          paint(1);
+          return;
+        }
+        sec.classList.remove("is-still");
+        const r = sec.getBoundingClientRect();
+        const run = sec.offsetHeight - innerHeight;
+        paint(run > 0 ? clamp(-r.top / run) : 1);
+      });
+    };
+    addEventListener("scroll", onScroll, { passive: true });
+    addEventListener("resize", onScroll, { passive: true });
+    onScroll();
+  }
 
   function renderSignIn() {
     teardownJob();
@@ -5152,8 +5319,20 @@ function wireLanding() {
       FREE_CREW +
       " crew members come with the plan, not counting you. " +
       (extra
-        ? "You have " + crew + ", so " + extra + " extra at " + CREW_PRICE + " each."
-        : "You have " + crew + ". After " + FREE_CREW + ", each person is " + CREW_PRICE + ".") +
+        ? "You have " +
+          crew +
+          ", so " +
+          extra +
+          " extra at " +
+          CREW_PRICE +
+          " each."
+        : "You have " +
+          crew +
+          ". After " +
+          FREE_CREW +
+          ", each person is " +
+          CREW_PRICE +
+          ".") +
       "</p>"
     );
   }
@@ -5363,7 +5542,10 @@ function wireLanding() {
     const job = jobs.find((j) => j.id === p.job);
     if (!job) return localStorage.removeItem(PENDING_KEY);
     try {
-      const r = await Cloud.pay("unlock-check", { session_id: p.sid, job_id: job.id });
+      const r = await Cloud.pay("unlock-check", {
+        session_id: p.sid,
+        job_id: job.id,
+      });
       if (!r.paid) return; // not paid yet; it stays pending until checkout is done or replaced
       localStorage.removeItem(PENDING_KEY);
       markPaid(job);
@@ -5413,8 +5595,8 @@ function wireLanding() {
       history.replaceState(null, "", location.pathname);
       return sheet(
         fromApp === "app"
-          ? "<h2>Payment received</h2><p class=\"hint\">Go back to the Head to Head app. Your yard unlocks there in a moment.</p>"
-          : "<h2>No charge</h2><p class=\"hint\">Go back to the Head to Head app whenever you're ready.</p>",
+          ? '<h2>Payment received</h2><p class="hint">Go back to the Head to Head app. Your yard unlocks there in a moment.</p>'
+          : '<h2>No charge</h2><p class="hint">Go back to the Head to Head app whenever you\'re ready.</p>',
         () => {},
       );
     }
