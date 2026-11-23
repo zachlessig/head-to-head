@@ -4557,11 +4557,6 @@
       "<p>I'm a landscaper, and I used to work the counter at a sprinkler and plumbing supply store. Every sprinkler job started the same way: measure the yard, sketch it out, figure out heads and zones, then guess on a parts list once I got in the store. I built Head to Head to save time on my own jobs.</p>" +
       "<p>The layout follows the rules I'd use myself. The yard gets double coverage, it's split into zones by pressure and flow rate, and the heads are strategically placed to make the install easy.</p>" +
       '<p class="lp-sign">Zach, founder</p></div>' +
-      '<div class="lp-rules"><h3>The rules it lays out by</h3><ul>' +
-      "<li><b>0 ft</b><span>of overspray on a straight edge</span></li>" +
-      "<li><b>1 ft</b><span>past a curve, never more</span></li>" +
-      "<li><b>3+</b><span>rotors in a zone, or it goes pop-ups</span></li>" +
-      "</ul></div>" +
       "</div></section>" +
       '<section class="lp-sec lp-price-sec" id="pricing"><div class="lp-wrap">' +
       "<h2>Pricing</h2>" +

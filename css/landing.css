@@ -196,8 +196,7 @@
   padding: 112px 0;
 }
 @media (min-width: 1024px) {
-  .lp-hero,
-  .lp-sec {
+  .lp-hero {
     min-height: 100svh;
     display: flex;
     flex-direction: column;
@@ -837,3 +836,18 @@
 @media (max-width: 899px) {
   .lp-walk-stage { justify-self: center; }
 }
+
+/* Zach 2026-11-23: "the page feels kinda empty". Sections past the hero size to what they hold
+   instead of a full screen each. */
+@media (min-width: 1024px) {
+  .lp-sec { padding: 120px 0; }
+  .lp-close { padding-bottom: 0; }
+}
+
+/* the rules list is gone (Zach 2026-11-23: "just get rid of the whole rules it follows thing"),
+   so the founder's words stand alone */
+@media (min-width: 900px) {
+  .lp-founder-in { grid-template-columns: 1fr; }
+}
+.lp-founder-copy h2 { font-size: clamp(40px, 5vw, 68px); }
+.lp-founder-copy p { font-size: clamp(19px, 1.6vw, 22px); }
