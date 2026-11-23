@@ -46,6 +46,15 @@ swings 10x, so compare old and new engines back to back before calling anything 
   around. No measuring wheels, no tapes, no mapping on their end." Lead with the camera walk and
   the landscaper who built it (`landingPage` in `js/app.js`). The 5 minutes is his estimate, not a
   timed walk, and the camera walk is iPhone-only and not on the App Store yet: say both plainly.
+- Never describe Zach's past job loosely. He corrected it twice on 2026-11-19: "say it was a
+  sprinkler and plumbing supply store or something like that" (so it isn't read as the Sprinkler
+  Supply chain), and "i wouldn't say i ran the counter either, i'd just say worked at one. there
+  were multiple people on the counter". Write "worked at a sprinkler and plumbing supply store" or
+  "worked the counter at"; never "ran the counter" or "a sprinkler supply store".
+- Never splice `js/app.js` with a regex that spans lines. On 2026-11-23 a non-greedy `.*?\),\n`
+  meant for one `step(...)` call ran on into `renderSignIn` and deleted it; `node --check` caught
+  it. A formatter reflows these files between edits, so replace exact strings with a count check
+  (`assert s.count(old) == 1`), then `node --check js/app.js`.
 - Never use a price that isn't the latest one he gave. The standard contractor price went from
   about $35 to $30 on 2026-11-16 ("lets go with 30 for standard as of right now"); founding is $20
   and a yard is $15 for homeowners and contractors alike (Zach 2026-11-17: "both are the same"). Prices live in `PLAN_PRICE`/`FOUNDING_PRICE`/`UNLOCK_PRICE` in `js/app.js`, the
@@ -147,6 +156,11 @@ swings 10x, so compare old and new engines back to back before calling anything 
   Installers near them show with their Google rating; installers pay $49 a month on top of the
   subscription to be listed. That list stays off (`SHOW_INSTALLERS`) until lots of homeowners use
   the app (Zach 2026-11-15); only the test copy shows it, with a "Sample listing".
+- Front page look (2026-11-23, branch feat/site-redo): `css/landing.css`, every rule under `.lp` so
+  the app's screens never see it; grid-paper ground like a grid job; real captures of the example
+  yard in `img/screen-*.jpg` (raw shots from `appstore/capture-screens.cjs`, needs playwright-core
+  and the app-review code from the keychain); one screen per section at 1440x900. Check with the
+  taste skill's `shoot.mjs --tiles` at 1440 and 390 after any change.
 - Website and iPhone app (Zach 2026-11-16): "keep full mapping on the website except the camera
   feature. tell people that feature is available on the app though." The website is the front door
   and the office: a front page for signed-out visitors (`landingPage`, with the sign-in form in
