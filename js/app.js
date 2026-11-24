@@ -5419,6 +5419,9 @@
         h +=
           '<label class="f" for="rf">Referral code (optional)</label>' +
           '<input class="t" id="rf" autocapitalize="characters" autocomplete="off" maxlength="12" placeholder="From another contractor" style="margin-bottom:10px">';
+      if (owner)
+        h +=
+          '<p class="note">The plan renews every month, or every year if you pay for the year, until you cancel. Cancel any time on this screen and it runs to the end of what you\'ve paid for. By starting a plan you agree to the <a href="terms.html">Terms of Use</a>.</p>';
       btn = owner ? ["subscribe", "Start the plan · " + FOUNDING_PRICE] : null;
       if (owner) yearly = "Pay for the year · " + FOUNDING_SEASON_PRICE;
       if (!owner)
