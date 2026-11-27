@@ -54,20 +54,18 @@ const crew = await product(
 const want = [
   ["extra_crew_monthly", crew, 500, true, "Extra crew member"],
   ["extra_crew_yearly", crew, 6000, "year", "Extra crew member, yearly"],
-  ["founding_monthly", plan, 2000, true, "Founding contractor"],
-  ["standard_monthly", plan, 3000, true, "Contractor"],
-  ["yard_unlock", yard, 1500, false, "One yard"], // $15 since 2026-11-17 (was $10)
+  // Zach 2026-11-27: founding $15, standard $20, a yard $10
+  ["founding_monthly", plan, 1500, true, "Founding contractor"],
+  ["standard_monthly", plan, 2000, true, "Contractor"],
+  ["yard_unlock", yard, 1000, false, "One yard"],
   ["founding_yearly", plan, 20000, "year", "Founding contractor, yearly"],
   ["standard_yearly", plan, 25000, "year", "Contractor, yearly"],
-  ["contractor_yard", yard, 1500, false, "One yard, contractor"],
+  ["contractor_yard", yard, 1000, false, "One yard, contractor"],
 ];
 for (const [lookup_key, product_id, cents, recurring, nickname] of want) {
-  if (existing[lookup_key]) {
-    console.log(
-      lookup_key,
-      "already exists at",
-      existing[lookup_key].unit_amount / 100,
-    );
+  const old = existing[lookup_key];
+  if (old && old.unit_amount === cents) {
+    console.log(lookup_key, "already at $" + cents / 100);
     continue;
   }
   const d = {
@@ -77,11 +75,16 @@ for (const [lookup_key, product_id, cents, recurring, nickname] of want) {
     lookup_key,
     nickname,
   };
+  // a new amount is a new price that takes over the lookup key; plans already on the old price
+  // keep it (that's how founders keep theirs), and the old one stops being offered
+  if (old) d.transfer_lookup_key = "true";
   if (recurring) d["recurring[interval]"] = recurring === "year" ? "year" : "month";
   const p = await api("prices", d);
+  if (old) await api("prices/" + old.id, { active: "false" });
   console.log(
     lookup_key,
-    "created at $" + p.unit_amount / 100,
+    (old ? "changed from $" + old.unit_amount / 100 + " to $" : "created at $") +
+      p.unit_amount / 100,
     recurring ? (recurring === "year" ? "a year" : "a month") : "once",
   );
 }

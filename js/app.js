@@ -131,7 +131,8 @@
   // and parts list stay blurred until they pay once for that yard. Payments aren't hooked up yet, so
   // only a test copy on this Mac (localhost) shows a no-charge unlock button.
   // Zach 2026-11-17: "lets say each yard is $15 for a homeowner/contractor. both are the same."
-  const UNLOCK_PRICE = "$15";
+  // Down to $10 on 2026-11-27 ("$10 per single yard").
+  const UNLOCK_PRICE = "$10";
   const isHome = () => !!prefs.homeowner;
   // Who pays for a yard (Zach 2026-11-17). Homeowners always pay per yard. A contractor company
   // with no active plan (never started, or cancelled) also pays per yard: they keep every job and
@@ -3489,7 +3490,7 @@
           ? '<button class="btn small" style="width:100%;margin-top:8px" id="sp">Or start the plan' +
             (PAY_LINK ? " on the website" : "") +
             ": " +
-            FOUNDING_PRICE +
+            (FOUNDING_OPEN ? FOUNDING_PRICE : PLAN_PRICE) +
             ", every yard included</button>"
           : "") +
         '<button class="btn ghost" style="width:100%;margin-top:8px" id="nx">Not now</button>',
@@ -4561,8 +4562,10 @@
       '<section class="lp-sec lp-price-sec" id="pricing"><div class="lp-wrap">' +
       "<h2>Pricing</h2>" +
       '<div class="lp-prices">' +
-      '<div class="lp-price lp-price-main"><h3>Contractors</h3><p class="lp-amt">$30<span>/month</span></p>' +
-      "<p>The first contractors on Head to Head lock in <b>$20 a month</b>.</p>" +
+      '<div class="lp-price lp-price-main"><h3>Contractors</h3><p class="lp-amt">$15<span>/month</span></p>' +
+      "<p>Founding price for contractors who start by the end of 2027, and you keep it as long as you keep the plan. After 2027 it's " +
+      PLAN_PRICE +
+      ".</p>" +
       "<p>Jobs save online and your whole crew can open them. " +
       FREE_CREW +
       " crew members are included, then " +
@@ -4586,7 +4589,9 @@
       "<p>Three or more yards a month, and the monthly plan costs less.</p>" +
       toSign("Start my company", "lp-ghost") +
       "</div>" +
-      '<div class="lp-price"><h3>Homeowners</h3><p class="lp-amt">$15<span> once per yard</span></p>' +
+      '<div class="lp-price"><h3>Homeowners</h3><p class="lp-amt">' +
+      UNLOCK_PRICE +
+      '<span> once per yard</span></p>' +
       "<p>Map your yard for free and see how many heads and zones it needs.</p>" +
       // Zach's words, 2026-11-17
       "<p>Only pay once the yard and part list has been generated.</p>" +
@@ -4596,7 +4601,9 @@
       "</div></section>" +
       '<section class="lp-sec lp-close lp-grid-paper"><div class="lp-wrap lp-close-in">' +
       '<div class="lp-close-copy"><h2>Set up your company</h2>' +
-      "<p>Jobs save online and your whole crew can open them. The first contractors on Head to Head lock in $20 a month.</p>" +
+      "<p>Jobs save online and your whole crew can open them. Start by the end of 2027 and keep " +
+      FOUNDING_PRICE +
+      " for good.</p>" +
       "</div>" +
       '<div class="l-card lp-form" id="signin"></div>' +
       "</div>" +
@@ -5291,15 +5298,19 @@
   const PAY_LINK = NATIVE && PAYMENTS_ON;
   // locks only apply once someone could actually pay (the iPhone app sends them to the website)
   const ENFORCE = PAYMENTS_ON || TEST_COPY;
-  // Zach 2026-11-16: "lets go with 30 for standard as of right now"
-  const PLAN_PRICE = "$30 a month";
+  // Zach 2026-11-27: "lets move the subscription down to 15 dollars a month for founders and 20 for
+  // not ... founders who sign up through 2027 will get that price forever as long as they keep paying"
+  const PLAN_PRICE = "$20 a month";
   // Zach 2026-11-16: "lets do $15 per yard and lets just say you can pay for the 'season' up front
   // and just give it to them for the year for a discounted price ... would 260 a year sound good?"
-  const YARD_PRICE = "$15";
+  const YARD_PRICE = UNLOCK_PRICE;
   // Zach 2026-11-16: "lets give founders 200 a year. 250 for the yearly for the 30 a month ones"
   const SEASON_PRICE = "$250";
   const FOUNDING_SEASON_PRICE = "$200";
-  const FOUNDING_PRICE = "$20 a month";
+  const FOUNDING_PRICE = "$15 a month";
+  // founding is open to plans started before 2028 in Utah (midnight Jan 1 MST); the billing
+  // function decides the same way, so the button and the charge agree
+  const FOUNDING_OPEN = Date.now() < Date.UTC(2028, 0, 1, 7);
   // Zach 2026-11-17: "lets just say you can have 5 crew members on the app before you need $5 more
   // a month". The owner isn't counted. Billing is in the billing function (FREE_CREW there too).
   const FREE_CREW = 5;
@@ -5357,12 +5368,13 @@
         '" target="_blank" rel="noopener">Open the website</a>';
       return;
     }
-    const offer =
-      "<p><b>Founding contractor</b>: " +
+    const offer = !FOUNDING_OPEN
+      ? "<p><b>Contractor plan</b>: " + PLAN_PRICE + ".</p>"
+      : "<p><b>Founding contractor</b>: " +
       FOUNDING_PRICE +
-      " locked in (" +
+      " for as long as you keep the plan, for contractors who start by the end of 2027 (" +
       PLAN_PRICE +
-      " after the first contractors).</p>";
+      " after that).</p>";
     if (!PAY_HERE) {
       box.innerHTML =
         offer +
@@ -5422,8 +5434,11 @@
       if (owner)
         h +=
           '<p class="note">The plan renews every month, or every year if you pay for the year, until you cancel. Cancel any time on this screen and it runs to the end of what you\'ve paid for. By starting a plan you agree to the <a href="terms.html">Terms of Use</a>.</p>';
-      btn = owner ? ["subscribe", "Start the plan · " + FOUNDING_PRICE] : null;
-      if (owner) yearly = "Pay for the year · " + FOUNDING_SEASON_PRICE;
+      btn = owner
+        ? ["subscribe", "Start the plan · " + (FOUNDING_OPEN ? FOUNDING_PRICE : PLAN_PRICE)]
+        : null;
+      if (owner)
+        yearly = "Pay for the year · " + (FOUNDING_OPEN ? FOUNDING_SEASON_PRICE : SEASON_PRICE);
       if (!owner)
         h += '<p class="note">The company\'s owner starts the plan.</p>';
     }

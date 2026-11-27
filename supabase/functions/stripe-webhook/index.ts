@@ -162,10 +162,10 @@ async function syncCrew(companyId: string, sub: Record<string, any>) {
 // Referrals (Zach 2026-11-17): the company whose code was used gets one free month, only after the
 // new contractor's second payment goes through ("lets say they get the free month after the second
 // payment"; it was the first until a fake company paying once and cancelling was raised). The free month is credit on the referrer's Stripe
-// customer worth one month of their plan (founding $20, standard $30), so it comes off their next
+// customer worth one month of their plan (founding $15, standard $20), so it comes off their next
 // bill and several stack. A referrer with no plan yet keeps the credit for when they start one.
-// Security review 2026-11-17: one person owning two companies could refer themselves, pay $15 for
-// the second company's first month and collect a $20 free month on the first. So no reward when the
+// Security review 2026-11-17: one person owning two companies could refer themselves, pay for
+// the second company's first month and collect a free month on the first. So no reward when the
 // first payment wasn't real money, or the two companies share an owner, any person or email, or a
 // card. Cards are every card on the customer plus every card that ever paid a charge.
 // Bank accounts carry a fingerprint too, so they're compared the same way. Every page is read.

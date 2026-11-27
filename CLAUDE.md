@@ -55,9 +55,12 @@ swings 10x, so compare old and new engines back to back before calling anything 
   meant for one `step(...)` call ran on into `renderSignIn` and deleted it; `node --check` caught
   it. A formatter reflows these files between edits, so replace exact strings with a count check
   (`assert s.count(old) == 1`), then `node --check js/app.js`.
-- Never use a price that isn't the latest one he gave. The standard contractor price went from
-  about $35 to $30 on 2026-11-16 ("lets go with 30 for standard as of right now"); founding is $20
-  and a yard is $15 for homeowners and contractors alike (Zach 2026-11-17: "both are the same"). Prices live in `PLAN_PRICE`/`FOUNDING_PRICE`/`UNLOCK_PRICE` in `js/app.js`, the
+- Never use a price that isn't the latest one he gave. On 2026-11-27 he cut them: "lets move the
+  subscription down to 15 dollars a month for founders and 20 for not. I think the volume of
+  subscribers will outweigh the money ... $10 per single yard. founders who sign up through 2027
+  will get that price forever as long as they keep paying". So founding $15 (plans started before
+  2028, Utah time: `FOUNDING_OPEN` in `js/app.js`, `planTier` in the billing function), standard
+  $20, a yard $10 for homeowners and contractors alike. Yearly prices: [NEED: Zach]. Prices live in `PLAN_PRICE`/`FOUNDING_PRICE`/`UNLOCK_PRICE` in `js/app.js`, the
   front page, and the Stripe sandbox lookup keys (standard_monthly, founding_monthly, yard_unlock):
   change all three together.
 - Never list rotor nozzles on the parts list. Rotors come with every nozzle (Zach, 2026-11-08).
@@ -183,8 +186,11 @@ swings 10x, so compare old and new engines back to back before calling anything 
   (an owner's company and all its jobs go with it; typed DELETE to confirm). Both go through the
   `billing` function. Stripe sandbox only takes cards and Apple Pay (set on the account: Stripe no
   longer takes payment types per checkout).
-- Pricing (Zach 2026-11-15, standard changed to $30 on 2026-11-16): contractors pay $30 a month (Stripe lookup key standard_monthly). The first contractors on the app
-  lock in $20 a month. Homeowners pay $15 once per yard (was $10; Zach 2026-11-17: "each yard is $15 for a homeowner/contractor"). Nothing is charged yet.
+- Pricing (Zach 2026-11-27, see Never): contractors pay $20 a month (Stripe lookup key
+  standard_monthly); plans started by the end of 2027 are founding, $15 a month for as long as they
+  keep paying (founding_monthly; Stripe keeps a subscription on the price it started with). A yard
+  is $10 for homeowners and contractors. `scripts/stripe-prices.mjs` moves a lookup key to a new
+  amount and retires the old price.
   Crew (Zach 2026-11-17, changed from 2 the same day): "lets just say you can have 5 crew members on
   the app before you need $5 more a month". The owner isn't counted (`FREE_CREW` in `js/app.js`,
   the billing function and stripe-webhook). Extra people are a second line on the plan's
@@ -197,7 +203,7 @@ swings 10x, so compare old and new engines back to back before calling anything 
   payment), only on the company's first plan and never its own code. The referrer is kept in the
   subscription's metadata; after the new contractor's second paid invoice (Zach 2026-11-17: "lets
   say they get the free month after the second payment"; `paidInvoices`) the webhook
-  credits the referrer one month of their plan ($20 founding, $30 standard) as Stripe customer
+  credits the referrer one month of their plan (the price they pay: $15 founding, $20 standard) as Stripe customer
   balance and records it in `referrals`. No free month if the two companies share an owner, a person or email, or a card
   (every saved card or bank account and every one that paid a charge, all pages), or the first
   payment was $0 or can't be matched to a card or bank account (security

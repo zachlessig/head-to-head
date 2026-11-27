@@ -224,10 +224,10 @@ try {
     "checkout lines: " + lines.join(", "),
   );
   check(
-    sess.amount_total === 2000 + 500 - 500,
+    sess.amount_total === 1500 + 500 - 500,
     "first month total $" +
       sess.amount_total / 100 +
-      " ($20 + $5 crew - $5 referral)",
+      " ($15 + $5 crew - $5 referral)",
   );
   check(
     sess.metadata && sess.metadata.company_id === bid,
@@ -283,11 +283,11 @@ try {
   });
   made.subs.push(asub.id);
   let bal = 0;
-  for (let i = 0; i < 20 && bal !== -2000; i++) {
+  for (let i = 0; i < 20 && bal !== -1500; i++) {
     await sleep(3000);
     bal = (await stripe("customers/" + acus)).balance;
   }
-  check(bal === -2000, "referrer's plan paid with another card: $20 free month credited, balance " + bal);
+  check(bal === -1500, "referrer's plan paid with another card: $15 free month credited, balance " + bal);
   ref = await sql(`select held, rewarded_at from referrals where company_id = '${bid}'`);
   check(ref[0].held === false && ref[0].rewarded_at !== null, "held referral marked rewarded");
   const bb = (
@@ -384,7 +384,7 @@ try {
   }
   check(drow.length === 1 && drow[0].rewarded_at === null, "same card: referral recorded but not rewarded");
   const bal2 = (await stripe("customers/" + acus)).balance;
-  check(bal2 === -2000, "referrer still has just the one free month: balance " + bal2);
+  check(bal2 === -1500, "referrer still has just the one free month: balance " + bal2);
 
   // the cheat from the review: a referrer with no plan refers a company paid with card X, then
   // starts their own plan with card X. The held free month is never paid out.

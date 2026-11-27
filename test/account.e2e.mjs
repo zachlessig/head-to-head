@@ -97,10 +97,10 @@ console.log(
   await call({ action: "subscribe", company_id: cid, interval: "year" }),
 );
 console.log(
-  "contractor $15 yard checkout:",
+  "contractor $10 yard checkout:",
   await call({ action: "unlock", job_id: "testjob42", kind: "contractor" }),
 );
-// the price follows who's asking: a signed-in contractor asking for the homeowner price still pays $15
+// the price follows who's asking: a signed-in contractor asking for the homeowner price still pays $10
 {
   const res = await fetch(BASE + "/functions/v1/billing", { method: "POST", headers: { ...as, Origin: "http://localhost:8742" }, body: JSON.stringify({ action: "unlock", job_id: "testjob42", kind: "homeowner" }) });
   const j = await res.json();

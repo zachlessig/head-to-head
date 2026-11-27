@@ -56,9 +56,9 @@ h1 em{font-style:normal;color:#1d6e47}
 </ol><div class="big">~5 min</div><div class="small">to map a whole yard</div></div>
 </div>
 <div class="offer"><div>
-<h2>Founding contractors:<br>$20 a month, locked in</h2>
-<p>Every yard included. Regular price is $30.</p>
-<p>Only a few installs a year? $15 a yard instead.</p>
+<h2>Founding contractors:<br>$15 a month, locked in</h2>
+<p>Every yard included. Start by the end of 2027 and keep it. Regular price is $20.</p>
+<p>Only a few installs a year? $10 a yard instead.</p>
 </div><div class="qr">${qr}<span>Scan to start</span></div></div>
 <div class="foot"><span>headtoheadapp.com &nbsp;·&nbsp; (801) 791-0112 &nbsp;·&nbsp; zach@headtoheadapp.com</span><span>Built by a landscaper</span></div>
 </div></body></html>`;

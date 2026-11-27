@@ -32,14 +32,13 @@ App Store build exports cleanly. What's left needs Zach's Apple account.
    availability United States only, price Free, review notes with the sign-in code.
 5. **Submit for review.** Typical review time is a day or two.
 
-## Seller name: Head to Head App LLC (in progress)
+## Seller name: Head to Head App LLC (D-U-N-S in hand, switch not requested yet)
 
 The developer account is an individual one (team 8T89UT9858), so the store would show Zach's name
 as the seller. Switching it to the LLC:
 
-1. Get a D-U-N-S number for Head to Head App LLC (free): https://developer.apple.com/enroll/duns-lookup/
-   Needs the LLC's legal name and address exactly as registered with Utah, a phone number, and
-   Zach as the contact. Dun & Bradstreet can take up to about 5 business days.
+1. D-U-N-S number for Head to Head App LLC: **150121446** (Zach, 2026-11-27). Apple can take a
+   couple of days after D&B issues it before it shows up on their side.
 2. Once it arrives: developer.apple.com > Account > Contact Us > Membership and Account, and ask
    to change the membership from Individual to Organization, giving the D-U-N-S number, legal
    address and a phone number. Zach must be a founder of the LLC. Apple calls to verify.

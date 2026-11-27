@@ -2,21 +2,28 @@
 // own checkout page; card numbers never touch Head to Head. Actions:
 //   subscribe     company owner starts the contractor plan (founding price while it's open)
 //   portal        company owner manages or cancels the plan on Stripe's billing page
-//   unlock        a homeowner pays $15 once for one yard (no account; the job lives on their phone)
+//   unlock        a homeowner pays $10 once for one yard (no account; the job lives on their phone)
 //   unlock-check  after Stripe sends them back, confirm that payment really went through
 //   crew-sync     recount the crew and set the extra-crew line on the plan to match
 // Stripe prices are found by lookup key, so switching founding to standard is a dashboard change.
 const STRIPE_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-// "founding" until Zach closes the founding price; then set the PLAN_TIER secret to "standard".
-// Prices (Zach 2026-11-16): founding $20 a month or $200 a year, standard $30 a month or $250 a
-// year, a yard $15 for contractors and homeowners alike (Zach 2026-11-17). Lookup keys are <tier>_monthly and
+// Prices (Zach 2026-11-27): founding $15 a month, standard $20, a yard $10 for contractors and
+// homeowners alike. "founders who sign up through 2027 will get that price forever as long as they
+// keep paying": a plan started before 2028 (Utah time) is founding and keeps that Stripe price; a
+// plan started after is standard. The PLAN_TIER secret ("founding" or "standard") overrides the
+// date. js/app.js FOUNDING_OPEN uses the same cutoff. Lookup keys are <tier>_monthly and
 // <tier>_yearly. Which payment types checkout offers (cards, Apple Pay) is set on the Stripe
 // account, not here: Stripe stopped taking that per checkout.
-const PLAN_TIER = Deno.env.get("PLAN_TIER") === "standard" ? "standard" : "founding";
-const YARD_LOOKUP = "yard_unlock"; // homeowner, $15
-const PRO_YARD_LOOKUP = "contractor_yard"; // contractor with no plan, $15 (Zach 2026-11-16)
+const FOUNDING_ENDS = Date.UTC(2028, 0, 1, 7); // midnight Jan 1 2028, Mountain Standard Time
+function planTier() {
+  const set = Deno.env.get("PLAN_TIER");
+  if (set === "standard" || set === "founding") return set;
+  return Date.now() < FOUNDING_ENDS ? "founding" : "standard";
+}
+const YARD_LOOKUP = "yard_unlock"; // homeowner, $10
+const PRO_YARD_LOOKUP = "contractor_yard"; // contractor with no plan, $10
 
 // Stripe sends people back only to these sites, never to an address a request names
 const RETURN_ORIGINS = [
@@ -300,9 +307,10 @@ Deno.serve(async (req) => {
         referrer = found[0].id;
       }
       const yearly = input.interval === "year";
+      const tier = planTier();
       const extra = extraCrew(await crewCount(companyId));
       const lines: Record<string, unknown> = {
-        0: { price: await priceId(PLAN_TIER + (yearly ? "_yearly" : "_monthly")), quantity: 1 },
+        0: { price: await priceId(tier + (yearly ? "_yearly" : "_monthly")), quantity: 1 },
       };
       if (extra > 0)
         lines[1] = { price: await priceId(yearly ? "extra_crew_yearly" : "extra_crew_monthly"), quantity: extra };
@@ -315,7 +323,7 @@ Deno.serve(async (req) => {
         line_items: lines,
         discounts: referrer ? { 0: { coupon: REFERRAL_COUPON } } : undefined,
         subscription_data: {
-          metadata: { company_id: companyId, plan: PLAN_TIER, referrer: referrer || undefined },
+          metadata: { company_id: companyId, plan: tier, referrer: referrer || undefined },
         },
         metadata: { company_id: companyId },
         success_url: backTo(origin, "?billing=done"),
