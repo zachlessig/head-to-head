@@ -63,6 +63,10 @@ swings 10x, so compare old and new engines back to back before calling anything 
   $20, a yard $10 for homeowners and contractors alike. Yearly prices: [NEED: Zach]. Prices live in `PLAN_PRICE`/`FOUNDING_PRICE`/`UNLOCK_PRICE` in `js/app.js`, the
   front page, and the Stripe sandbox lookup keys (standard_monthly, founding_monthly, yard_unlock):
   change all three together.
+- Never hand Zach a "what's left" list from a session summary. On 2026-11-20 one listed "make a real
+  $15 test payment" as his to do; he'd made and refunded it on 2026-11-18, and his notes
+  (`~/dev/zach-context/memory/sprinkler-app-idea.md`) said so. Read the latest dated lines there
+  and `appstore/RELEASE.md` before listing open items.
 - Never list rotor nozzles on the parts list. Rotors come with every nozzle (Zach, 2026-11-08).
 
 - Never write outward copy (App Store listing, screenshots, flyer, card) from memory of how the app
