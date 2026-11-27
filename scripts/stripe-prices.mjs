@@ -45,7 +45,8 @@ const yard = await product(
   "Head to Head yard unlock",
   "Every head, a printable plan and the parts list for one yard.",
 );
-// Zach 2026-11-17: 5 crew included, "$5 more a month" each after; $60 a year on a yearly plan,
+// Zach 2026-11-17: 5 crew included, "$5 more a month" each after; $45 a year on a yearly plan
+// (3 months off like the plan, Zach 2026-11-27),
 // since every line on one subscription bills on the same schedule
 const crew = await product(
   "Head to Head extra crew",
@@ -53,13 +54,13 @@ const crew = await product(
 );
 const want = [
   ["extra_crew_monthly", crew, 500, true, "Extra crew member"],
-  ["extra_crew_yearly", crew, 6000, "year", "Extra crew member, yearly"],
+  ["extra_crew_yearly", crew, 4500, "year", "Extra crew member, yearly"],
   // Zach 2026-11-27: founding $15, standard $20, a yard $10
   ["founding_monthly", plan, 1500, true, "Founding contractor"],
   ["standard_monthly", plan, 2000, true, "Contractor"],
   ["yard_unlock", yard, 1000, false, "One yard"],
-  ["founding_yearly", plan, 20000, "year", "Founding contractor, yearly"],
-  ["standard_yearly", plan, 25000, "year", "Contractor, yearly"],
+  ["founding_yearly", plan, 13500, "year", "Founding contractor, yearly"],
+  ["standard_yearly", plan, 18000, "year", "Contractor, yearly"],
   ["contractor_yard", yard, 1000, false, "One yard, contractor"],
 ];
 for (const [lookup_key, product_id, cents, recurring, nickname] of want) {

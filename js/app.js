@@ -4578,7 +4578,7 @@
       SEASON_PRICE +
       "</b>, or <b>" +
       FOUNDING_SEASON_PRICE +
-      "</b> for founding contractors.</p>" +
+      "</b> for founding contractors. That's 3 months free.</p>" +
       toSign("Start my company", "lp-primary", "l-py") +
       "</div>" +
       '<div class="lp-price"><h3>Contractors, a few yards a month</h3><p class="lp-amt">' +
@@ -5305,8 +5305,9 @@
   // and just give it to them for the year for a discounted price ... would 260 a year sound good?"
   const YARD_PRICE = UNLOCK_PRICE;
   // Zach 2026-11-16: "lets give founders 200 a year. 250 for the yearly for the 30 a month ones"
-  const SEASON_PRICE = "$250";
-  const FOUNDING_SEASON_PRICE = "$200";
+  // Zach 2026-11-27: "price it for 3 months off with the yearly price", so 9 months' price
+  const SEASON_PRICE = "$180";
+  const FOUNDING_SEASON_PRICE = "$135";
   const FOUNDING_PRICE = "$15 a month";
   // founding is open to plans started before 2028 in Utah (midnight Jan 1 MST); the billing
   // function decides the same way, so the button and the charge agree

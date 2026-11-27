@@ -60,7 +60,7 @@ swings 10x, so compare old and new engines back to back before calling anything 
   subscribers will outweigh the money ... $10 per single yard. founders who sign up through 2027
   will get that price forever as long as they keep paying". So founding $15 (plans started before
   2028, Utah time: `FOUNDING_OPEN` in `js/app.js`, `planTier` in the billing function), standard
-  $20, a yard $10 for homeowners and contractors alike. Yearly prices: [NEED: Zach]. Prices live in `PLAN_PRICE`/`FOUNDING_PRICE`/`UNLOCK_PRICE` in `js/app.js`, the
+  $20, a yard $10 for homeowners and contractors alike. Yearly is 9 months' price (Zach 2026-11-27: "price it for 3 months off with the yearly price"): founding $135, standard $180, an extra crew member $45. Prices live in `PLAN_PRICE`/`FOUNDING_PRICE`/`UNLOCK_PRICE` in `js/app.js`, the
   front page, and the Stripe sandbox lookup keys (standard_monthly, founding_monthly, yard_unlock):
   change all three together.
 - Never hand Zach a "what's left" list from a session summary. On 2026-11-20 one listed "make a real
@@ -198,7 +198,7 @@ swings 10x, so compare old and new engines back to back before calling anything 
   Crew (Zach 2026-11-17, changed from 2 the same day): "lets just say you can have 5 crew members on
   the app before you need $5 more a month". The owner isn't counted (`FREE_CREW` in `js/app.js`,
   the billing function and stripe-webhook). Extra people are a second line on the plan's
-  subscription: extra_crew_monthly $5, or extra_crew_yearly $60 on a yearly plan (Stripe bills every
+  subscription: extra_crew_monthly $5, or extra_crew_yearly $45 on a yearly plan (Stripe bills every
   line on one schedule). The billing function's crew-sync action recounts on the server after a
   join or removal and when the owner opens the company screen; stripe-webhook recounts on
   invoice.upcoming before each renewal. Referrals (Zach 2026-11-17): every company has an 8

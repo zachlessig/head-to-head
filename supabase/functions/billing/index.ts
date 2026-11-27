@@ -136,7 +136,7 @@ async function whoIs(req: Request) {
 
 // Crew (Zach 2026-11-17): "lets just say you can have 5 crew members on the app before you need $5
 // more a month". The owner isn't counted. Extra people are a second line on the same subscription,
-// $5 a month (extra_crew_monthly) or $60 a year on a yearly plan (extra_crew_yearly), because
+// $5 a month (extra_crew_monthly) or $45 a year on a yearly plan (extra_crew_yearly), because
 // Stripe needs every line on one subscription to bill on the same schedule.
 const FREE_CREW = 5;
 // Referrals (Zach 2026-11-17): $5 off the new contractor's first payment (Stripe coupon below,
