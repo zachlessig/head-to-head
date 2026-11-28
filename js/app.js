@@ -4542,7 +4542,7 @@
       '<div class="lp-wrap lp-hero-in">' +
       '<div class="lp-hero-copy">' +
       '<p class="lp-eyebrow lp-in" style="--d:0">Sprinkler layouts, built by a landscaper</p>' +
-      '<h1 class="lp-in" style="--d:1">Map a whole yard in <em>about 5 minutes.</em></h1>' +
+      '<h1 class="lp-in" style="--d:1">Map a whole yard in <em>about 5 minutes</em></h1>' +
       '<p class="lp-lede lp-in" style="--d:2">Walk the edge of the lawn with your iPhone. Head to Head draws the yard, places every head, zones it to your water and writes the parts list.</p>' +
       '<div class="lp-actions lp-in" style="--d:3">' +
       toSign("Start my company", "lp-primary", "l-co") +
