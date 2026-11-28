@@ -141,10 +141,28 @@
   // payments are on (or on the test copy), so nobody gets locked out before they can pay.
   let planActive = null; // true, false, or null while unknown (offline): unknown never locks
   const contractor = () => !isHome() && Cloud.enabled && !!Cloud.company;
-  // the example yard keeps showing homeowners the lock, the way it always has; contractors get it free
+  // the example yard keeps showing homeowners the lock, the way it always has; contractors get it
+  // free, but only while its lawns and beds are the ones it came with. Security check 2026-11-27: a
+  // contractor with no plan could redraw the example as a customer's yard and never pay.
+  const yardSig = (job) =>
+    JSON.stringify(
+      job.shapes
+        .filter((sh) => sh.type === "lawn" || sh.type === "bed")
+        .map((sh) => [
+          sh.type,
+          !!sh.closed,
+          sh.pts.map((q) => [q.lat.toFixed(7), q.lng.toFixed(7), (q.bf || 0).toFixed(4)]),
+        ]),
+    );
+  let exampleSig = null;
+  const untouchedExample = (job) => {
+    if (!job.example) return false;
+    if (!exampleSig) exampleSig = yardSig(exampleJob());
+    return yardSig(job) === exampleSig;
+  };
   const needsPay = (job) =>
     isHome() ||
-    (!job.example && ENFORCE && contractor() && planActive === false);
+    (!untouchedExample(job) && ENFORCE && contractor() && planActive === false);
   const locked = (job) => needsPay(job) && !(job.unlocked && inPlace(job));
 
   // A paid yard stays tied to the yard it was paid for, so one $15 can't be dragged across town
@@ -759,6 +777,11 @@
   }
 
   function openExample() {
+    // reopen the example already in this folder instead of piling up copies (bug test 2026-11-27)
+    const have = jobs.find(
+      (j) => j.example && (j.folderId || null) === (currentFolder() || null) && untouchedExample(j),
+    );
+    if (have) return (location.hash = "#/job/" + have.id);
     const job = exampleJob();
     job.folderId = currentFolder();
     jobs.push(job);
@@ -4648,7 +4671,7 @@
       "</div>" +
       '<footer class="lp-foot lp-wrap"><span>Built by a landscaper who worked at a sprinkler and plumbing supply store.</span><span>© ' +
       new Date().getFullYear() +
-      ' Head to Head App LLC · <a href="terms.html">Terms of Use</a> · <a href="privacy.html">Privacy Policy</a></span></footer>' +
+      ' Head to Head App LLC · PO Box 160457, Clearfield, UT 84016 · <a href="terms.html">Terms of Use</a> · <a href="privacy.html">Privacy Policy</a></span></footer>' +
       "</section>" +
       "</main>"
     );
