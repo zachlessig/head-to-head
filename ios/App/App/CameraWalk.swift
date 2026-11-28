@@ -19,7 +19,41 @@ class MainViewController: CAPBridgeViewController {
     override open func viewDidLoad() {
         super.viewDidLoad()
         webView?.scrollView.bounces = true
+        // What shows when the page is pulled past its edge (Zach 2026-11-27): "rubber band to the same
+        // creme on top", and "on the bottom ... gradient to the green". The web view goes see-through
+        // (the page paints its own cream), and a backdrop behind it is cream with a cream-to-green
+        // fade pinned to the bottom of the screen.
+        let cream = UIColor(red: 0xf5 / 255, green: 0xf2 / 255, blue: 0xea / 255, alpha: 1)
+        let green = UIColor(red: 0x1d / 255, green: 0x6e / 255, blue: 0x47 / 255, alpha: 1)
+        view.backgroundColor = cream
+        if let wv = webView {
+            wv.isOpaque = false
+            wv.backgroundColor = .clear
+            wv.scrollView.backgroundColor = .clear
+            if #available(iOS 15.0, *) { wv.underPageBackgroundColor = .clear }
+        }
+        let fade = FadeView(top: cream, bottom: green)
+        fade.translatesAutoresizingMaskIntoConstraints = false
+        fade.isUserInteractionEnabled = false
+        view.insertSubview(fade, at: 0)
+        NSLayoutConstraint.activate([
+            fade.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            fade.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            fade.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            fade.heightAnchor.constraint(equalToConstant: 240),
+        ])
     }
+}
+
+// a plain vertical gradient, cream at the top to green at the bottom
+final class FadeView: UIView {
+    override class var layerClass: AnyClass { CAGradientLayer.self }
+    init(top: UIColor, bottom: UIColor) {
+        super.init(frame: .zero)
+        let g = layer as! CAGradientLayer
+        g.colors = [top.cgColor, bottom.cgColor]
+    }
+    required init?(coder: NSCoder) { fatalError("not used") }
 }
 
 @objc(CameraWalkPlugin)
