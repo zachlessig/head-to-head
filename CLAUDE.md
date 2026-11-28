@@ -67,6 +67,10 @@ swings 10x, so compare old and new engines back to back before calling anything 
   $15 test payment" as his to do; he'd made and refunded it on 2026-11-18, and his notes
   (`~/dev/zach-context/memory/sprinkler-app-idea.md`) said so. Read the latest dated lines there
   and `appstore/RELEASE.md` before listing open items.
+- Never talk one of his asks out of scope. On 2026-11-27 he sent 10 design tips to use in the app;
+  "rubber band past the edge" was skipped because the job screen shouldn't bounce, and he said "you
+  didnt do the rubber band on the main screen for the app". When a tip doesn't fit one screen, find
+  the screen it does fit (here the home screen) and build it there.
 - Never list rotor nozzles on the parts list. Rotors come with every nozzle (Zach, 2026-11-08).
 
 - Never write outward copy (App Store listing, screenshots, flyer, card) from memory of how the app
