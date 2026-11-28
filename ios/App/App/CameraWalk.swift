@@ -34,30 +34,61 @@ class MainViewController: CAPBridgeViewController {
             wv.scrollView.backgroundColor = .clear
             if #available(iOS 15.0, *) { wv.underPageBackgroundColor = .clear }
         }
-        // starts at the tint the home screen fades to (#cedacd), so the two meet without a seam
+        // The fade rides along under the bottom edge of the page, so wherever that edge is during a
+        // pull, the color just below it is the tint the page ends on (#cedacd) and it only gets
+        // greener further down. Pinned to the screen instead, a short pull showed a mid-green right
+        // against the tint: the hard line Zach saw ("i dont want there to be a hard line just
+        // stricktly gradient").
         let tint = UIColor(red: 0xce / 255, green: 0xda / 255, blue: 0xcd / 255, alpha: 1)
-        let fade = FadeView(top: tint, bottom: green)
-        fade.translatesAutoresizingMaskIntoConstraints = false
+        fade.setColors(top: tint, bottom: green, fadeHeight: 220)
         fade.isUserInteractionEnabled = false
         view.insertSubview(fade, at: 0)
-        NSLayoutConstraint.activate([
-            fade.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            fade.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            fade.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            fade.heightAnchor.constraint(equalToConstant: 240),
-        ])
+        if let sv = webView?.scrollView {
+            watchers = [
+                sv.observe(\.contentOffset) { [weak self] _, _ in self?.placeFade() },
+                sv.observe(\.contentSize) { [weak self] _, _ in self?.placeFade() },
+            ]
+        }
+    }
+
+    private let fade = FadeView()
+    private var watchers: [NSKeyValueObservation] = []
+
+    override open func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        placeFade()
+    }
+
+    // top of the fade = where the bottom of the page is on screen right now
+    private func placeFade() {
+        guard let sv = webView?.scrollView else { return }
+        let pageBottom = sv.contentSize.height - sv.contentOffset.y - sv.adjustedContentInset.top
+        // a fixed height, so the fade is always the same 220 points long however far you pull
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        fade.frame = CGRect(x: 0, y: max(pageBottom, 0), width: view.bounds.width,
+                            height: view.bounds.height + 220)
+        CATransaction.commit()
     }
 }
 
-// a plain vertical gradient, cream at the top to green at the bottom
+// tint at the top fading to green over fadeHeight points, then solid green the rest of the way
 final class FadeView: UIView {
     override class var layerClass: AnyClass { CAGradientLayer.self }
-    init(top: UIColor, bottom: UIColor) {
-        super.init(frame: .zero)
-        let g = layer as! CAGradientLayer
-        g.colors = [top.cgColor, bottom.cgColor]
+    private var fadeHeight: CGFloat = 220
+    func setColors(top: UIColor, bottom: UIColor, fadeHeight: CGFloat) {
+        self.fadeHeight = fadeHeight
+        (layer as! CAGradientLayer).colors = [top.cgColor, bottom.cgColor, bottom.cgColor]
+        setNeedsLayout()
     }
-    required init?(coder: NSCoder) { fatalError("not used") }
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let g = layer as! CAGradientLayer
+        let stop = bounds.height > 0 ? min(fadeHeight / bounds.height, 1) : 1
+        g.locations = [0, NSNumber(value: Double(stop)), 1]
+        g.startPoint = CGPoint(x: 0.5, y: 0)
+        g.endPoint = CGPoint(x: 0.5, y: 1)
+    }
 }
 
 @objc(CameraWalkPlugin)
