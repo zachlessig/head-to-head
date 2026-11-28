@@ -851,3 +851,23 @@
 }
 .lp-founder-copy h2 { font-size: clamp(40px, 5vw, 68px); }
 .lp-founder-copy p { font-size: clamp(19px, 1.6vw, 22px); }
+
+/* reveal with masks (design tips, 2026-11-27): the hero phone's screen wipes in top to bottom
+   after the phone lands, instead of fading with it */
+.lp-hero-phone.lp-in img {
+  animation: lp-wipe 700ms var(--lp-ease) both;
+  animation-delay: calc(var(--d, 5) * 60ms + 260ms);
+}
+@keyframes lp-wipe {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-hero-phone.lp-in img {
+    animation: none;
+  }
+}

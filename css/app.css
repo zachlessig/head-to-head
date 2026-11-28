@@ -1122,3 +1122,30 @@ table.parts td.q {
   font: 700 17px Fraunces, Georgia, serif;
   margin-bottom: 6px;
 }
+
+/* Design tips from a reel Zach sent (2026-11-27), applied where they fit the app */
+/* pulse to confirm + crossfade with blur: a button that did its job swaps to a drawn check */
+.btn.ok, .iconbtn.ok { animation: okPulse 420ms ease-out; }
+.iconbtn.ok { color: var(--ok); }
+@keyframes okPulse { from { box-shadow: 0 0 0 0 rgba(30, 127, 79, 0.45); } to { box-shadow: 0 0 0 10px rgba(30, 127, 79, 0); } }
+.ok-in { display: inline-flex; align-items: center; gap: 6px; animation: okIn 200ms ease-out; }
+.ok-in svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.ok-in path { stroke-dasharray: 24; stroke-dashoffset: 24; animation: okDraw 280ms 80ms ease-out forwards; }
+@keyframes okIn { from { opacity: 0; filter: blur(4px); transform: scale(0.85); } }
+@keyframes okDraw { to { stroke-dashoffset: 0; } }
+/* stage the focus: the page behind a sheet dims and softens instead of popping to grey */
+.scrim { animation: scrimIn 180ms ease-out; backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+@keyframes scrimIn { from { background: rgba(29, 35, 32, 0); } }
+/* frequency of use: sheets open many times a job, so they get there quicker */
+.sheet { animation-duration: 260ms; }
+.jobview { animation-duration: 240ms; }
+/* expand the same element: a job's name grows from its card into the job's title bar */
+#jt { view-transition-name: job-title; }
+::view-transition-group(*) { animation-duration: 260ms; animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1); }
+/* Fitts's law: on a phone every tap target is at least 44 px tall */
+@media (pointer: coarse) { .chip, .btn.small { min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) {
+  .btn.ok, .ok-in, .scrim { animation: none; }
+  .ok-in path { animation: none; stroke-dashoffset: 0; }
+  ::view-transition-group(*) { animation: none; }
+}

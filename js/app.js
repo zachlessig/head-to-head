@@ -242,6 +242,27 @@
 
   /* ---------------- small UI helpers ---------------- */
   let toastTimer;
+  // Pulse to confirm (design tips Zach sent, 2026-11-27): the button that did the job shows a drawn
+  // check and its new word for a moment, then goes back, so the answer is where the finger is.
+  function confirmPress(btn, label) {
+    if (!btn) return;
+    if (btn.dataset.was == null) btn.dataset.was = btn.innerHTML;
+    btn.classList.remove("ok");
+    void btn.offsetWidth;
+    btn.innerHTML =
+      '<span class="ok-in"><svg viewBox="0 0 24 24" aria-hidden="true">' +
+      '<path d="M20 6L9 17l-5-5"/></svg>' +
+      esc(label) +
+      "</span>";
+    btn.classList.add("ok");
+    clearTimeout(btn._okTimer);
+    btn._okTimer = setTimeout(() => {
+      btn.classList.remove("ok");
+      btn.innerHTML = btn.dataset.was;
+      delete btn.dataset.was;
+    }, 1600);
+  }
+
   function toast(msg) {
     let t = document.querySelector(".toast");
     if (!t) {
@@ -591,7 +612,23 @@
     app
       .querySelectorAll(".job")
       .forEach(
-        (b) => (b.onclick = () => (location.hash = "#/job/" + b.dataset.id)),
+        (b) =>
+          (b.onclick = () => {
+            const to = "#/job/" + b.dataset.id;
+            // Expand the same element (design tips, 2026-11-27): the job's name grows from its card
+            // into the title bar. Browsers without view transitions just open the job.
+            if (
+              !document.startViewTransition ||
+              matchMedia("(prefers-reduced-motion: reduce)").matches
+            )
+              return (location.hash = to);
+            const name = b.querySelector("b");
+            if (name) name.style.viewTransitionName = "job-title";
+            document.startViewTransition(() => {
+              history.pushState(null, "", to);
+              route();
+            });
+          }),
       );
   }
 
@@ -4260,7 +4297,7 @@
         if (!L0) return;
         try {
           await navigator.clipboard.writeText(partsText(shownParts(L0)));
-          toast("Parts list copied.");
+          confirmPress(ov.querySelector("#xp"), "");
         } catch (e) {
           console.warn("Clipboard blocked", e);
           toast("Copy was blocked. Press and hold the list to select it.");
@@ -5866,7 +5903,7 @@
           rc.onclick = async () => {
             try {
               await navigator.clipboard.writeText(c.referral_code);
-              toast("Referral code copied.");
+              confirmPress(rc, "Copied");
             } catch (e) {
               console.warn("Copy failed", e);
               toast("Couldn't copy. The code is " + c.referral_code + ".");
