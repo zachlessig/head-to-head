@@ -209,6 +209,8 @@
     window.Capacitor.isNativePlatform &&
     window.Capacitor.isNativePlatform()
   );
+  // lets css/app.css style the iPhone app alone (the home screen's fade into the bounce)
+  if (NATIVE) document.documentElement.classList.add("native");
   // where people land from an invite or "manage your plan"; headtoheadapp.com once it points here
   const SITE_URL = "https://headtoheadapp.com/";
   // Zach 2026-11-18: opening headtoheadapp.com should show the front page, not the homeowner screen

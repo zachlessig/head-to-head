@@ -25,14 +25,18 @@ class MainViewController: CAPBridgeViewController {
         // fade pinned to the bottom of the screen.
         let cream = UIColor(red: 0xf5 / 255, green: 0xf2 / 255, blue: 0xea / 255, alpha: 1)
         let green = UIColor(red: 0x1d / 255, green: 0x6e / 255, blue: 0x47 / 255, alpha: 1)
+        // Capacitor's view is the web view itself, so its own background is what shows above the
+        // page; the fade sits inside it, under the scrolling page
         view.backgroundColor = cream
         if let wv = webView {
             wv.isOpaque = false
-            wv.backgroundColor = .clear
+            wv.backgroundColor = cream
             wv.scrollView.backgroundColor = .clear
             if #available(iOS 15.0, *) { wv.underPageBackgroundColor = .clear }
         }
-        let fade = FadeView(top: cream, bottom: green)
+        // starts at the tint the home screen fades to (#cedacd), so the two meet without a seam
+        let tint = UIColor(red: 0xce / 255, green: 0xda / 255, blue: 0xcd / 255, alpha: 1)
+        let fade = FadeView(top: tint, bottom: green)
         fade.translatesAutoresizingMaskIntoConstraints = false
         fade.isUserInteractionEnabled = false
         view.insertSubview(fade, at: 0)

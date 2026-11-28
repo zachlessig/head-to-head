@@ -1157,3 +1157,8 @@ table.parts td.q {
   .ok-in path { animation: none; stroke-dashoffset: 0; }
   ::view-transition-group(*) { animation: none; }
 }
+
+/* iPhone app: the home screen starts fading toward green just before its bottom edge, and the
+   native backdrop carries the fade on into green when it's pulled past (Zach 2026-11-27: "lets have
+   the gradient start slightly before the rubber band"). #cedacd is cream 18% of the way to green. */
+.native .home { background: linear-gradient(to bottom, transparent calc(100% - 90px), #cedacd); }
