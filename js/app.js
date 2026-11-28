@@ -4996,7 +4996,7 @@
             console.warn("Code rejected", e);
             draw(
               "code",
-              "That code didn't work. Codes expire after an hour; ask for a new one if it's old.",
+              "That code didn't work. Codes expire after 10 minutes; ask for a new one if it's old.",
             );
           }
         };

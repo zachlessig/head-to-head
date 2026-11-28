@@ -424,12 +424,31 @@ Deno.serve(async (req) => {
         );
         if (Array.isArray(recent) && recent.length >= 5)
           return reply({ error: "Too many tries with that email today. Try again tomorrow." }, 429);
+        // security check 2026-11-27: the email cap alone could be dodged with a new email each try,
+        // so unpaid copies are also capped per network address (kept only as a salted hash) and
+        // for everyone together, which keeps a script from filling the database
+        const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim();
+        const ipHash = ip
+          ? Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(SERVICE_KEY.slice(-16) + ip))))
+            .map((b) => b.toString(16).padStart(2, "0")).join("")
+          : "";
+        if (ipHash) {
+          const fromHere = await db(
+            "yard_copies?select=token&paid=eq.false&ip_hash=eq." + ipHash + "&created_at=gt." + dayAgo,
+          );
+          if (Array.isArray(fromHere) && fromHere.length >= 10)
+            return reply({ error: "Too many tries from this connection today. Try again tomorrow." }, 429);
+        }
+        const hourAgo = new Date(Date.now() - 3600_000).toISOString();
+        const lastHour = await db("yard_copies?select=token&paid=eq.false&created_at=gt." + hourAgo + "&limit=300");
+        if (Array.isArray(lastHour) && lastHour.length >= 300)
+          return reply({ error: "Lots of people are checking out right now. Try again in a few minutes." }, 429);
         const raw = new Uint8Array(24);
         crypto.getRandomValues(raw);
         copyToken = btoa(String.fromCharCode(...raw)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
         await db("yard_copies", {
           method: "POST",
-          body: JSON.stringify({ token: copyToken, job_id: jobId, job, email, plan_png: png || null }),
+          body: JSON.stringify({ token: copyToken, job_id: jobId, job, email, plan_png: png || null, ip_hash: ipHash || null }),
         });
       }
       const s = await stripe("checkout/sessions", {

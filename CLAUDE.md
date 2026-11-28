@@ -364,7 +364,7 @@ them. Run with Node 18+:
 
 - `scripts/supabase.mjs` (env SUPA_TOKEN): `query "<sql>"`, `sqlfile <migration>`, `deploy <slug>
   supabase/functions/<slug> <verify_jwt>`, `secrets NAME=ENVVAR`, `list-functions`. Migrations are
-  run by hand with `sqlfile`, in order; 0001 to 0008 are on the live project.
+  run by hand with `sqlfile`, in order; 0001 to 0010 are on the live project.
 - `scripts/stripe-prices.mjs` (env STRIPE_KEY): makes the products and lookup-key prices; leaves
   existing ones alone (changing a price means a new price with `transfer_lookup_key`).
 - `scripts/stripe-webhook-setup.mjs hook|portal` (env STRIPE_KEY): creates the webhook (prints its
