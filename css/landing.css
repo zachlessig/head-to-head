@@ -701,49 +701,170 @@
 }
 
 /* the sign-in form keeps its own small heading */
-.lp .lp-form .l-form-h { font-family: var(--lp-text); font-size: 20px; line-height: 1.3; letter-spacing: 0; margin-bottom: 6px; }
-.lp .lp-form .note { line-height: 1.5; }
+.lp .lp-form .l-form-h {
+  font-family: var(--lp-text);
+  font-size: 20px;
+  line-height: 1.3;
+  letter-spacing: 0;
+  margin-bottom: 6px;
+}
+.lp .lp-form .note {
+  line-height: 1.5;
+}
 /* line the three phones up whatever the length of the text above them */
 @media (min-width: 900px) {
-  .lp-steps { grid-template-rows: auto auto; row-gap: 22px; }
-  .lp-step { grid-row: span 2; grid-template-rows: subgrid; align-items: end; }
-  .lp-step-t { align-self: start; }
+  .lp-steps {
+    grid-template-rows: auto auto;
+    row-gap: 22px;
+  }
+  .lp-step {
+    grid-row: span 2;
+    grid-template-rows: subgrid;
+    align-items: end;
+  }
+  .lp-step-t {
+    align-self: start;
+  }
 }
 
 /* the old way vs walking it: now the cards alone, side by side */
 @media (min-width: 900px) {
-  .lp-vs-wrap { grid-template-columns: 1fr; }
-  .lp-vs-copy { gap: 40px; }
-  .lp-vs ol { font-size: 19px; gap: 14px; }
-  .lp-old, .lp-new { padding: 32px 36px; }
+  .lp-vs-wrap {
+    grid-template-columns: 1fr;
+  }
+  .lp-vs-copy {
+    gap: 40px;
+  }
+  .lp-vs ol {
+    font-size: 19px;
+    gap: 14px;
+  }
+  .lp-old,
+  .lp-new {
+    padding: 32px 36px;
+  }
 }
 
 /* The scroll moment: a 30 x 30 ft lawn laid out as you scroll. The section is four screens of
    scroll with the stage pinned; the script sets --k on each head, spray and part row, --z for
    the zones and --q for the parts card. At rest (reduced motion) it shows the finished layout. */
-.lp-walk { position: relative; height: 400svh; background: var(--lp-paper); }
-.lp-walk-pin { position: sticky; top: 0; height: 100svh; display: flex; align-items: center; overflow: hidden; }
-.lp-walk-in { display: grid; gap: 56px; align-items: center; }
-.lp-walk-copy { display: grid; gap: 18px; align-content: center; }
-.lp-chapters { list-style: none; padding: 0; margin-top: 18px; display: grid; gap: 6px; }
-.lp-chapters li { padding: 14px 0 14px 22px; border-left: 3px solid var(--lp-line); opacity: 0.36; transition: opacity 220ms ease, border-color 220ms ease; }
-.lp-chapters li.is-on { opacity: 1; border-left-color: var(--lp-green); }
-.lp-chapters h3 { font-family: var(--lp-display); font-size: 24px; letter-spacing: -0.01em; text-transform: none; }
-.lp-chapters p { margin-top: 6px; font-size: 17px; line-height: 1.5; color: var(--lp-muted); max-width: 30em; }
-.lp-walk-stage { position: relative; justify-self: center; width: min(560px, 100%); }
-.lp-yard { display: block; width: 100%; height: auto; overflow: visible; }
-.lp-y-label { font: 700 15px var(--lp-text); fill: var(--lp-ink); letter-spacing: 0.02em; }
-.lp-y-lawn { fill: #d4e8c8; stroke: #b9d6a8; stroke-width: 1.5; }
-.lp-y-trail { fill: none; stroke: var(--lp-green); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 100; stroke-dashoffset: 100; }
-.lp-y-walker circle { fill: #fff; stroke: var(--lp-green); stroke-width: 3.5; }
-.lp-y-walker .lp-y-dot { fill: var(--lp-green); stroke: none; }
-.lp-y-corner circle { fill: var(--lp-paper); stroke: var(--lp-green); stroke-width: 3; transform: scale(0); transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1); }
-.lp-y-corner.is-on circle { transform: scale(1); }
+.lp-walk {
+  position: relative;
+  height: 400svh;
+  background: var(--lp-paper);
+}
+.lp-walk-pin {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+.lp-walk-in {
+  display: grid;
+  gap: 56px;
+  align-items: center;
+}
+.lp-walk-copy {
+  display: grid;
+  gap: 18px;
+  align-content: center;
+}
+.lp-chapters {
+  list-style: none;
+  padding: 0;
+  margin-top: 18px;
+  display: grid;
+  gap: 6px;
+}
+.lp-chapters li {
+  padding: 14px 0 14px 22px;
+  border-left: 3px solid var(--lp-line);
+  opacity: 0.36;
+  transition:
+    opacity 220ms ease,
+    border-color 220ms ease;
+}
+.lp-chapters li.is-on {
+  opacity: 1;
+  border-left-color: var(--lp-green);
+}
+.lp-chapters h3 {
+  font-family: var(--lp-display);
+  font-size: 24px;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+.lp-chapters p {
+  margin-top: 6px;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--lp-muted);
+  max-width: 30em;
+}
+.lp-walk-stage {
+  position: relative;
+  justify-self: center;
+  width: min(560px, 100%);
+}
+.lp-yard {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.lp-y-label {
+  font: 700 15px var(--lp-text);
+  fill: var(--lp-ink);
+  letter-spacing: 0.02em;
+}
+.lp-y-lawn {
+  fill: #d4e8c8;
+  stroke: #b9d6a8;
+  stroke-width: 1.5;
+}
+.lp-y-trail {
+  fill: none;
+  stroke: var(--lp-green);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+}
+.lp-y-walker circle {
+  fill: #fff;
+  stroke: var(--lp-green);
+  stroke-width: 3.5;
+}
+.lp-y-walker .lp-y-dot {
+  fill: var(--lp-green);
+  stroke: none;
+}
+.lp-y-corner circle {
+  fill: var(--lp-paper);
+  stroke: var(--lp-green);
+  stroke-width: 3;
+  transform: scale(0);
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lp-y-corner.is-on circle {
+  transform: scale(1);
+}
 .lp-y-spray {
   --k: 0;
-  fill: color-mix(in srgb, var(--zc) calc(var(--z, 0) * 100%), var(--lp-green-2));
+  fill: color-mix(
+    in srgb,
+    var(--zc) calc(var(--z, 0) * 100%),
+    var(--lp-green-2)
+  );
   fill-opacity: calc(0.2 - var(--z, 0) * 0.06);
-  stroke: color-mix(in srgb, var(--zc) calc(var(--z, 0) * 100%), var(--lp-green));
+  stroke: color-mix(
+    in srgb,
+    var(--zc) calc(var(--z, 0) * 100%),
+    var(--lp-green)
+  );
   stroke-opacity: calc(0.55 + var(--z, 0) * 0.3);
   stroke-width: 1.5;
   transform: scale(var(--k));
@@ -756,14 +877,40 @@
   transform: scale(var(--k));
   opacity: var(--k);
 }
-.lp-y-trench { fill: none; stroke: #8a6a45; stroke-width: 3; stroke-dasharray: 7 6; opacity: var(--z, 0); }
-.lp-y-vb { opacity: var(--z, 0); }
-.lp-y-vb rect { fill: #6b5236; }
-.lp-y-vb text { font: 700 12px var(--lp-text); fill: #fff; text-anchor: middle; }
-.lp-y-scale path { fill: none; stroke: var(--lp-ink); stroke-width: 2; }
-.lp-y-scale text { font: 600 13px var(--lp-text); fill: var(--lp-muted); }
-.lp-y-zones { opacity: var(--z, 0); }
-.lp-y-zones text { font: 700 14px var(--lp-text); fill: var(--lp-ink); }
+.lp-y-trench {
+  fill: none;
+  stroke: #8a6a45;
+  stroke-width: 3;
+  stroke-dasharray: 7 6;
+  opacity: var(--z, 0);
+}
+.lp-y-vb {
+  opacity: var(--z, 0);
+}
+.lp-y-vb rect {
+  fill: #6b5236;
+}
+.lp-y-vb text {
+  font: 700 12px var(--lp-text);
+  fill: #fff;
+  text-anchor: middle;
+}
+.lp-y-scale path {
+  fill: none;
+  stroke: var(--lp-ink);
+  stroke-width: 2;
+}
+.lp-y-scale text {
+  font: 600 13px var(--lp-text);
+  fill: var(--lp-muted);
+}
+.lp-y-zones {
+  opacity: var(--z, 0);
+}
+.lp-y-zones text {
+  font: 700 14px var(--lp-text);
+  fill: var(--lp-ink);
+}
 .lp-parts {
   position: absolute;
   right: -8px;
@@ -773,84 +920,214 @@
   border: 1px solid var(--lp-line);
   border-radius: 18px;
   padding: 16px 18px 10px;
-  box-shadow: 0 24px 60px rgba(20, 48, 32, 0.18), 0 4px 12px rgba(20, 48, 32, 0.08);
+  box-shadow:
+    0 24px 60px rgba(20, 48, 32, 0.18),
+    0 4px 12px rgba(20, 48, 32, 0.08);
   opacity: var(--q, 0);
   transform: translateY(calc((1 - var(--q, 0)) * 24px));
 }
-.lp-parts-h { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--lp-green); margin-bottom: 6px; }
-.lp-parts ul { list-style: none; padding: 0; margin: 0; }
-.lp-parts li { --k: 0; display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--lp-line); font-size: 14px; opacity: calc(0.25 + var(--k) * 0.75); }
-.lp-parts b { font-variant-numeric: tabular-nums; min-width: 2ch; text-align: right; }
+.lp-parts-h {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lp-green);
+  margin-bottom: 6px;
+}
+.lp-parts ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.lp-parts li {
+  --k: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-top: 1px solid var(--lp-line);
+  font-size: 14px;
+  opacity: calc(0.25 + var(--k) * 0.75);
+}
+.lp-parts b {
+  font-variant-numeric: tabular-nums;
+  min-width: 2ch;
+  text-align: right;
+}
 @media (min-width: 900px) {
-  .lp-walk-in { grid-template-columns: 0.8fr 1.2fr; }
-  .lp-walk-stage { width: min(600px, calc((100svh - 80px) * 0.98)); }
+  .lp-walk-in {
+    grid-template-columns: 0.8fr 1.2fr;
+  }
+  .lp-walk-stage {
+    width: min(600px, calc((100svh - 80px) * 0.98));
+  }
 }
 /* a phone: the drawing on top, only the current chapter's words under it */
 @media (max-width: 899px) {
-  .lp-walk-in { gap: 8px; align-content: center; }
-  .lp-walk-copy { order: 2; gap: 6px; }
+  .lp-walk-in {
+    gap: 8px;
+    align-content: center;
+  }
+  .lp-walk-copy {
+    order: 2;
+    gap: 6px;
+  }
   .lp-walk-copy .lp-eyebrow,
-  .lp-walk-copy h2 { display: none; }
-  .lp-chapters { position: relative; margin-top: 0; min-height: 7.5em; }
-  .lp-chapters li { position: absolute; inset: 0 0 auto 0; border-left: 0; padding: 0; opacity: 0; }
-  .lp-chapters li.is-on { opacity: 1; }
-  .lp-chapters h3 { font-size: 22px; }
-  .lp-walk-stage { width: min(420px, 100%, calc((100svh - 220px) * 0.98)); }
-  .lp-parts { right: 0; bottom: 2%; width: 64%; padding: 12px 14px 6px; }
-  .lp-parts li { padding: 5px 0; font-size: 13px; }
+  .lp-walk-copy h2 {
+    display: none;
+  }
+  .lp-chapters {
+    position: relative;
+    margin-top: 0;
+    min-height: 7.5em;
+  }
+  .lp-chapters li {
+    position: absolute;
+    inset: 0 0 auto 0;
+    border-left: 0;
+    padding: 0;
+    opacity: 0;
+  }
+  .lp-chapters li.is-on {
+    opacity: 1;
+  }
+  .lp-chapters h3 {
+    font-size: 22px;
+  }
+  .lp-walk-stage {
+    width: min(420px, 100%, calc((100svh - 220px) * 0.98));
+  }
+  .lp-parts {
+    right: 0;
+    bottom: 2%;
+    width: 64%;
+    padding: 12px 14px 6px;
+  }
+  .lp-parts li {
+    padding: 5px 0;
+    font-size: 13px;
+  }
 }
 /* still: the finished layout, every chapter's words, no pinning */
-.lp-walk.is-still { height: auto; }
-.lp-walk.is-still .lp-walk-pin { position: static; height: auto; padding: 96px 0; }
-.lp-walk.is-still .lp-chapters li { position: static; opacity: 1; }
+.lp-walk.is-still {
+  height: auto;
+}
+.lp-walk.is-still .lp-walk-pin {
+  position: static;
+  height: auto;
+  padding: 96px 0;
+}
+.lp-walk.is-still .lp-chapters li {
+  position: static;
+  opacity: 1;
+}
 .lp-walk.is-still .lp-walk-copy .lp-eyebrow,
-.lp-walk.is-still .lp-walk-copy h2 { display: block; }
-.lp-walk.is-still .lp-chapters { min-height: 0; gap: 18px; }
+.lp-walk.is-still .lp-walk-copy h2 {
+  display: block;
+}
+.lp-walk.is-still .lp-chapters {
+  min-height: 0;
+  gap: 18px;
+}
 @media (prefers-reduced-motion: reduce) {
-  .lp-walk { height: auto; }
-  .lp-walk-pin { position: static; height: auto; }
-  .lp-chapters li, .lp-y-corner circle { transition: none; }
+  .lp-walk {
+    height: auto;
+  }
+  .lp-walk-pin {
+    position: static;
+    height: auto;
+  }
+  .lp-chapters li,
+  .lp-y-corner circle {
+    transition: none;
+  }
 }
 
 /* the zone key sits under the lawn on the right, across from the scale bar */
-.lp-y-zones text { text-anchor: start; }
+.lp-y-zones text {
+  text-anchor: start;
+}
 /* a wide screen: the parts card stands beside the drawing instead of over it */
 @media (min-width: 1100px) {
-  .lp-walk-in { grid-template-columns: 0.72fr 1.28fr; }
-  .lp-walk-stage { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 28px; align-items: center; }
-  .lp-yard { max-height: calc(100svh - 120px); }
-  .lp-parts { position: static; width: auto; }
+  .lp-walk-in {
+    grid-template-columns: 0.72fr 1.28fr;
+  }
+  .lp-walk-stage {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 250px;
+    gap: 28px;
+    align-items: center;
+  }
+  .lp-yard {
+    max-height: calc(100svh - 120px);
+  }
+  .lp-parts {
+    position: static;
+    width: auto;
+  }
 }
 /* a phone: heading, drawing, then the chapter */
 @media (max-width: 899px) {
-  .lp-walk-copy { display: contents; }
-  .lp-walk-copy h2 { display: block; order: 0; font-size: 30px; }
-  .lp-walk-stage { order: 1; }
-  .lp-chapters { order: 2; margin-top: 10px; }
-  .lp-walk-stage { width: min(460px, 100%, calc((100svh - 300px) * 0.98)); }
+  .lp-walk-copy {
+    display: contents;
+  }
+  .lp-walk-copy h2 {
+    display: block;
+    order: 0;
+    font-size: 30px;
+  }
+  .lp-walk-stage {
+    order: 1;
+  }
+  .lp-chapters {
+    order: 2;
+    margin-top: 10px;
+  }
+  .lp-walk-stage {
+    width: min(460px, 100%, calc((100svh - 300px) * 0.98));
+  }
 }
 @media (min-width: 1100px) {
-  .lp-walk-in { grid-template-columns: 0.62fr 1.38fr; gap: 40px; }
-  .lp-walk-stage { grid-template-columns: minmax(0, 1fr) 236px; gap: 20px; }
+  .lp-walk-in {
+    grid-template-columns: 0.62fr 1.38fr;
+    gap: 40px;
+  }
+  .lp-walk-stage {
+    grid-template-columns: minmax(0, 1fr) 236px;
+    gap: 20px;
+  }
 }
 @media (max-width: 899px) {
-  .lp-walk-stage { justify-self: center; }
+  .lp-walk-stage {
+    justify-self: center;
+  }
 }
 
 /* Zach 2026-11-23: "the page feels kinda empty". Sections past the hero size to what they hold
    instead of a full screen each. */
 @media (min-width: 1024px) {
-  .lp-sec { padding: 120px 0; }
-  .lp-close { padding-bottom: 0; }
+  .lp-sec {
+    padding: 120px 0;
+  }
+  .lp-close {
+    padding-bottom: 0;
+  }
 }
 
 /* the rules list is gone (Zach 2026-11-23: "just get rid of the whole rules it follows thing"),
    so the founder's words stand alone */
 @media (min-width: 900px) {
-  .lp-founder-in { grid-template-columns: 1fr; }
+  .lp-founder-in {
+    grid-template-columns: 1fr;
+  }
 }
-.lp-founder-copy h2 { font-size: clamp(40px, 5vw, 68px); }
-.lp-founder-copy p { font-size: clamp(19px, 1.6vw, 22px); }
+.lp-founder-copy h2 {
+  font-size: clamp(40px, 5vw, 68px);
+}
+.lp-founder-copy p {
+  font-size: clamp(19px, 1.6vw, 22px);
+}
 
 /* reveal with masks (design tips, 2026-11-27): the hero phone's screen wipes in top to bottom
    after the phone lands, instead of fading with it */
@@ -869,5 +1146,139 @@
 @media (prefers-reduced-motion: reduce) {
   .lp-hero-phone.lp-in img {
     animation: none;
+  }
+}
+
+/* Unslop pass (Zach 2026-11-27, "go ahead" on the audit). Polish only: same palette, grid paper,
+   Fraunces over DM Sans, sections and words. What changed: sentence-case labels instead of
+   spaced capitals, headings at 600 (Fraunces is only loaded at 600 and 700), buttons at the app's
+   14px corner instead of pills, no green glow or color fade on buttons, hover changes shade only,
+   no "recommended" outline on one price card, spacing on a 4px step, and the founder band split
+   so its right half isn't empty on a computer. */
+.lp h1,
+.lp h2,
+.lp-brand span,
+.lp-big,
+.lp-price .lp-amt,
+.lp-step-t h3,
+.lp-chapters h3,
+.lp-founder-copy .lp-sign {
+  font-weight: 600;
+}
+.lp h3,
+.lp-eyebrow,
+.lp-parts-h {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+.lp h3 {
+  font-size: 16px;
+}
+.lp-eyebrow {
+  font-size: 16px;
+}
+.lp-parts-h {
+  font-size: 14px;
+}
+
+.lp-btn {
+  border-radius: 14px;
+  font-weight: 600;
+  transition:
+    transform 140ms var(--lp-ease),
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+.lp-primary {
+  box-shadow: 0 1px 2px rgba(20, 48, 32, 0.12);
+}
+@media (hover: hover) and (pointer: fine) {
+  .lp-btn:hover {
+    transform: none;
+  }
+  .lp-btn:active {
+    transform: scale(0.97);
+  }
+  .lp-step:hover .lp-phone {
+    transform: none;
+    box-shadow:
+      0 30px 70px rgba(20, 48, 32, 0.22),
+      0 6px 16px rgba(20, 48, 32, 0.12);
+  }
+}
+.lp .lp-form .btn.primary {
+  background: var(--lp-green);
+  box-shadow: 0 1px 2px rgba(20, 48, 32, 0.12);
+}
+.lp .lp-form .btn {
+  font-weight: 600;
+}
+
+.lp-price-main {
+  border: 1px solid var(--lp-line);
+}
+.lp-price,
+.lp-old,
+.lp-new,
+.lp .lp-form {
+  border-radius: 16px;
+}
+.lp-price {
+  padding: 28px;
+}
+.lp .lp-form {
+  padding: 24px;
+}
+.lp-parts {
+  border-radius: 16px;
+}
+
+.lp-hero-copy {
+  gap: 24px;
+}
+.lp-actions {
+  padding-top: 4px;
+}
+.lp-step {
+  gap: 24px;
+}
+.lp-chapters li {
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+.lp-price {
+  gap: 12px;
+}
+.lp-old,
+.lp-new {
+  padding: 24px 28px;
+}
+@media (min-width: 900px) {
+  .lp-old,
+  .lp-new {
+    padding: 32px 36px;
+  }
+  .lp-steps {
+    row-gap: 24px;
+  }
+}
+
+/* founder band: the heading on the left, his words on the right */
+@media (min-width: 900px) {
+  .lp-founder-copy {
+    max-width: none;
+    grid-template-columns: 5fr 7fr;
+    column-gap: 80px;
+    row-gap: 24px;
+    align-items: start;
+  }
+  .lp-founder-copy h2 {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+  }
+  .lp-founder-copy p {
+    grid-column: 2;
+    max-width: 34em;
   }
 }
