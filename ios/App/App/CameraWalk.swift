@@ -12,6 +12,14 @@ class MainViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(CameraWalkPlugin())
     }
+
+    // Rubber band (Zach 2026-11-27: "the rubber band feature isnt on the app on my phone when i see
+    // my jobs"): Capacitor turns the web view's bounce off, so turn it back on. The job screen keeps
+    // still on its own (css/app.css sets overscroll-behavior: none while a job is open).
+    override open func viewDidLoad() {
+        super.viewDidLoad()
+        webView?.scrollView.bounces = true
+    }
 }
 
 @objc(CameraWalkPlugin)
